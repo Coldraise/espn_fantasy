@@ -36,16 +36,16 @@
     <div class="drawer-sub">{{ cfg.current_season }}{% if meta.size %} · {{ meta.size }} teams{% endif %}</div>
   </div>
   <nav class="drawer-nav">
-    <a href="/"          class="{{ 'on' if request.url.path == '/' }}"><span class="ico">🏈</span>Scoreboard</a>
-    <a href="/history"   class="{{ 'on' if request.url.path == '/history' }}"><span class="ico">🏆</span>All-time</a>
-    <a href="/standings" class="{{ 'on' if request.url.path == '/standings' }}"><span class="ico">📊</span>Standings</a>
-    <a href="/h2h"       class="{{ 'on' if request.url.path == '/h2h' }}"><span class="ico">⚔️</span>Head-to-head</a>
-    <a href="/usage"     class="{{ 'on' if request.url.path == '/usage' }}"><span class="ico">📈</span>NFL usage</a>
-    <a href="/players"   class="{{ 'on' if request.url.path == '/players' }}"><span class="ico">⭐</span>Players</a>
-    <a href="/draft"     class="{{ 'on' if request.url.path == '/draft' }}"><span class="ico">📋</span>Draft</a>
-    <a href="/activity"  class="{{ 'on' if request.url.path == '/activity' }}"><span class="ico">🔁</span>Activity</a>
-    <a href="/news"      class="{{ 'on' if request.url.path == '/news' }}"><span class="ico">📰</span>News</a>
-    <a href="/rules"     class="{{ 'on' if request.url.path == '/rules' }}"><span class="ico">📖</span>League rules</a>
+    <a href="/"          class="{{ 'on' if request.url.path == '/' }}">Scoreboard</a>
+    <a href="/history"   class="{{ 'on' if request.url.path == '/history' }}">All-time</a>
+    <a href="/standings" class="{{ 'on' if request.url.path == '/standings' }}">Standings</a>
+    <a href="/h2h"       class="{{ 'on' if request.url.path == '/h2h' }}">Head-to-head</a>
+    <a href="/usage"     class="{{ 'on' if request.url.path == '/usage' }}">NFL usage</a>
+    <a href="/players"   class="{{ 'on' if request.url.path == '/players' }}">Players</a>
+    <a href="/draft"     class="{{ 'on' if request.url.path == '/draft' }}">Draft</a>
+    <a href="/activity"  class="{{ 'on' if request.url.path == '/activity' }}">Activity</a>
+    <a href="/news"      class="{{ 'on' if request.url.path == '/news' }}">News</a>
+    <a href="/rules"     class="{{ 'on' if request.url.path == '/rules' }}">League rules</a>
   </nav>
   {% if draft_at and not drafted %}
   <div class="drawer-note">

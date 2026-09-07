@@ -12,11 +12,13 @@
 </head>
 <body class="loginpage">
 
+<!-- Decorative only: a field running at the camera. Pure CSS, no JS. -->
+<div class="field" aria-hidden="true"><div class="field-plane"></div></div>
+
 <main class="loginwrap">
   <form class="loginbox" method="post" action="/login" autocomplete="on">
     <div class="login-eyebrow">{{ cfg.current_season }} season</div>
     <h1>{{ meta.name or 'League Monitor' }}</h1>
-    <p class="muted small">Sign in with your franchise name and the password you were given.</p>
 
     {% if error %}
       <p class="loginerror">Wrong franchise name or password.</p>
@@ -33,11 +35,6 @@
 
     <input type="hidden" name="next" value="{{ next }}">
     <button type="submit">Sign in</button>
-
-    <p class="muted small loginhint">
-      Lost your password? The commissioner can issue a new one with
-      <code>scripts/credentials.py reset</code>.
-    </p>
   </form>
 </main>
 

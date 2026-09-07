@@ -21,6 +21,10 @@
   --shadow: 0 1px 2px rgba(27,38,32,.05);
   --radius: 10px;
 
+  /* NFL shield palette, used by the drawer */
+  --nfl-navy: #013369;
+  --nfl-red:  #d50a0a;
+
   /* field green for the scoreboard block */
   --field:      #17402f;
   --field-deep: #0f2c20;
@@ -103,29 +107,46 @@ a { color: var(--green); }
 @keyframes pulse { 50% { opacity: .5; } }
 
 /* ---------- side drawer ---------- */
+/* Glass over the page in NFL navy, red only as the hover/active accent. It
+   sits above the topbar, so the green bar tinting through the blur is the
+   intended look. Always dark, in either colour scheme. */
 .drawer {
   position: fixed; top: 0; left: 0; bottom: 0; width: 256px; z-index: 60;
-  background: var(--surface); border-right: 1px solid var(--line);
+  background: rgba(1, 26, 54, .8); color: #eef2f7;
+  backdrop-filter: blur(18px) saturate(1.5);
+  -webkit-backdrop-filter: blur(18px) saturate(1.5);
+  border-right: 1px solid rgba(255,255,255,.1);
   transform: translateX(-100%); transition: transform .24s cubic-bezier(.4,0,.2,1);
   display: flex; flex-direction: column; overflow-y: auto;
 }
-.nav-open .drawer { transform: none; box-shadow: 4px 0 24px rgba(20,35,28,.14); }
-.drawer-head { padding: 16px 18px 13px; background: var(--green-deep); color: #fff; }
+/* No backdrop-filter (older Firefox): fall back to near-opaque navy. */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .drawer { background: var(--nfl-navy); }
+}
+.nav-open .drawer { transform: none; box-shadow: 4px 0 30px rgba(0,0,0,.42); }
+.drawer-head {
+  padding: 16px 18px 14px; color: #fff;
+  border-bottom: 1px solid rgba(255,255,255,.1);
+}
 .drawer-title { font-family: var(--display); font-weight: 700; font-size: 19px;
                 text-transform: uppercase; letter-spacing: .05em; }
-.drawer-sub { font-size: 12px; color: rgba(255,255,255,.72); }
-.drawer-nav { padding: 8px; display: flex; flex-direction: column; gap: 1px; }
+.drawer-sub { font-size: 12px; color: rgba(255,255,255,.55); }
+.drawer-nav { padding: 10px 8px; display: flex; flex-direction: column; gap: 1px; }
 .drawer-nav a {
-  display: flex; align-items: center; gap: 11px; padding: 9px 12px;
-  border-radius: 7px; text-decoration: none; color: var(--ink); font-weight: 500;
-  border-left: 2px solid transparent;
+  display: block; padding: 9px 13px; border-radius: 7px; text-decoration: none;
+  font-family: var(--display); font-size: 14.5px; font-weight: 500;
+  text-transform: uppercase; letter-spacing: .085em;
+  color: rgba(255,255,255,.82); border-left: 2px solid transparent;
+  transition: background .14s, color .14s, border-color .14s;
 }
-.drawer-nav a:hover { background: var(--green-tint); }
-.drawer-nav a.on { background: var(--green-soft); color: var(--green); font-weight: 600;
-  border-left-color: var(--red); }
-.ico { font-size: 14px; width: 19px; text-align: center; filter: grayscale(.25); }
-.drawer-foot { margin-top: auto; padding: 14px 18px; border-top: 1px solid var(--line); font-size: 13px; }
-.scrim { position: fixed; inset: 0; z-index: 50; background: rgba(20,32,26,.38); }
+.drawer-nav a:hover {
+  background: rgba(213,10,10,.16); color: #fff; border-left-color: var(--nfl-red);
+}
+.drawer-nav a.on {
+  background: rgba(213,10,10,.34); color: #fff; font-weight: 600;
+  border-left-color: var(--nfl-red);
+}
+.scrim { position: fixed; inset: 0; z-index: 50; background: rgba(2,12,26,.42); }
 
 /* ---------- layout ---------- */
 main { padding: 22px 20px 60px; max-width: 1180px; margin: 0 auto; }
@@ -448,57 +469,150 @@ thead th { font-family: var(--display); letter-spacing: .1em; font-size: 12px; }
 /* the nav takes the slack, so the draft note and the account block always sit
    on the floor of the drawer whether or not both are present */
 .drawer-nav { margin-bottom: auto; }
-.drawer-note { padding: 14px 18px; border-top: 1px solid var(--line); font-size: 13px; }
+.drawer-note { padding: 14px 18px; border-top: 1px solid rgba(255,255,255,.1); font-size: 13px; }
+.drawer-note .muted { color: rgba(255,255,255,.5); }
 .drawer-foot {
   margin-top: 0; display: flex; align-items: center; justify-content: space-between;
-  gap: 10px; padding: 12px 18px 14px; border-top: 1px solid var(--line);
+  gap: 10px; padding: 12px 18px 14px; border-top: 1px solid rgba(255,255,255,.1);
 }
+.drawer-foot .muted { color: rgba(255,255,255,.5); }
 .whoami {
   font-family: var(--display); font-size: 17px; font-weight: 700;
-  text-transform: uppercase; letter-spacing: .03em; line-height: 1.15;
+  text-transform: uppercase; letter-spacing: .03em; line-height: 1.15; color: #fff;
 }
 .signout {
   font-family: var(--display); font-size: 12px; font-weight: 600;
   text-transform: uppercase; letter-spacing: .08em; cursor: pointer;
-  padding: 6px 11px; border-radius: 6px; color: var(--muted);
-  background: var(--surface); border: 1px solid var(--line);
+  padding: 6px 11px; border-radius: 6px; color: rgba(255,255,255,.72);
+  background: transparent; border: 1px solid rgba(255,255,255,.22);
+  transition: background .14s, color .14s, border-color .14s;
 }
-.signout:hover { border-color: var(--red); color: var(--red); }
+.signout:hover {
+  border-color: var(--nfl-red); background: rgba(213,10,10,.2); color: #fff;
+}
 
 /* ---------- login ---------- */
-.loginpage { background: var(--field); }
-.loginwrap { display: grid; place-items: center; min-height: 100vh; padding: 24px; max-width: none; }
-.loginbox {
-  width: 100%; max-width: 360px; background: var(--surface);
-  border-radius: 12px; border-top: 3px solid var(--red);
-  padding: 26px 26px 20px; box-shadow: 0 16px 40px rgba(0,0,0,.28);
+/* The login page is its own world -- always the dark field, in either colour
+   scheme -- so these rules use literal colours instead of the theme tokens. */
+.loginpage { background: #050f0c; color: #eaf2ed; overflow: hidden; }
+
+/* The field: one plane tipped away from the camera, lines running at you.
+   Pure CSS, no JS.
+
+   Geometry: only the part of the plane in front of the camera is drawn, so the
+   depth actually visible is perspective / sin(tilt) -- about 1100px here. That
+   over an 80px line spacing is roughly a dozen yard lines converging on the
+   horizon. Shortening the perspective magnifies the near field until only two
+   or three lines fit on screen, which reads as a close-up, not a field.
+
+   The turf translates rather than shifting background-position: a transform is
+   composited on the GPU, where animating a background position repaints the
+   whole layer on the main thread every frame. */
+.field {
+  position: fixed; inset: 0; z-index: 0; overflow: hidden;
+  background: linear-gradient(#050f0c 0%, #06170f 30%, #0a2418 42%);
+  perspective: 1100px; perspective-origin: 50% 42%;
 }
-.loginbox h1 { margin: 2px 0 6px; font-size: 26px; }
+/* Top edge on the horizon line, so the plane's vanishing point lands exactly
+   at the perspective origin. */
+/* overflow:hidden clips the turf to the near side of the horizon. Without it
+   the part of the plane past y=0 projects back above the horizon line as a
+   smear of upside-down field, and it also makes the loop wrap exact: both ends
+   of the cycle then show the same clipped region. */
+.field-plane {
+  position: absolute; top: 42%; left: 50%;
+  width: 2600px; height: 1200px; margin-left: -1300px;
+  overflow: hidden;
+  transform-origin: 50% 0; transform: rotateX(84deg);
+}
+/* The turf. Every marking lives in field.svg -- sidelines, end zones, goal
+   lines, 5-yard lines, hash marks, numbers and mown stripes -- because a real
+   pitch has no longitudinal grid and gradients cannot clip lines to the
+   sidelines or draw glyphs. One tile is a whole 120-yard field at 12px to the
+   yard, so travelling exactly one tile length loops seamlessly by
+   construction. It starts one tile behind the horizon so sliding forward
+   never uncovers the far edge. */
+.field-plane::before {
+  content: ""; position: absolute; left: 0; right: 0; top: -1440px; bottom: 0;
+  background: url("/static/field.svg") repeat 0 0 / 2600px 1440px, #071c14;
+  will-change: transform; backface-visibility: hidden;
+  animation: fieldrun 18s linear infinite;
+}
+/* Local +Y is the near ground, so +1440 comes toward the camera. */
+@keyframes fieldrun {
+  from { transform: translate3d(0, 0, 0); }
+  to   { transform: translate3d(0, 1440px, 0); }
+}
+
+/* Dissolve the far distance into the sky: hides the horizon seam and the
+   moire the yard lines would otherwise make as they converge. */
+.field::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background:
+    radial-gradient(ellipse 45% 13% at 50% 42%, rgba(90,210,160,.22), transparent 70%),
+    linear-gradient(#050f0c 36%, rgba(5,15,12,.45) 45%, rgba(5,15,12,0) 60%),
+    radial-gradient(ellipse 85% 65% at 50% 84%, rgba(5,15,12,0) 30%, rgba(5,15,12,.6) 100%);
+}
+@media (prefers-reduced-motion: reduce) { .field-plane::before { animation: none; } }
+
+.loginwrap {
+  position: relative; z-index: 1; max-width: none;
+  display: grid; place-items: center; padding: 24px;
+  min-height: 100vh; min-height: 100dvh;
+}
+.loginbox {
+  width: 100%; max-width: 340px; padding: 30px 28px 28px;
+  background: rgba(6,20,15,.55);
+  border: 1px solid rgba(255,255,255,.13);
+  border-top: 3px solid #c4352f;
+  border-radius: 14px;
+  box-shadow: 0 24px 60px rgba(0,0,0,.5);
+  backdrop-filter: blur(16px) saturate(1.3);
+  -webkit-backdrop-filter: blur(16px) saturate(1.3);
+}
+.loginbox h1 { margin: 3px 0 4px; font-size: 27px; color: #fff; }
 .login-eyebrow {
   font-family: var(--display); font-size: 11px; text-transform: uppercase;
-  letter-spacing: .18em; color: var(--muted);
+  letter-spacing: .2em; color: rgba(255,255,255,.42);
 }
 .loginbox label {
-  display: block; margin: 14px 0 5px; font-family: var(--display);
-  font-size: 11.5px; text-transform: uppercase; letter-spacing: .11em; color: var(--muted);
+  display: block; margin: 18px 0 6px; font-family: var(--display);
+  font-size: 11.5px; text-transform: uppercase; letter-spacing: .13em;
+  color: rgba(255,255,255,.5);
 }
 .loginbox input {
-  width: 100%; padding: 11px 13px; font-size: 15px; color: var(--ink);
-  background: var(--bg); border: 1px solid var(--line); border-radius: 8px; outline: none;
+  width: 100%; padding: 12px 14px; font-size: 15px; color: #fff;
+  background: rgba(255,255,255,.06);
+  border: 1px solid rgba(255,255,255,.14); border-radius: 9px; outline: none;
+  transition: border-color .15s, box-shadow .15s, background .15s;
 }
-.loginbox input:focus { border-color: var(--red); box-shadow: 0 0 0 3px var(--red-soft); }
+.loginbox input::placeholder { color: rgba(255,255,255,.26); }
+.loginbox input:focus {
+  background: rgba(255,255,255,.09);
+  border-color: #c4352f; box-shadow: 0 0 0 3px rgba(196,53,47,.3);
+}
+/* Chrome paints autofilled fields opaque white, which would punch a hole in
+   the card -- the inset shadow is the only way to override it. */
+.loginbox input:-webkit-autofill,
+.loginbox input:-webkit-autofill:focus {
+  -webkit-text-fill-color: #fff; caret-color: #fff;
+  -webkit-box-shadow: 0 0 0 1000px #12241c inset;
+  transition: background-color 9999s ease-in-out 0s;
+}
 .loginbox button {
-  width: 100%; margin-top: 18px; padding: 11px; cursor: pointer;
+  width: 100%; margin-top: 26px; padding: 12px; cursor: pointer;
   font-family: var(--display); font-size: 15px; font-weight: 700;
-  text-transform: uppercase; letter-spacing: .1em;
-  color: #fff; background: var(--green); border: 0; border-radius: 8px;
+  text-transform: uppercase; letter-spacing: .12em;
+  color: #fff; background: #2f7d60; border: 0; border-radius: 9px;
+  transition: background .15s, transform .06s;
 }
-.loginbox button:hover { background: var(--green-deep); }
+.loginbox button:hover { background: #37906d; }
+.loginbox button:active { transform: translateY(1px); }
 .loginerror {
-  margin: 12px 0 0; padding: 8px 12px; font-size: 13px; border-radius: 7px;
-  background: var(--red-soft); color: var(--red); border-left: 2px solid var(--red);
+  margin: 16px 0 0; padding: 9px 12px; font-size: 13px; border-radius: 8px;
+  background: rgba(196,53,47,.16); color: #ff9c96;
+  border-left: 2px solid #e8615b;
 }
-.loginhint { margin: 14px 0 0; }
 
 /* ---------- your matchup, then everyone else's ---------- */
 .mine-head::before { background: var(--red); }
