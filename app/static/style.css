@@ -23,13 +23,16 @@
   --green-soft: rgba(86,168,130,.16);
   --green-tint: rgba(86,168,130,.075);
 
-  --red:        #e8615b;
-  --red-soft:   rgba(232,97,91,.15);
+  --red:        #f2453d;
+  --red-soft:   rgba(242,69,61,.16);
+  --red-tint:   rgba(242,69,61,.09);
 
   --amber:      #d8a95a;
   --amber-soft: rgba(216,169,90,.15);
 
   --shadow: 0 1px 2px rgba(0,0,0,.35);
+  /* what makes a panel read as hovering over the field */
+  --lift: 0 16px 38px rgba(0,0,0,.5), 0 1px 0 rgba(255,255,255,.04) inset;
   --radius: 10px;
 
   /* NFL shield red, the drawer and topbar accent */
@@ -48,13 +51,57 @@
 
 * { box-sizing: border-box; }
 body {
-  margin: 0; min-height: 100vh; color: var(--ink);
-  /* Fixed so the glow stays put behind the page rather than scrolling with it. */
-  background: radial-gradient(1100px 560px at 50% -120px,
-                rgba(86,168,130,.13), transparent 70%) fixed, var(--bg);
+  margin: 0; min-height: 100vh; color: var(--ink); background: var(--bg);
   font: 15px/1.55 ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 }
 a { color: var(--green); }
+
+/* ---------- the pitch behind every page ----------
+
+   The same field.svg the login uses, but dimmed and set far back so panels
+   read as hovering over it. It is a sibling of the content rather than a body
+   background because a body background is painted onto the canvas, behind even
+   negative z-index children, and could not be layered under the panels this
+   way. Scroll drives it: scrolling the page walks us up the field. */
+.pitch {
+  position: fixed; inset: 0; z-index: 0; overflow: hidden;
+  background: linear-gradient(#050f0c 0%, #061711 26%, #081c14 30%);
+  perspective: 1100px; perspective-origin: 50% 30%;
+}
+/* Half-scale markings and low opacity: this is a texture under the page, not
+   the login's hero. At full size the yard numbers were bigger than the text
+   sitting on them. */
+.pitch-plane {
+  position: absolute; top: 30%; left: 50%;
+  width: 2600px; height: 1200px; margin-left: -1300px;
+  overflow: hidden; opacity: .17;
+  transform-origin: 50% 0; transform: rotateX(84deg);
+}
+.pitch-plane::before {
+  content: ""; position: absolute; left: 0; right: 0; top: -720px; bottom: 0;
+  background: url("/static/field.svg") repeat 0 0 / 1300px 720px;
+}
+/* Sink the far distance into the dark and keep the near turf from competing
+   with the text sitting on top of it. */
+.pitch::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background:
+    linear-gradient(#050f0c 24%, rgba(5,15,12,.62) 34%, rgba(8,21,15,.88) 100%);
+}
+@keyframes pitchrun {
+  from { transform: translate3d(0, 0, 0); }
+  to   { transform: translate3d(0, 1440px, 0); }
+}
+@supports (animation-timeline: scroll()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .pitch-plane::before {
+      animation: pitchrun linear;
+      animation-timeline: scroll(root block);
+      animation-range: 0% 100%;
+    }
+  }
+}
+main, .banner { position: relative; z-index: 1; }
 
 /* ---------- top bar ---------- */
 .topbar {
@@ -166,20 +213,22 @@ code { background: var(--green-soft); color: var(--green); padding: 1.5px 5px;
 .notice {
   background: var(--surface); border: 1px solid var(--line); border-left: 2px solid var(--red);
   border-radius: var(--radius); padding: 12px 15px; font-size: 13.5px; margin: 14px 0;
+  box-shadow: var(--lift);
 }
 .scope { display: flex; gap: 6px; margin: -4px 0 16px; flex-wrap: wrap; }
 .scope a {
   color: var(--muted); text-decoration: none; font-size: 12.5px; font-weight: 550;
   padding: 4px 11px; border-radius: 5px; background: var(--surface); border: 1px solid var(--line);
 }
-.scope a:hover { border-color: var(--green); color: var(--green); }
-.scope a.on { background: var(--green); color: #fff; border-color: var(--green); }
+.scope a:hover { border-color: var(--red); color: var(--red); }
+.scope a.on { background: var(--red); color: #fff; border-color: var(--red); }
 
 /* ---------- hero / countdown ---------- */
 .hero { display: flex; justify-content: space-between; align-items: flex-start; gap: 22px; flex-wrap: wrap; }
 .countdown {
   background: var(--surface); border: 1px solid var(--line); border-top: 2px solid var(--red);
   border-radius: var(--radius); padding: 13px 20px; text-align: right; min-width: 205px;
+  box-shadow: var(--lift);
 }
 .cd-label { font-size: 10px; text-transform: uppercase; letter-spacing: .09em; color: var(--muted); }
 .cd-clock { font-size: 25px; font-weight: 650; font-variant-numeric: tabular-nums;
@@ -191,7 +240,7 @@ code { background: var(--green-soft); color: var(--green); padding: 1.5px 5px;
 .game {
   background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
   padding: 13px 15px; display: grid; grid-template-columns: 1fr auto 1fr;
-  align-items: center; gap: 10px; position: relative; box-shadow: var(--shadow);
+  align-items: center; gap: 10px; position: relative; box-shadow: var(--lift);
 }
 .side { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
 .side:last-child { text-align: right; align-items: flex-end; }
@@ -205,24 +254,26 @@ code { background: var(--green-soft); color: var(--green); padding: 1.5px 5px;
 
 a.teamlink { text-decoration: none; color: inherit; border-radius: 6px;
              padding: 4px 6px; margin: -4px -6px; transition: background .12s ease; }
-a.teamlink:hover { background: var(--green-soft); cursor: pointer; }
-a.teamlink:hover .name { color: var(--green); }
+a.teamlink:hover { background: var(--red-soft); cursor: pointer; }
+a.teamlink:hover .name { color: var(--red); }
 
 /* ---------- tables ---------- */
 table { border-collapse: separate; border-spacing: 0; width: 100%; margin-top: 8px;
         background: var(--surface); border: 1px solid var(--line);
-        border-radius: var(--radius); overflow: hidden; }
+        border-radius: var(--radius); overflow: hidden; box-shadow: var(--lift); }
 th, td { padding: 8px 12px; border-bottom: 1px solid var(--line-soft); text-align: left; }
 thead th { background: var(--green-tint); color: var(--muted); font-weight: 650;
   font-size: 10.5px; text-transform: uppercase; letter-spacing: .07em; }
 tbody tr:last-child td { border-bottom: 0; }
-tbody tr:hover { background: var(--green-tint); }
+tbody tr:hover { background: var(--red-tint); }
 tbody tr:target { background: var(--red-soft); box-shadow: inset 2px 0 0 var(--red); }
 .num { text-align: right; font-variant-numeric: tabular-nums; }
 .good { color: var(--green); font-weight: 600; }
 .bad { color: var(--red); font-weight: 600; }
 
 .scroll { overflow-x: auto; border-radius: var(--radius); }
+/* the wrapper carries the lift so the table inside keeps square corners */
+.scroll table { box-shadow: none; }
 .matrix { min-width: 100%; width: auto; }
 .matrix th, .matrix td { border-right: 1px solid var(--line-soft); white-space: nowrap; }
 .matrix .rowhead { text-align: left; font-weight: 600; position: sticky; left: 0;
@@ -249,7 +300,8 @@ tbody tr:target { background: var(--red-soft); box-shadow: inset 2px 0 0 var(--r
 .rulecat { margin-bottom: 20px; }
 .rulecat h2 { margin: 0 0 8px; }
 .rules { display: grid; gap: 7px; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
-.rule { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 9px 13px; }
+.rule { background: var(--surface); border: 1px solid var(--line); border-radius: 8px;
+        padding: 9px 13px; box-shadow: var(--lift); }
 .rule .k { font-size: 11.5px; color: var(--muted); font-weight: 550; }
 .rule .v { font-weight: 600; word-break: break-word; }
 .rule .h { font-size: 11px; color: var(--muted); }
@@ -263,8 +315,8 @@ mark { background: var(--amber-soft); color: inherit; border-radius: 3px; paddin
 /* The position row is the secondary choice, so it tucks under the week row. */
 .posscope { margin-top: -10px; }
 .poscard { background: var(--surface); border: 1px solid var(--line);
-           border-radius: var(--radius); padding: 12px 14px; }
-.poscard h3 { color: var(--green); border-bottom: 1px solid var(--line-soft); padding-bottom: 7px; }
+           border-radius: var(--radius); padding: 12px 14px; box-shadow: var(--lift); }
+.poscard h3 { color: var(--red); border-bottom: 1px solid var(--line-soft); padding-bottom: 7px; }
 .plist { list-style: none; margin: 0; padding: 0; }
 .plist li { display: grid; grid-template-columns: 20px 1fr auto; align-items: baseline;
             gap: 8px; padding: 5px 0; border-bottom: 1px solid var(--line-soft); }
@@ -510,8 +562,16 @@ thead th { font-family: var(--display); letter-spacing: .1em; font-size: 12px; }
    whole layer on the main thread every frame. */
 .field {
   position: fixed; inset: 0; z-index: 0; overflow: hidden;
-  background: linear-gradient(#050f0c 0%, #06170f 30%, #0a2418 42%);
-  perspective: 1100px; perspective-origin: 50% 42%;
+  background:
+    /* the sun we are running at -- the plane is a child painted over this
+       background, so it swallows the lower half at the horizon for free */
+    radial-gradient(circle 78px at 50% 36%,
+      rgba(255,248,227,1) 0 40%, rgba(255,206,124,.88) 68%, rgba(255,170,80,0) 100%),
+    /* its haze along the horizon */
+    radial-gradient(ellipse 52% 22% at 50% 36%, rgba(255,146,54,.44), transparent 74%),
+    /* dawn sky: cold overhead, warm where the light is */
+    linear-gradient(#04070c 0%, #080f18 16%, #16151a 27%, #3d2418 34%, #0a2418 36%);
+  perspective: 1100px; perspective-origin: 50% 36%;
 }
 /* Top edge on the horizon line, so the plane's vanishing point lands exactly
    at the perspective origin. */
@@ -520,7 +580,7 @@ thead th { font-family: var(--display); letter-spacing: .1em; font-size: 12px; }
    smear of upside-down field, and it also makes the loop wrap exact: both ends
    of the cycle then show the same clipped region. */
 .field-plane {
-  position: absolute; top: 42%; left: 50%;
+  position: absolute; top: 36%; left: 50%;
   width: 2600px; height: 1200px; margin-left: -1300px;
   overflow: hidden;
   transform-origin: 50% 0; transform: rotateX(84deg);
@@ -536,7 +596,7 @@ thead th { font-family: var(--display); letter-spacing: .1em; font-size: 12px; }
   content: ""; position: absolute; left: 0; right: 0; top: -1440px; bottom: 0;
   background: url("/static/field.svg") repeat 0 0 / 2600px 1440px, #071c14;
   will-change: transform; backface-visibility: hidden;
-  animation: fieldrun 18s linear infinite;
+  animation: fieldrun 9s linear infinite;
 }
 /* Local +Y is the near ground, so +1440 comes toward the camera. */
 @keyframes fieldrun {
@@ -549,16 +609,24 @@ thead th { font-family: var(--display); letter-spacing: .1em; font-size: 12px; }
 .field::after {
   content: ""; position: absolute; inset: 0; pointer-events: none;
   background:
-    radial-gradient(ellipse 45% 13% at 50% 42%, rgba(90,210,160,.22), transparent 70%),
-    linear-gradient(#050f0c 36%, rgba(5,15,12,.45) 45%, rgba(5,15,12,0) 60%),
-    radial-gradient(ellipse 85% 65% at 50% 84%, rgba(5,15,12,0) 30%, rgba(5,15,12,.6) 100%);
+    /* sunlight washing back down the near turf */
+    linear-gradient(rgba(255,170,90,0) 36%, rgba(255,152,70,.18) 42%,
+                    rgba(255,150,70,.05) 58%, rgba(255,150,70,0) 72%),
+    /* Frames the sides and the very bottom only. A centred vignette put .68 of
+       darkness straight over the sun and flattened it to a smudge. */
+    linear-gradient(90deg, rgba(4,12,9,.72) 0%, rgba(4,12,9,0) 20%,
+                    rgba(4,12,9,0) 80%, rgba(4,12,9,.72) 100%),
+    linear-gradient(rgba(4,12,9,0) 62%, rgba(4,12,9,.42) 100%);
 }
 @media (prefers-reduced-motion: reduce) { .field-plane::before { animation: none; } }
 
 .loginwrap {
   position: relative; z-index: 1; max-width: none;
-  display: grid; place-items: center; padding: 24px;
+  display: grid; justify-items: center; align-items: center; padding: 24px;
   min-height: 100vh; min-height: 100dvh;
+}
+@media (min-height: 640px) {
+  .loginwrap { align-items: end; padding-bottom: 11vh; }
 }
 .loginbox {
   width: 100%; max-width: 340px; padding: 30px 28px 28px;
@@ -763,3 +831,35 @@ td .slot {
 /* The players list is 50 rows deep, so tinted and untinted rows need the same
    horizontal inset or the tint would shunt half the list sideways. */
 .plist li { padding: 5px 6px; border-radius: 4px; }
+
+/* ---------- coming up the field ----------
+
+   Panels arrive small and grow to full size as they scroll in, so moving down
+   the page reads as closing on them. Scroll-driven, so it tracks the scrollbar
+   rather than a clock and reverses when you scroll back up.
+
+   Everything is inside @supports on purpose: the fallback has to be the
+   finished state. Without animation-timeline the rules never apply at all, so
+   a browser that cannot do this gets plain, fully visible panels rather than a
+   page frozen mid-fade.
+
+   The range ends at a fixed 340px rather than a percentage. A percentage of
+   `entry` is a percentage of the element's own height, so a tall panel -- a
+   single-position card is 60 rows -- would still be growing thousands of
+   pixels later. A length gives every panel the same arrival. */
+@keyframes rise {
+  from { opacity: .25; transform: translateY(34px) scale(.94); }
+  to   { opacity: 1; transform: none; }
+}
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .game, .poscard, .rule, .countdown, .notice, .newsitem, .scroll, table {
+      animation: rise linear both;
+      animation-timeline: view();
+      animation-range: entry 0% entry 340px;
+    }
+    /* The wrapper already animates, and .matrix .rowhead is position:sticky --
+       transforming the table too compounds the scale for no gain. */
+    .scroll table { animation: none; }
+  }
+}
