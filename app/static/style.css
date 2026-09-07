@@ -165,14 +165,30 @@ main, .banner { position: relative; z-index: 1; }
    polled into the table the count is diffed from. */
 .tdstrip {
   position: relative; z-index: 1;
-  display: flex; flex-wrap: wrap; align-items: center; gap: 8px 18px;
-  padding: 9px 20px; font-size: 13.5px;
+  overflow: hidden; white-space: nowrap;
+  padding: 8px 0; font-size: 13.5px;
   background: linear-gradient(90deg, rgba(213,10,10,.3), rgba(213,10,10,.12));
   border-bottom: 1px solid rgba(213,10,10,.55);
-  animation: tdin .45s ease-out;
 }
-@keyframes tdin { from { opacity: 0; transform: translateY(-8px); } }
-@media (prefers-reduced-motion: reduce) { .tdstrip { animation: none; } }
+/* padding-left:100% parks the line just off the right edge, and translating
+   -100% of the track's own width carries it all the way off the left. That
+   works whatever the line is worth -- one touchdown or six -- where a -50%
+   two-copy loop would leave a hole on a wide screen when only one had
+   landed. */
+.tdtrack {
+  display: inline-flex; align-items: baseline; gap: 44px;
+  padding-left: 100%;
+  animation: tdrun 26s linear infinite;
+}
+.tdstrip:hover .tdtrack { animation-play-state: paused; }
+@keyframes tdrun {
+  from { transform: translate3d(0, 0, 0); }
+  to   { transform: translate3d(-100%, 0, 0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tdtrack { padding-left: 20px; animation: none; }
+  .tdstrip { overflow-x: auto; }
+}
 .td-item { display: inline-flex; align-items: baseline; gap: 7px; }
 .td-badge {
   font-family: var(--display); font-size: 11px; font-weight: 700;

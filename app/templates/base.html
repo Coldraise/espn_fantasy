@@ -55,15 +55,20 @@
 
 {% if td_events %}
 <div class="tdstrip">
-  {% for e in td_events %}
-    <span class="td-item">
-      <span class="td-badge">TD</span>
-      <b>{{ e.name }}</b>
-      <span class="td-team">{{ e.pro_team or '' }}</span>
-      {%- if e.scored > 1 %} <span class="td-mult">&times;{{ e.scored }}</span>{% endif %}
-      <span class="td-owner">{{ e.owner or 'a franchise' }}</span>
-    </span>
-  {% endfor %}
+  {# One line that travels across and leaves. No duplicate run here, unlike the
+     ticker: this one is meant to pass through rather than loop seamlessly, so
+     it starts off the right edge and scrolls until it is gone. #}
+  <div class="tdtrack">
+    {% for e in td_events %}
+      <span class="td-item">
+        <span class="td-badge">TD</span>
+        <b>{{ e.name }}</b>
+        <span class="td-team">{{ e.pro_team or '' }}</span>
+        {%- if e.scored > 1 %} <span class="td-mult">&times;{{ e.scored }}</span>{% endif %}
+        <span class="td-owner">{{ e.owner or 'a franchise' }}</span>
+      </span>
+    {% endfor %}
+  </div>
 </div>
 {% endif %}
 

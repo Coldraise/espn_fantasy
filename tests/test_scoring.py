@@ -107,6 +107,23 @@ def test_events_are_time_boxed(conn):
     assert db.recent_scoring_events(conn, 2026, 1, within_minutes=60 * 24) != []
 
 
+def test_a_half_hour_old_score_has_already_passed(conn):
+    """The strip is an event, not a standing summary. A touchdown from earlier
+    in the afternoon must not still be running across the top."""
+    db.replace_team_week_players(conn, 2026, 1, roster(tds=0))
+    db.replace_team_week_players(conn, 2026, 1, roster(tds=1))
+    then = (datetime.now(timezone.utc) - timedelta(minutes=30)).isoformat(timespec="seconds")
+    with conn:
+        conn.execute("UPDATE scoring_events SET at=?", (then,))
+    assert db.recent_scoring_events(conn, 2026, 1) == []
+
+
+def test_a_score_from_a_moment_ago_is_shown(conn):
+    db.replace_team_week_players(conn, 2026, 1, roster(tds=0))
+    db.replace_team_week_players(conn, 2026, 1, roster(tds=1))
+    assert len(db.recent_scoring_events(conn, 2026, 1)) == 1
+
+
 def test_the_lineup_still_replaces_cleanly(conn):
     """The diff runs inside the replace; the lineup must survive it intact."""
     db.replace_team_week_players(conn, 2026, 1, roster(tds=1))

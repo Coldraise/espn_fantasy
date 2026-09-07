@@ -696,11 +696,13 @@ def replace_team_week_players(conn, season: int, week: int, rows: list[dict]) ->
 
 
 def recent_scoring_events(conn, season: int, week: int,
-                          within_minutes: int = 150, limit: int = 8) -> list[dict]:
+                          within_minutes: int = 12, limit: int = 8) -> list[dict]:
     """Touchdowns scored in the last few minutes, newest first.
 
-    Time-boxed because this is a live strip: a touchdown from Sunday is not
-    news on Wednesday. Every row is a rostered player by construction, and a
+    Time-boxed tightly because the strip is an event, not a standing summary:
+    a score runs across the top for a few minutes and is then gone. Anything
+    longer and it is simply always there on a Sunday, which is the one thing it
+    should not be. The season's scores stay queryable in the table. Every row is a rostered player by construction, and a
     row only exists because the count moved while we were polling, so "owned
     and playing" needs no extra test.
     """
