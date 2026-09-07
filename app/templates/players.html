@@ -5,13 +5,24 @@
 {% if not groups %}
   <p class="empty">No projections stored yet — they load on the next poll.</p>
 {% else %}
+{% set availq = '&available=1' if available_only else '' %}
+{% set posq = '&pos=' ~ pos|urlencode|replace('/', '%2F') if pos else '' %}
 <p class="scope">
   {% for w in weeks %}
-    <a href="/players?week={{ w }}{{ '&available=1' if available_only }}"
+    <a href="/players?week={{ w }}{{ availq }}{{ posq }}"
        class="{{ 'on' if w == week }}">Week {{ w }}</a>
   {% endfor %}
-  <a href="/players?week={{ week }}{{ '' if available_only else '&available=1' }}"
+  <a href="/players?week={{ week }}{{ '' if available_only else '&available=1' }}{{ posq }}"
      class="{{ 'on' if available_only }}">{{ 'All players' if available_only else 'Available only' }}</a>
+</p>
+
+<p class="scope posscope">
+  <a href="/players?week={{ week }}{{ availq }}"
+     class="{{ 'on' if not pos }}">All positions</a>
+  {% for label in positions %}
+    <a href="/players?week={{ week }}{{ availq }}&pos={{ label|urlencode|replace('/', '%2F') }}"
+       class="{{ 'on' if label == pos }}">{{ label }}</a>
+  {% endfor %}
 </p>
 
 <p class="muted small">
@@ -27,7 +38,7 @@
   {%- if not drafted %} Nobody is drafted yet, so every player is available.{% endif %}
 </p>
 
-<div class="posgrid">
+<div class="posgrid{{ ' one' if pos }}">
   {% for g in groups %}
   <section class="poscard">
     <h3>{{ g.label }} <span class="muted small">{{ g.players|length }} of {{ g.total }}</span></h3>

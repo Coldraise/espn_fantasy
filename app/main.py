@@ -554,6 +554,7 @@ def player_rankings(request: Request):
         if week not in weeks:
             week = weeks[0] if weeks else 1
         available_only = request.query_params.get("available") == "1"
+        pos = request.query_params.get("pos") or ""
         rows = db.fetch_player_projections(conn, cfg.current_season, week)
         rookies = db.rookie_ids(conn)
         # Last week's actual result, shown beside this week's projection.
@@ -562,12 +563,23 @@ def player_rankings(request: Request):
         for row in rows:
             row["rookie"] = row["player_id"] in rookies
             row["last"] = last.get(row["player_id"])
+        # One pass: group_by_position always returns every group that has
+        # players, so the tab list and the shown group come out of the same
+        # call. A single position gets a deeper list -- there is only one card
+        # to fill, so 50 would cut a ranking short for no reason.
+        all_groups = players.group_by_position(
+            rows, per_group=100 if pos else 50, available_only=available_only)
+        positions = [g["label"] for g in all_groups]
+        if pos not in positions:
+            pos = ""
         context = _base_context(request, conn) | {
             "week": week,
             "weeks": weeks,
             "available_only": available_only,
-            "groups": players.group_by_position(rows, per_group=50,
-                                                available_only=available_only),
+            "pos": pos,
+            "positions": positions,
+            "groups": [g for g in all_groups if g["label"] == pos] if pos
+                      else all_groups,
             "last_week": last_week if last_week >= 1 else None,
             "has_last": bool(last),
             "team_names": db.franchise_names(conn, cfg.franchise_since),

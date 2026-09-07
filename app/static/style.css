@@ -1,28 +1,38 @@
-/* ---------- palette: minimal green, red as the highlight ---------- */
+/* ---------- palette: night field, NFL red as the highlight ----------
+
+   One committed dark look rather than a light/dark pair: the drawer and the
+   login field are always dark, and a light page between them read as a
+   different site. The menu's language carries across every page -- dark green
+   panel, hairline edge, red only for hover and the current thing.
+
+   Surfaces are OPAQUE on purpose. .matrix .rowhead is position:sticky and has
+   to paint over the columns scrolling under it, so a translucent --surface
+   would let them bleed through. Real translucency is kept for the topbar and
+   drawer, which are single large panels where it is both safe and cheap. */
 :root {
-  --bg:        #f4f7f4;
-  --surface:   #ffffff;
-  --line:      #e0e7e1;
-  --line-soft: #eef2ee;
-  --ink:       #1b2620;
-  --muted:     #5f6f64;
+  --bg:        #08150f;
+  --surface:   #10241b;
+  --raised:    #163024;
+  --line:      rgba(255,255,255,.09);
+  --line-soft: rgba(255,255,255,.05);
+  --ink:       #e9f1ec;
+  --muted:     #8ba396;
 
-  --green:      #2f6f57;
-  --green-deep: #245844;
-  --green-soft: #e8f1ec;
-  --green-tint: #f0f6f2;
+  --green:      #56a882;
+  --green-deep: #0f3626;
+  --green-soft: rgba(86,168,130,.16);
+  --green-tint: rgba(86,168,130,.075);
 
-  --red:        #c4352f;
-  --red-soft:   #fdeceb;
+  --red:        #e8615b;
+  --red-soft:   rgba(232,97,91,.15);
 
-  --amber:      #b8862b;
-  --amber-soft: #fbf2e0;
+  --amber:      #d8a95a;
+  --amber-soft: rgba(216,169,90,.15);
 
-  --shadow: 0 1px 2px rgba(27,38,32,.05);
+  --shadow: 0 1px 2px rgba(0,0,0,.35);
   --radius: 10px;
 
-  /* NFL shield palette, used by the drawer */
-  --nfl-navy: #013369;
+  /* NFL shield red, the drawer and topbar accent */
   --nfl-red:  #d50a0a;
 
   /* field green for the scoreboard block */
@@ -36,29 +46,12 @@
              ui-sans-serif, system-ui, sans-serif;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg:         #121815;
-    --surface:    #1a221e;
-    --line:       #2a352e;
-    --line-soft:  #222b26;
-    --ink:        #e8efea;
-    --muted:      #8fa298;
-    --green:      #4e9c7c;
-    --green-deep: #1f4636;
-    --green-soft: #1d2a24;
-    --green-tint: #17201c;
-    --red:        #e8615b;
-    --red-soft:   #33201f;
-    --amber:      #d3a24d;
-    --amber-soft: #2e2718;
-    --shadow: 0 1px 2px rgba(0,0,0,.3);
-  }
-}
-
 * { box-sizing: border-box; }
 body {
-  margin: 0; background: var(--bg); color: var(--ink);
+  margin: 0; min-height: 100vh; color: var(--ink);
+  /* Fixed so the glow stays put behind the page rather than scrolling with it. */
+  background: radial-gradient(1100px 560px at 50% -120px,
+                rgba(86,168,130,.13), transparent 70%) fixed, var(--bg);
   font: 15px/1.55 ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 }
 a { color: var(--green); }
@@ -67,8 +60,10 @@ a { color: var(--green); }
 .topbar {
   position: sticky; top: 0; z-index: 40;
   display: flex; align-items: center; gap: 14px;
-  padding: 10px 18px; background: var(--green-deep); color: #fff;
-  border-bottom: 3px solid var(--red);
+  padding: 10px 18px; background: rgba(13, 47, 33, .82); color: #fff;
+  backdrop-filter: blur(16px) saturate(1.4);
+  -webkit-backdrop-filter: blur(16px) saturate(1.4);
+  border-bottom: 3px solid var(--nfl-red);
 }
 /* hash marks along the bar, like yard lines on a field */
 .topbar::after {
@@ -107,12 +102,12 @@ a { color: var(--green); }
 @keyframes pulse { 50% { opacity: .5; } }
 
 /* ---------- side drawer ---------- */
-/* Glass over the page in NFL navy, red only as the hover/active accent. It
+/* Glass over the page in deep field green, red only as the hover/active accent. It
    sits above the topbar, so the green bar tinting through the blur is the
    intended look. Always dark, in either colour scheme. */
 .drawer {
   position: fixed; top: 0; left: 0; bottom: 0; width: 256px; z-index: 60;
-  background: rgba(1, 26, 54, .8); color: #eef2f7;
+  background: rgba(9, 38, 27, .8); color: #eaf2ed;
   backdrop-filter: blur(18px) saturate(1.5);
   -webkit-backdrop-filter: blur(18px) saturate(1.5);
   border-right: 1px solid rgba(255,255,255,.1);
@@ -121,7 +116,7 @@ a { color: var(--green); }
 }
 /* No backdrop-filter (older Firefox): fall back to near-opaque navy. */
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-  .drawer { background: var(--nfl-navy); }
+  .drawer { background: #09261b; }
 }
 .nav-open .drawer { transform: none; box-shadow: 4px 0 30px rgba(0,0,0,.42); }
 .drawer-head {
@@ -146,7 +141,7 @@ a { color: var(--green); }
   background: rgba(213,10,10,.34); color: #fff; font-weight: 600;
   border-left-color: var(--nfl-red);
 }
-.scrim { position: fixed; inset: 0; z-index: 50; background: rgba(2,12,26,.42); }
+.scrim { position: fixed; inset: 0; z-index: 50; background: rgba(3,14,10,.5); }
 
 /* ---------- layout ---------- */
 main { padding: 22px 20px 60px; max-width: 1180px; margin: 0 auto; }
@@ -262,6 +257,11 @@ mark { background: var(--amber-soft); color: inherit; border-radius: 3px; paddin
 
 /* ---------- players ---------- */
 .posgrid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); }
+/* One position picked: a single readable column, rather than one narrow card
+   stranded at the left of a grid sized for nine. */
+.posgrid.one { grid-template-columns: minmax(0, 620px); }
+/* The position row is the secondary choice, so it tucks under the week row. */
+.posscope { margin-top: -10px; }
 .poscard { background: var(--surface); border: 1px solid var(--line);
            border-radius: var(--radius); padding: 12px 14px; }
 .poscard h3 { color: var(--green); border-bottom: 1px solid var(--line-soft); padding-bottom: 7px; }
@@ -677,16 +677,13 @@ tbody tr.me > td:first-child { font-weight: 700; box-shadow: inset 2px 0 0 var(-
 /* The tint is the team's primary colour at low alpha, with the full-strength
    colour as an edge stripe -- several teams are near-black, and a stripe reads
    where a 14% wash of #0B162A does not. */
+/* The tint needs more weight on a dark ground than it did on a light one. */
 .toplayers li.tinted,
 .plist li.tinted {
-  background: color-mix(in srgb, var(--tc) 14%, transparent);
+  background: color-mix(in srgb, var(--tc) 26%, transparent);
   box-shadow: inset 2px 0 0 var(--tc);
 }
 .mside.right .toplayers li.tinted { box-shadow: inset -2px 0 0 var(--tc); }
-@media (prefers-color-scheme: dark) {
-  .toplayers li.tinted,
-  .plist li.tinted { background: color-mix(in srgb, var(--tc) 26%, transparent); }
-}
 
 /* ---------- NFL usage ---------- */
 .proteam {
@@ -696,11 +693,8 @@ tbody tr.me > td:first-child { font-weight: 700; box-shadow: inset 2px 0 0 var(-
 }
 .proteam.tinted {
   color: var(--ink);
-  background: color-mix(in srgb, var(--tc) 18%, transparent);
+  background: color-mix(in srgb, var(--tc) 32%, transparent);
   box-shadow: inset 2px 0 0 var(--tc);
-}
-@media (prefers-color-scheme: dark) {
-  .proteam.tinted { background: color-mix(in srgb, var(--tc) 32%, transparent); }
 }
 td .pn { font-weight: 600; }
 td .slot {
