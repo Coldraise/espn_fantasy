@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}{{ meta.name or 'League Monitor' }}{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&display=swap">
+  <link rel="stylesheet" href="/static/style.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/htmx/1.9.12/htmx.min.js"></script>
+</head>
+<body>
+
+<header class="topbar">
+  <button class="burger" id="burger" aria-label="Open menu" aria-expanded="false" aria-controls="drawer">
+    <span></span><span></span><span></span>
+  </button>
+  <a class="brand" href="/">{{ meta.name or 'League Monitor' }}</a>
+  <div class="status">
+    {% if state == 'pre_draft' %}<span class="chip amber">pre-draft</span>
+    {% elif state == 'drafted' %}<span class="chip violet">drafted</span>
+    {% elif live %}<span class="chip green pulse">live</span>
+    {% else %}<span class="chip">idle</span>{% endif %}
+    {% if stale_minutes is not none %}<span class="muted small">{{ stale_minutes }}m ago</span>{% endif %}
+    {% if me_name %}<span class="who" title="Signed in as {{ me_name }}">{{ me_name }}</span>{% endif %}
+  </div>
+</header>
+
+<div class="scrim" id="scrim" hidden></div>
+
+<aside class="drawer" id="drawer" aria-hidden="true">
+  <div class="drawer-head">
+    <div class="drawer-title">{{ meta.name or 'League' }}</div>
+    <div class="drawer-sub">{{ cfg.current_season }}{% if meta.size %} · {{ meta.size }} teams{% endif %}</div>
+  </div>
+  <nav class="drawer-nav">
+    <a href="/"          class="{{ 'on' if request.url.path == '/' }}"><span class="ico">🏈</span>Scoreboard</a>
+    <a href="/history"   class="{{ 'on' if request.url.path == '/history' }}"><span class="ico">🏆</span>All-time</a>
+    <a href="/standings" class="{{ 'on' if request.url.path == '/standings' }}"><span class="ico">📊</span>Standings</a>
+    <a href="/h2h"       class="{{ 'on' if request.url.path == '/h2h' }}"><span class="ico">⚔️</span>Head-to-head</a>
+    <a href="/usage"     class="{{ 'on' if request.url.path == '/usage' }}"><span class="ico">📈</span>NFL usage</a>
+    <a href="/players"   class="{{ 'on' if request.url.path == '/players' }}"><span class="ico">⭐</span>Players</a>
+    <a href="/draft"     class="{{ 'on' if request.url.path == '/draft' }}"><span class="ico">📋</span>Draft</a>
+    <a href="/activity"  class="{{ 'on' if request.url.path == '/activity' }}"><span class="ico">🔁</span>Activity</a>
+    <a href="/news"      class="{{ 'on' if request.url.path == '/news' }}"><span class="ico">📰</span>News</a>
+    <a href="/rules"     class="{{ 'on' if request.url.path == '/rules' }}"><span class="ico">📖</span>League rules</a>
+  </nav>
+  {% if draft_at and not drafted %}
+  <div class="drawer-note">
+    <div class="muted small">Draft</div>
+    <div>{{ draft_at.strftime('%a %d %b, %H:%M') }}</div>
+    <div class="muted small">{{ tz_label }}</div>
+  </div>
+  {% endif %}
+  {% if me %}
+  <form class="drawer-foot" method="post" action="/logout">
+    <div>
+      <div class="muted small">Signed in as</div>
+      <div class="whoami">{{ me_name }}</div>
+    </div>
+    <button type="submit" class="signout">Sign out</button>
+  </form>
+  {% endif %}
+</aside>
+
+{% if not auth.credentials_present %}
+  <div class="banner error">
+    <strong>No ESPN credentials.</strong>
+    Add <code>ESPN_S2</code> and <code>SWID</code> to <code>config/secrets.env</code>,
+    then <code>docker compose up -d</code>.
+    (<code>restart</code> will not work — it reuses the old environment.)
+  </div>
+{% elif auth.auth_invalid %}
+  <div class="banner error">
+    <strong>ESPN rejected the cookies</strong>
+    {% if auth.auth_invalid_since %}since {{ auth.auth_invalid_since }}{% endif %}.
+    They expire — pull fresh ones from devtools → Application → Cookies →
+    fantasy.espn.com, update <code>config/secrets.env</code>, then
+    <code>docker compose up -d</code> — no rebuild needed.
+    (<code>restart</code> reuses the container's old environment and never
+    re-reads <code>env_file</code>.)
+    Pages below show the last known-good data.
+  </div>
+{% endif %}
+{% if poll_error %}
+  <div class="banner warn">
+    <strong>Last poll failed:</strong> {{ poll_error }}
+    — cookies look fine, so check the league id in <code>config/config.yml</code>
+    and the container logs. Showing last known-good data.
+  </div>
+{% endif %}
+
+<main>{% block content %}{% endblock %}</main>
+
+<script>
+(function () {
+  var burger = document.getElementById('burger'),
+      drawer = document.getElementById('drawer'),
+      scrim  = document.getElementById('scrim');
+  function setOpen(open) {
+    document.body.classList.toggle('nav-open', open);
+    drawer.setAttribute('aria-hidden', String(!open));
+    burger.setAttribute('aria-expanded', String(open));
+    burger.setAttribute('aria-label', open ? 'Close menu' : 'Open menu');
+    scrim.hidden = !open;
+  }
+  burger.addEventListener('click', function () {
+    setOpen(!document.body.classList.contains('nav-open'));
+  });
+  scrim.addEventListener('click', function () { setOpen(false); });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') setOpen(false);
+  });
+  drawer.addEventListener('click', function (e) {
+    if (e.target.tagName === 'A') setOpen(false);
+  });
+})();
+</script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Standings <span class="muted">· {{ 'all time' if all_time else season }}</span></h1>
+<p class="scope">
+  <a href="/standings?season={{ season }}" class="{{ 'on' if not all_time }}">{{ season }}</a>
+  <a href="/standings?scope=all" class="{{ 'on' if all_time }}">All time</a>
+</p>
+<p class="muted">
+  <strong>All-play</strong> is the record if every team played every other team every week —
+  the schedule-independent truth. <strong>Luck</strong> is real wins minus all-play expected
+  wins: positive means the schedule flattered you.
+</p>
+{% if not has_weeks %}
+  <p class="notice">
+    Needs played games. ESPN serves seasons before {{ cfg.current_season }} as
+    season totals only — no weekly schedule — so this view starts from
+    {{ cfg.current_season }} and fills in as the season runs.
+    <a href="/history">All-time records</a> are available now.
+  </p>
+{% endif %}
+<table>
+  <thead><tr>
+    <th>Team</th><th class="num">W-L</th><th class="num">PF</th><th class="num">PA</th>
+    <th class="num">Avg</th><th class="num">All-play</th><th class="num">Exp W</th>
+    <th class="num">Luck</th><th class="num">Streak</th>
+    <th class="num">Best</th><th class="num">Worst</th>
+  </tr></thead>
+  <tbody>
+  {% for t in table %}
+    <tr class="{{ 'me' if t.team_id == me_id }}">
+      <td>{{ t.name }}</td>
+      <td class="num">{{ t.wins }}-{{ t.losses }}{% if t.ties %}-{{ t.ties }}{% endif %}</td>
+      <td class="num">{{ t.pf }}</td>
+      <td class="num">{{ t.pa }}</td>
+      <td class="num">{{ t.avg }}</td>
+      <td class="num">{{ t.all_play_w }}-{{ t.all_play_l }}</td>
+      <td class="num">{{ t.expected_wins }}</td>
+      <td class="num {{ 'good' if t.luck > 0 else 'bad' if t.luck < 0 }}">{{ '%+.2f'|format(t.luck) }}</td>
+      <td class="num">{{ t.streak }}</td>
+      <td class="num" title="{{ 'week %s'|format(t.best.week) if t.best }}">
+        {{ '%.1f'|format(t.best.points) if t.best else '—' }}</td>
+      <td class="num" title="{{ 'week %s'|format(t.worst.week) if t.worst }}">
+        {{ '%.1f'|format(t.worst.points) if t.worst else '—' }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+
+{% if power %}
+<h2>Power rankings</h2>
+<p class="muted small">
+  Half all-play win pct, a third scoring rate, a fifth recent form. All-play
+  carries the most because it is the only part a soft schedule cannot inflate.
+</p>
+<table>
+  <thead><tr>
+    <th class="num">#</th><th>Team</th><th class="num">Power</th><th class="num">Record</th>
+    <th class="num">Avg</th><th class="num">Last 3</th><th class="num">All-play</th>
+    <th class="num">Floor–ceiling</th><th class="num">Swing</th>
+    <th class="num">vs proj</th>
+  </tr></thead>
+  <tbody>
+  {% for t in power %}
+    <tr class="{{ 'me' if t.team_id == me_id }}">
+      <td class="num muted">{{ t.rank }}</td>
+      <td>{{ t.name }}</td>
+      <td class="num"><b>{{ t.power }}</b></td>
+      <td class="num">{{ t.wins }}-{{ t.losses }}{% if t.ties %}-{{ t.ties }}{% endif %}</td>
+      <td class="num">{{ t.avg }}</td>
+      <td class="num">{{ t.recent_avg }}</td>
+      <td class="num">{{ '%.3f'|format(t.all_play_pct) }}</td>
+      <td class="num muted">{{ t.spread.floor if t.spread else '—' }}–{{ t.spread.ceiling if t.spread else '—' }}</td>
+      <td class="num">{{ t.spread.stdev if t.spread else '—' }}</td>
+      <td class="num {{ 'good' if t.accuracy and t.accuracy.bias > 0 else 'bad' if t.accuracy and t.accuracy.bias < 0 }}">
+        {{ '%+.1f'|format(t.accuracy.bias) if t.accuracy else '—' }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+
+{% if efficiency %}
+<h2>Lineup calls</h2>
+<p class="muted small">
+  What each team scored against the best lineup it could legally have started
+  that week. 100% means never leaving a point on the bench. Covers
+  {{ efficiency[0].weeks }} week{{ 's' if efficiency[0].weeks != 1 }} — bench
+  rosters are only stored from when this started tracking them.
+</p>
+<table>
+  <thead><tr><th>Team</th><th class="num">Weeks</th><th class="num">Scored</th>
+    <th class="num">Best possible</th><th class="num">Left on bench</th>
+    <th class="num">Efficiency</th></tr></thead>
+  <tbody>
+  {% for e in efficiency %}
+    <tr class="{{ 'me' if e.team_id == me_id }}">
+      <td>{{ e.name }}</td>
+      <td class="num">{{ e.weeks }}</td>
+      <td class="num">{{ e.actual }}</td>
+      <td class="num">{{ e.optimal }}</td>
+      <td class="num bad">{{ e.left_on_bench }}</td>
+      <td class="num"><b>{{ '%.1f%%'|format(100 * e.efficiency) if e.efficiency else '—' }}</b></td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+{% endblock %}

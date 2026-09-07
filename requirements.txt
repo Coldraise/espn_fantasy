@@ -1,0 +1,9 @@
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+jinja2==3.1.5
+# Form parsing for the login POST -- FastAPI raises at import without it.
+python-multipart==0.0.20
+espn-api==0.44.1
+APScheduler==3.11.0
+PyYAML==6.0.2
+requests==2.32.3

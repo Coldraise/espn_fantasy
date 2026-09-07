@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>League rules</h1>
+
+{% if not categories %}
+  <p class="empty">Settings not fetched yet — they load on the next poll.</p>
+{% else %}
+<div class="searchbar">
+  <span class="mag">🔎</span>
+  <input type="search" id="q" placeholder="Search rules — try “reception”, “waiver”, “playoff”…"
+         autocomplete="off" spellcheck="false" autofocus>
+  <span class="count" id="count"></span>
+</div>
+
+<p class="muted small" id="nohits" hidden>No rule matches that.</p>
+
+{% for cat in categories %}
+<section class="rulecat" data-cat>
+  <h2>{{ cat.title }}</h2>
+  <div class="rules">
+    {% for row in cat.rows %}
+      <div class="rule" data-search="{{ (cat.title ~ ' ' ~ row.label ~ ' ' ~ row.value ~ ' ' ~ (row.hint or ''))|lower }}">
+        <div class="k">{{ row.label }}</div>
+        <div class="v">{{ row.value }}</div>
+        {% if row.hint %}<div class="h">{{ row.hint }}</div>{% endif %}
+      </div>
+    {% endfor %}
+  </div>
+</section>
+{% endfor %}
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  var q = document.getElementById('q');
+  if (!q) return;
+  var rules  = Array.prototype.slice.call(document.querySelectorAll('.rule')),
+      cats   = Array.prototype.slice.call(document.querySelectorAll('[data-cat]')),
+      count  = document.getElementById('count'),
+      nohits = document.getElementById('nohits'),
+      total  = rules.length;
+
+  function apply() {
+    var term = q.value.trim().toLowerCase(), shown = 0;
+    rules.forEach(function (el) {
+      var hit = !term || el.dataset.search.indexOf(term) !== -1;
+      el.hidden = !hit;
+      if (hit) shown++;
+    });
+    // hide a category once every rule inside it is filtered out
+    cats.forEach(function (cat) {
+      cat.hidden = !cat.querySelector('.rule:not([hidden])');
+    });
+    count.textContent = term ? shown + ' of ' + total : total + ' rules';
+    nohits.hidden = shown !== 0;
+  }
+  q.addEventListener('input', apply);
+  q.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') { q.value = ''; apply(); }
+  });
+  apply();
+})();
+</script>
+{% endblock %}

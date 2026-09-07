@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sign in · {{ meta.name or 'League Monitor' }}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&display=swap">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body class="loginpage">
+
+<main class="loginwrap">
+  <form class="loginbox" method="post" action="/login" autocomplete="on">
+    <div class="login-eyebrow">{{ cfg.current_season }} season</div>
+    <h1>{{ meta.name or 'League Monitor' }}</h1>
+    <p class="muted small">Sign in with your franchise name and the password you were given.</p>
+
+    {% if error %}
+      <p class="loginerror">Wrong franchise name or password.</p>
+    {% endif %}
+
+    <label for="username">Franchise</label>
+    <input id="username" name="username" type="text" autocapitalize="off" autocorrect="off"
+           spellcheck="false" autocomplete="username" required autofocus
+           placeholder="your team name">
+
+    <label for="password">Password</label>
+    <input id="password" name="password" type="password" autocomplete="current-password" required
+           placeholder="••••-••••-••••">
+
+    <input type="hidden" name="next" value="{{ next }}">
+    <button type="submit">Sign in</button>
+
+    <p class="muted small loginhint">
+      Lost your password? The commissioner can issue a new one with
+      <code>scripts/credentials.py reset</code>.
+    </p>
+  </form>
+</main>
+
+</body>
+</html>

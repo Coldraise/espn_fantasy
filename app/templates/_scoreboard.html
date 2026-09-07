@@ -1,0 +1,21 @@
+{% if week is none %}
+  <p class="empty">No data yet. Run the backfill:
+    <code>docker compose run --rm fantasy python scripts/backfill.py</code></p>
+{% else %}
+  {% if my_game %}
+    <h2 class="mine-head">Your matchup</h2>
+    <div class="games feature">
+      {% with game = my_game, compact = false %}{% include "_matchup.html" %}{% endwith %}
+    </div>
+  {% endif %}
+  {% if other_games %}
+    {% if my_game %}<h2>Rest of the week</h2>{% endif %}
+    <div class="games compact">
+      {% for game in other_games %}
+        {% with compact = true %}{% include "_matchup.html" %}{% endwith %}
+      {% endfor %}
+    </div>
+  {% elif not my_game %}
+    <p class="empty">No matchups scheduled for this week.</p>
+  {% endif %}
+{% endif %}

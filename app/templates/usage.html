@@ -1,0 +1,146 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>NFL usage <span class="muted">· {{ season }}</span></h1>
+
+{% if not nfl_seasons %}
+  <p class="empty">No NFL data stored yet — it loads on the next poll, or run
+    <code>docker compose run --rm fantasy python scripts/backfill.py --nflverse</code></p>
+{% else %}
+
+<p class="scope">
+  {% for s in nfl_seasons %}<a href="/usage?season={{ s }}{{ '&team=%s'|format(selected) if selected }}"
+     class="{{ 'on' if s == season }}">{{ s }}</a>{% endfor %}
+</p>
+
+<p class="muted">
+  What these players actually did on an NFL field — snaps, targets, tackles.
+  ESPN sends none of this; it comes from <a href="https://github.com/nflverse">nflverse</a>.
+  {% if reference %}
+    {{ cfg.current_season }} hasn't been played yet, so this is <strong>{{ season }}</strong>,
+    the last completed season, measured against today's rosters.
+  {% endif %}
+</p>
+
+<h2>Roster strength</h2>
+<table>
+  <thead><tr>
+    <th>Franchise</th><th class="num">Players</th><th class="num">Total PPR</th>
+    <th class="num">Avg/game</th><th class="num">Snap share</th>
+    <th class="num">Boom rate</th><th class="num">Volatility</th>
+  </tr></thead>
+  <tbody>
+  {% for t in table %}
+    <tr class="{{ 'me' if t.team_id == me_id }}">
+      <td><a class="teamlink" href="/usage?season={{ season }}&team={{ t.team_id }}">{{ t.name }}</a></td>
+      <td class="num">{{ t.matched }}<span class="muted">/{{ t.players }}</span></td>
+      <td class="num">{{ '%.0f'|format(t.ppr or 0) }}</td>
+      <td class="num">{{ t.ppr_avg or '—' }}</td>
+      <td class="num">{{ '%.0f%%'|format(100 * t.snap_share) if t.snap_share else '—' }}</td>
+      <td class="num">{{ '%.0f%%'|format(100 * t.boom_rate) if t.boom_rate else '—' }}</td>
+      <td class="num">{{ t.volatility or '—' }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+
+<p class="scope">
+  <a href="/usage?season={{ season }}" class="{{ 'on' if not selected }}">All rosters</a>
+  {% for t in table %}
+    <a href="/usage?season={{ season }}&team={{ t.team_id }}"
+       class="{{ 'on' if t.team_id == selected }}">{{ t.name }}</a>
+  {% endfor %}
+</p>
+
+{% macro player_row(p, kind) %}
+<tr class="{{ 'me' if p.team_id == me_id and not selected }}">
+  <td>
+    <span class="pn">{{ p.name }}</span>
+    {% set tint = team_colors.get(p.pro_team) %}
+    <span class="proteam {{ 'tinted' if tint }}" {% if tint %}style="--tc: {{ tint }}"{% endif %}>{{ p.pro_team or '—' }}</span>
+    {% if not selected %}<span class="muted small">{{ names.get(p.team_id, {}).get('name', '') }}</span>{% endif %}
+  </td>
+  <td><span class="slot">{{ p.lineup_slot or p.position or '' }}</span></td>
+  <td class="num">{{ p.games }}</td>
+  <td class="num">{{ '%.0f%%'|format(100 * p.snap_share) if p.snap_share else '—' }}</td>
+  {% if kind == 'offence' %}
+    <td class="num">{{ '%.0f'|format(p.touches or 0) }}</td>
+    <td class="num">{{ '%.0f%%'|format(100 * p.target_share) if p.target_share else '—' }}</td>
+    <td class="num">{{ p.wopr if p.wopr else '—' }}</td>
+  {% else %}
+    <td class="num">{{ '%.0f'|format(p.tackles or 0) }}</td>
+    <td class="num">{{ '%.1f'|format(p.sacks or 0) }}</td>
+    <td class="num">{{ '%.0f'|format((p.interceptions or 0) + (p.pass_defended or 0)) }}</td>
+  {% endif %}
+  <td class="num">{{ '%.0f'|format(p.ppr or 0) }}</td>
+  <td class="num"><b>{{ p.ppr_avg or '—' }}</b></td>
+  <td class="num muted">{{ p.floor if p.floor is not none else '—' }}–{{ p.ceiling if p.ceiling is not none else '—' }}</td>
+  <td class="num">{{ '%.0f%%'|format(100 * p.boom_rate) if p.boom_rate else '—' }}</td>
+  <td class="num {{ 'good' if p.trend and p.trend > 0 else 'bad' if p.trend and p.trend < 0 }}">
+    {{ '%+.1f'|format(p.trend) if p.trend is not none else '—' }}</td>
+</tr>
+{% endmacro %}
+
+{% if groups.offence %}
+<h2>Offence</h2>
+<div class="scroll">
+<table>
+  <thead><tr>
+    <th>Player</th><th>Slot</th><th class="num">G</th><th class="num">Snap</th>
+    <th class="num">Touch</th><th class="num">Tgt share</th><th class="num">WOPR</th>
+    <th class="num">PPR</th><th class="num">Avg</th><th class="num">Floor–ceiling</th>
+    <th class="num">Boom</th><th class="num">Last 4</th>
+  </tr></thead>
+  <tbody>{% for p in groups.offence %}{{ player_row(p, 'offence') }}{% endfor %}</tbody>
+</table>
+</div>
+{% endif %}
+
+{% if groups.idp %}
+<h2>Defence <span class="muted">· IDP</span></h2>
+<div class="scroll">
+<table>
+  <thead><tr>
+    <th>Player</th><th>Slot</th><th class="num">G</th><th class="num">Snap</th>
+    <th class="num">Tackles</th><th class="num">Sacks</th><th class="num">INT+PD</th>
+    <th class="num">PPR</th><th class="num">Avg</th><th class="num">Floor–ceiling</th>
+    <th class="num">Boom</th><th class="num">Last 4</th>
+  </tr></thead>
+  <tbody>{% for p in groups.idp %}{{ player_row(p, 'idp') }}{% endfor %}</tbody>
+</table>
+</div>
+{% endif %}
+
+{% if groups.dst %}
+<h2>Team defence</h2>
+<p class="muted small">
+  A D/ST has no player id in any NFL dataset, so these come from team totals.
+  No fantasy points column: the team file's points belong to the offence, and
+  showing them here would be a confidently wrong number.
+</p>
+<table>
+  <thead><tr><th>Defence</th>{% if not selected %}<th>Franchise</th>{% endif %}
+    <th class="num">G</th><th class="num">Sacks</th><th class="num">INT</th>
+    <th class="num">Forced fum</th><th class="num">TDs</th><th class="num">Pass def</th></tr></thead>
+  <tbody>
+  {% for p in groups.dst %}
+    <tr class="{{ 'me' if p.team_id == me_id and not selected }}">
+      <td>{{ p.name }}</td>
+      {% if not selected %}<td class="muted">{{ names.get(p.team_id, {}).get('name', '') }}</td>{% endif %}
+      <td class="num">{{ p.games }}</td>
+      <td class="num">{{ '%.0f'|format(p.sacks or 0) }}</td>
+      <td class="num">{{ '%.0f'|format(p.interceptions or 0) }}</td>
+      <td class="num">{{ '%.0f'|format(p.fumbles_forced or 0) }}</td>
+      <td class="num">{{ '%.0f'|format(p.defensive_tds or 0) }}</td>
+      <td class="num">{{ '%.0f'|format(p.pass_defended or 0) }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+
+<p class="muted small credit">
+  NFL data from <a href="https://github.com/nflverse/nflverse-data">nflverse</a>,
+  CC-BY-4.0. Boom is a week at {{ '1.5' }}× a player's own average, bust at half of it.
+</p>
+{% endif %}
+{% endblock %}

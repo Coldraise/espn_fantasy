@@ -1,0 +1,26 @@
+services:
+  fantasy:
+    build: .
+    container_name: espn-fantasy
+    restart: unless-stopped
+    ports:
+      - "${HOST_PORT:-8080}:8000"
+    # Cookies only. Compose does NOT interpolate env_file values, so the '%' in
+    # espn_s2 and the braces in SWID are passed through literally.
+    env_file:
+      - ./config/secrets.env
+    environment:
+      CONFIG_PATH: /app/config/config.yml
+      DB_PATH: /app/data/league.db
+      # Log-timestamp readability only. Scheduling uses ZoneInfo in code so it
+      # stays correct on a UTC Debian host.
+      TZ: America/New_York
+    volumes:
+      - ./config:/app/config:ro
+      - ./data:/app/data
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0) if urllib.request.urlopen('http://localhost:8000/health', timeout=4).status == 200 else sys.exit(1)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s

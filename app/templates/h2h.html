@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Head-to-head <span class="muted">· {{ 'all time' if all_time else season }}</span></h1>
+<p class="scope">
+  <a href="/h2h" class="{{ 'on' if all_time }}">All time</a>
+  <a href="/h2h?scope=season&season={{ season }}" class="{{ 'on' if not all_time }}">{{ season }}</a>
+</p>
+{% if not has_weeks %}
+  <p class="notice">
+    Needs played games. ESPN serves seasons before {{ cfg.current_season }} as
+    season totals only — no weekly schedule — so this view starts from
+    {{ cfg.current_season }} and fills in as the season runs.
+    <a href="/history">All-time records</a> are available now.
+  </p>
+{% endif %}
+<p class="muted">Row team's record against column team.</p>
+{% if not teams %}
+  <p class="empty">No completed matchups stored yet.</p>
+{% else %}
+<div class="scroll">
+<table class="matrix">
+  <thead><tr><th></th>{% for t in teams %}<th class="rot {{ 'me' if t == me_id }}">{{ names.get(t, t) }}</th>{% endfor %}</tr></thead>
+  <tbody>
+  {% for row_team in teams %}
+    <tr class="{{ 'me' if row_team == me_id }}">
+      <th class="rowhead {{ 'me' if row_team == me_id }}">{{ names.get(row_team, row_team) }}</th>
+      {% for col_team in teams %}
+        {% if row_team == col_team %}
+          <td class="self"></td>
+        {% else %}
+          {% set rec = matrix.get(row_team, {}).get(col_team) %}
+          {% if rec %}
+            {% set total = rec.W + rec.L + rec.T %}
+            {% set pct = (rec.W + 0.5 * rec.T) / total if total else 0 %}
+            <td class="cell" style="background: rgba({{ 47 if pct >= 0.5 else 214 }},{{ 111 if pct >= 0.5 else 69 }},{{ 87 if pct >= 0.5 else 63 }},{{ 0.15 + 0.55 * (pct - 0.5)|abs * 2 }})">
+              {{ rec.W }}-{{ rec.L }}{% if rec.T %}-{{ rec.T }}{% endif %}
+            </td>
+          {% else %}<td class="cell muted">—</td>{% endif %}
+        {% endif %}
+      {% endfor %}
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% endif %}
+{% endblock %}

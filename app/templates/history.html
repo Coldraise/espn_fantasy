@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>All-time <span class="muted">· {{ history_seasons|min if history_seasons else '' }}–{{ history_seasons|max if history_seasons else '' }}</span></h1>
+{% if not table %}
+  <p class="empty">No history stored yet. Run the backfill:
+    <code>docker compose run --rm fantasy python scripts/backfill.py</code></p>
+{% else %}
+<p class="muted">
+  Aggregated by franchise, not by name — team ids stay stable across seasons
+  while names change, so a rename doesn't split a franchise in two.
+</p>
+<table>
+  <thead><tr>
+    <th>Franchise</th><th>Manager</th><th class="num">Seasons</th><th class="num">W-L</th><th class="num">Pct</th>
+    <th class="num">PF</th><th class="num">PA</th><th class="num">Diff</th>
+    <th class="num">Titles</th><th class="num">2nd</th><th class="num">Playoffs</th>
+    <th class="num">Avg finish</th><th class="num">Best</th><th class="num">Worst</th>
+    <th class="num">PF/season</th><th class="num">Span</th>
+  </tr></thead>
+  <tbody>
+  {% for t in table %}
+    <tr id="t{{ t.team_id }}" class="{{ 'me' if t.team_id == me_id }}">
+      <td>{{ t.name }}
+        {% if t.former_names %}<div class="muted small">was {{ t.former_names|join(', ') }}</div>{% endif %}</td>
+      <td class="{{ 'muted' if not t.manager }}">{{ t.manager or '—' }}</td>
+      <td class="num">{{ t.seasons }}</td>
+      <td class="num">{{ t.wins }}-{{ t.losses }}{% if t.ties %}-{{ t.ties }}{% endif %}</td>
+      <td class="num">{{ '%.3f'|format(t.pct) }}</td>
+      <td class="num">{{ t.pf }}</td>
+      <td class="num">{{ t.pa }}</td>
+      <td class="num {{ 'good' if t.diff > 0 else 'bad' if t.diff < 0 }}">{{ '%+.1f'|format(t.diff) }}</td>
+      <td class="num">{{ '🏆' * t.titles if t.titles else '—' }}</td>
+      <td class="num">{{ t.runner_ups or '—' }}</td>
+      <td class="num">{{ t.playoff_appearances }}</td>
+      <td class="num">{{ t.avg_finish or '—' }}</td>
+      <td class="num" title="{{ t.best_finish_season }}">{{ t.best_finish or '—' }}</td>
+      <td class="num">{{ t.worst_finish or '—' }}</td>
+      <td class="num">{{ t.pf_per_season }}</td>
+      <td class="num muted small">{{ t.first_season }}–{{ t.last_season }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+
+<h2>Season by season</h2>
+<div class="scroll">
+<table class="matrix">
+  <thead><tr><th></th>{% for s in grid.seasons %}<th class="rot">{{ s }}</th>{% endfor %}</tr></thead>
+  <tbody>
+  {% for row in grid.rows %}
+    <tr class="{{ 'me' if row.team_id == me_id }}">
+      <th class="rowhead {{ 'me' if row.team_id == me_id }}">{{ row.name }}</th>
+      {% for s in grid.seasons %}
+        {% set c = row.by_season.get(s) %}
+        <td class="cell {{ 'champ' if c and c.rank == 1 }}">
+          {% if c %}{{ c.record }}<div class="muted small">#{{ c.rank or '—' }}{%
+            if c.seed %} · seed {{ c.seed }}{% endif %}</div>{% else %}—{% endif %}
+        </td>
+      {% endfor %}
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% endif %}
+{% endblock %}

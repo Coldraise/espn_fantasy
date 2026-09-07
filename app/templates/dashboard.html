@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Week {{ week or '—' }} <span class="muted">· {{ season }}</span></h1>
+
+<div id="scoreboard"
+     {% if live %}hx-get="/fragment/scoreboard?season={{ season }}"
+     hx-trigger="every 30s" hx-swap="innerHTML"{% endif %}>
+  {% include "_scoreboard.html" %}
+</div>
+
+{% if corrections %}
+<h2>Recent stat corrections</h2>
+<p class="muted">ESPN revises scores for days after games finish. These changed after first capture.</p>
+<table>
+  <thead><tr><th>Season</th><th>Week</th><th>Team</th><th>Points</th><th>Rev</th><th>Updated</th></tr></thead>
+  <tbody>
+  {% for c in corrections %}
+    <tr>
+      <td>{{ c.season }}</td><td>{{ c.week }}</td>
+      <td>{{ names.get(c.team_id, 'Team %s'|format(c.team_id)) }}</td>
+      <td class="num">{{ '%.1f'|format(c.points or 0) }}</td>
+      <td class="num">{{ c.revision }}</td>
+      <td class="muted">{{ c.updated_at }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+{% endblock %}

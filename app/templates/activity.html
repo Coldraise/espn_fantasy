@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Activity <span class="muted">· {{ season }}</span></h1>
+
+{% if not rows %}
+  <p class="notice">
+    No transactions yet. Adds, waiver claims, drops and trades appear here as
+    they happen — nothing can until the draft has taken place.
+    {% if draft_at and not drafted %}
+      Draft is {{ draft_at.strftime('%A %d %B, %H:%M') }} ({{ tz_label }}).
+    {% endif %}
+  </p>
+{% else %}
+
+<h2>Churn</h2>
+<table>
+  <thead><tr>
+    <th>Franchise</th><th class="num">Moves</th><th class="num">Added</th>
+    <th class="num">Claimed</th><th class="num">Dropped</th><th class="num">Traded</th>
+    <th class="num">FAAB spent</th>
+  </tr></thead>
+  <tbody>
+  {% for c in churn %}
+    <tr class="{{ 'me' if c.team_id == me_id }}">
+      <td>{{ c.name }}</td>
+      <td class="num"><b>{{ c.moves }}</b></td>
+      <td class="num">{{ c.added }}</td>
+      <td class="num">{{ c.claimed }}</td>
+      <td class="num">{{ c.dropped }}</td>
+      <td class="num">{{ c.traded }}</td>
+      <td class="num">{{ c.spent or '—' }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+
+<h2>Every move</h2>
+<table>
+  <thead><tr><th>When</th><th>Franchise</th><th>Move</th><th>Player</th><th class="num">Bid</th></tr></thead>
+  <tbody>
+  {% for r in rows %}
+    <tr class="{{ 'me' if r.team_id == me_id }}">
+      <td class="muted small">{{ r.occurred_at[:16].replace('T', ' ') if r.occurred_at else '—' }}</td>
+      <td>{{ names.get(r.team_id, {}).get('name') or '—' }}</td>
+      <td><span class="move {{ r.action }}">{{ r.action }}</span></td>
+      <td>{{ r.player_name or 'player %s'|format(r.player_id) }}</td>
+      <td class="num">{{ r.bid or '' }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,47 @@
+# Copy to config.yml and fill in. Bind-mounted read-only into the container.
+league:
+  id: 123456
+  current_season: 2026
+  # "auto" reads the real season list from ESPN (status.previousSeasons) at
+  # runtime. Only override with an explicit list if you want to limit the range.
+  # Note: past seasons come back as season TOTALS only -- ESPN does not serve a
+  # weekly schedule for them -- so head-to-head, all-play, luck and schedule
+  # swap start from the current season.
+  seasons: auto
+  # Franchise slots that changed hands. A slot's record counts only from the
+  # season it took its current identity -- seasons before belong to the previous
+  # owner and are excluded from all-time totals, the season grid, the name
+  # history and the hover records.
+  #   franchise_since:
+  #     5: 2025   # slot 5 was someone else's team before 2025
+
+
+poll:
+  live_interval_seconds: 45
+  idle_interval_seconds: 21600      # 6h
+  correction_sweep_hour: 6          # ET hour for the daily stat-correction sweep
+  correction_weeks_back: 2
+
+# All times America/New_York, independent of the host clock.
+live_windows:
+  - {day: thu, start: "19:30", end: "23:59"}
+  - {day: sun, start: "12:45", end: "23:59"}
+  - {day: mon, start: "19:30", end: "23:59"}
+
+# Timezone for times shown on the site (draft countdown, timestamps).
+# Independent of live-window polling, which is always US Eastern because that
+# is when NFL games are played.
+display_timezone: Europe/Budapest
+
+# Optional. Reporters highlighted on the /news page -- everything else in the
+# feed is still stored and shown, just not chip-filterable by name. Omit this
+# whole block to get the defaults shown below.
+news:
+  reporters:
+    - Adam Schefter
+    - Jeremy Fowler
+    - Dan Graziano
+    - Mike Clay
+    - Field Yates
+    - ESPN Fantasy
+  keep_days: 21

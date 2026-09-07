@@ -1,0 +1,82 @@
+{#  One matchup card, shared by the pre-season hub and the live scoreboard.
+    Expects: game (home/away/bye/final/revision), lineups {team_id: [players]},
+    managers {team_id: name}, records {team_id: {...}}, live (bool),
+    me_id (signed-in franchise) and compact (top 3 players only, half the size). #}
+{% set compact = compact|default(false) %}
+{% macro side(team, players, manager, rec, align, compact, me_id) %}
+<div class="mside {{ align }} {{ 'me' if me_id and team.id == me_id }}">
+  <a class="mteam" href="/history#t{{ team.id }}"
+     title="{{ rec.tip if rec else 'No record yet' }}">
+    <span class="mname">{{ team.name }}</span>
+    {% if rec and rec.titles %}
+      <span class="titles" title="{{ rec.titles }} championship{{ 's' if rec.titles != 1 }}">
+        {%- for _ in range(rec.titles if rec.titles <= 3 else 1) -%}🏆{%- endfor -%}
+        {%- if rec.titles > 3 %}<span class="tcount">×{{ rec.titles }}</span>{% endif -%}
+      </span>
+    {% endif %}
+  </a>
+
+  {% if compact %}
+    <div class="mmanager plain">{{ manager or 'slot open' }}</div>
+  {% else %}
+  <div class="mmanager" tabindex="0">
+    {{ manager or 'slot open' }}
+    {% if rec %}
+    <div class="hovercard">
+      <div class="hc-name">{{ team.name }}</div>
+      <div class="hc-row"><span>All-time</span><b>{{ rec.wins }}-{{ rec.losses }}{% if rec.ties %}-{{ rec.ties }}{% endif %}</b></div>
+      <div class="hc-row"><span>Win pct</span><b>{{ '%.3f'|format(rec.pct) }}</b></div>
+      <div class="hc-row"><span>Titles</span><b>{{ rec.titles }}</b></div>
+      <div class="hc-row"><span>Avg finish</span><b>{{ rec.avg_finish or '—' }}</b></div>
+      <div class="hc-row"><span>Seasons</span><b>{{ rec.seasons }}</b></div>
+    </div>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  {% if team.points is not none and (live or team.points) %}
+    <div class="mscore">{{ '%.1f'|format(team.points or 0) }}</div>
+    {% if team.projected %}<div class="mproj">proj {{ '%.0f'|format(team.projected) }}</div>{% endif %}
+  {% endif %}
+
+  {# The featured card shows the whole starting lineup; the rest of the week
+     shows each team's best three, which is what makes a compact card worth
+     looking at rather than a bare scoreline. Already sorted best-first by
+     db.fetch_team_week_players, so the slice is the top 3. Every row is tinted
+     with that player's NFL team colour. #}
+  {% set shown = (players or [])[:3] if compact else (players or []) %}
+  <ol class="toplayers">
+    {% for p in shown %}
+      {% set tint = team_colors.get(p.pro_team) %}
+      <li {% if tint %}style="--tc: {{ tint }}"{% endif %} class="{{ 'tinted' if tint }}">
+        <span class="slot">{{ p.lineup_slot }}</span>
+        <span class="pname">{{ p.name }}{% if p.rookie %}<span class="rookie" title="Rookie — first NFL season">R</span>{% endif %}</span>
+        <span class="pro">{{ p.pro_team or '' }}</span>
+        <span class="ppts">{{ '%.1f'|format((p.actual if p.actual is not none else p.projected) or 0) }}</span>
+      </li>
+    {% else %}
+      {# Only the featured card explains an empty lineup. Three lines of filler
+         in a card this small is worse than the blank it replaces. #}
+      {% if not compact %}<li class="muted small">Lineup set at the draft</li>{% endif %}
+    {% endfor %}
+  </ol>
+</div>
+{% endmacro %}
+
+<div class="game {{ 'final' if game.final }} {{ 'mine' if me_id and (game.home.id == me_id or (game.away and game.away.id == me_id)) }}">
+  {{ side(game.home, lineups.get(game.home.id), managers.get(game.home.id), records.get(game.home.id), 'left', compact, me_id) }}
+
+  <div class="mmid">
+    {% if game.bye %}<span class="vs">BYE</span>
+    {% elif game.home.points or (game.away and game.away.points) %}
+      <span class="margin">{{ '%+.1f'|format((game.home.points or 0) - ((game.away or {}).points or 0)) }}</span>
+    {% else %}<span class="vs">vs</span>{% endif %}
+    {% if game.revision and game.revision > 1 %}<span class="rev" title="ESPN revised this score">rev {{ game.revision }}</span>{% endif %}
+  </div>
+
+  {% if game.away %}
+    {{ side(game.away, lineups.get(game.away.id), managers.get(game.away.id), records.get(game.away.id), 'right', compact, me_id) }}
+  {% else %}
+    <div class="mside right"><span class="mname muted">BYE</span></div>
+  {% endif %}
+</div>

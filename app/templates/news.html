@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>News</h1>
+
+{% if not (mine or league_wide or everything_else) %}
+  <p class="notice">
+    No news yet. ESPN's feed is a rolling ~36-hour window with no backfill, so
+    a fresh database starts empty and fills in as the poller runs.
+  </p>
+{% else %}
+
+{% if reporters %}
+<p class="scope">
+  <a href="#" class="on" data-reporter="">All reporters</a>
+  {% for r in reporters %}
+    <a href="#" data-reporter="{{ r|lower }}">{{ r }}</a>
+  {% endfor %}
+</p>
+{% endif %}
+
+{% macro article(item) %}
+<article class="newsitem" data-byline="{{ (item.byline or '')|lower }}">
+  <div class="ni-head">
+    <span class="muted small">{{ item.published_at.strftime('%a %d %b, %H:%M') if item.published_at else '—' }}</span>
+    {% if item.byline %}<span class="ni-byline">{{ item.byline }}</span>{% endif %}
+    {% if item.premium %}<span class="premium">ESPN+</span>{% endif %}
+  </div>
+  <h3>
+    {% if item.url %}<a href="{{ item.url }}" target="_blank" rel="noopener">{{ item.headline }}</a>
+    {% else %}{{ item.headline }}{% endif %}
+  </h3>
+  {% if item.description %}<p class="muted small">{{ item.description }}</p>{% endif %}
+  {% if item.players %}
+  <div class="ni-players">
+    {% for p in item.players %}
+      <span class="slot">{{ p.name }}{% if p.franchise %} · {{ p.franchise }}{% endif %}</span>
+    {% endfor %}
+  </div>
+  {% endif %}
+</article>
+{% endmacro %}
+
+<section data-section>
+  <h2>Your roster</h2>
+  {% if mine %}
+    <div class="newsfeed">{% for item in mine %}{{ article(item) }}{% endfor %}</div>
+  {% else %}
+    <p class="empty small">Nothing touching your roster in the last ~36 hours.</p>
+  {% endif %}
+</section>
+
+<section data-section>
+  <h2>Around the league</h2>
+  {% if league_wide %}
+    <div class="newsfeed">{% for item in league_wide %}{{ article(item) }}{% endfor %}</div>
+  {% else %}
+    <p class="empty small">Nothing touching another franchise's roster right now.</p>
+  {% endif %}
+</section>
+
+<section data-section>
+  <h2>Everything else</h2>
+  {% if everything_else %}
+    <div class="newsfeed">{% for item in everything_else %}{{ article(item) }}{% endfor %}</div>
+  {% else %}
+    <p class="empty small">Nothing left in the feed once rostered players are pulled out above.</p>
+  {% endif %}
+</section>
+
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  var chips = Array.prototype.slice.call(document.querySelectorAll('.scope [data-reporter]'));
+  if (!chips.length) return;
+  var items = Array.prototype.slice.call(document.querySelectorAll('.newsitem'));
+  var sections = Array.prototype.slice.call(document.querySelectorAll('[data-section]'));
+
+  function apply(active) {
+    chips.forEach(function (c) {
+      c.classList.toggle('on', c.dataset.reporter === active);
+    });
+    items.forEach(function (el) {
+      el.hidden = !!active && el.dataset.byline.indexOf(active) === -1;
+    });
+    sections.forEach(function (sec) {
+      // A section with no articles at all has its own "nothing here" message
+      // to show, unfiltered -- only a section the active chip has emptied out
+      // collapses.
+      if (!sec.querySelector('.newsitem')) return;
+      sec.hidden = !sec.querySelector('.newsitem:not([hidden])');
+    });
+  }
+  chips.forEach(function (c) {
+    c.addEventListener('click', function (e) {
+      e.preventDefault();
+      // Clicking the active chip again (but not "All reporters", which
+      // always resets) toggles back to the unfiltered view rather than
+      // requiring a second click on "All reporters".
+      var next = c.dataset.reporter;
+      if (next !== '' && c.classList.contains('on')) next = '';
+      apply(next);
+    });
+  });
+  apply('');
+})();
+</script>
+{% endblock %}

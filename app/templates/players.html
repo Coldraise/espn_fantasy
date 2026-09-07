@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Players <span class="muted">· week {{ week }} projections</span></h1>
+
+{% if not groups %}
+  <p class="empty">No projections stored yet — they load on the next poll.</p>
+{% else %}
+<p class="scope">
+  {% for w in weeks %}
+    <a href="/players?week={{ w }}{{ '&available=1' if available_only }}"
+       class="{{ 'on' if w == week }}">Week {{ w }}</a>
+  {% endfor %}
+  <a href="/players?week={{ week }}{{ '' if available_only else '&available=1' }}"
+     class="{{ 'on' if available_only }}">{{ 'All players' if available_only else 'Available only' }}</a>
+</p>
+
+<p class="muted small">
+  ESPN's projected points for week {{ week }}, best first in each lineup slot
+  this league starts.
+  {% if last_week and has_last %}
+    <b>Last</b> is each player's actual score in week {{ last_week }}.
+  {% elif last_week %}
+    <b>Last</b> will show week {{ last_week }} actuals once those games are played.
+  {% else %}
+    <b>Last</b> fills in from week 2 — there is no week before this one.
+  {% endif %}
+  {%- if not drafted %} Nobody is drafted yet, so every player is available.{% endif %}
+</p>
+
+<div class="posgrid">
+  {% for g in groups %}
+  <section class="poscard">
+    <h3>{{ g.label }} <span class="muted small">{{ g.players|length }} of {{ g.total }}</span></h3>
+    <div class="plhead"><span></span><span></span><span>Last</span><span>Proj</span></div>
+    <ol class="plist">
+      {% for p in g.players %}
+      {# Same tint as the matchup cards, so a player reads the same colour
+         wherever they appear. Free agents come through as "FA", which is in no
+         colour map and correctly renders untinted. #}
+      {% set tint = team_colors.get(p.pro_team) %}
+      <li {% if tint %}style="--tc: {{ tint }}"{% endif %} class="{{ 'tinted' if tint }}">
+        <span class="rank">{{ loop.index }}</span>
+        <span class="pn">
+          {{ p.name }}{% if p.rookie %}<span class="rookie" title="Rookie — first NFL season">R</span>{% endif %}
+          <span class="muted small">{{ p.pro_team }}{% if p.on_team_id %}
+            · {{ team_names.get(p.on_team_id, {}).get('name', 'rostered') }}{% endif %}</span>
+        </span>
+        <span class="pl">{{ '%.1f'|format(p.last) if p.last is not none else '·' }}</span>
+        <span class="pp">{{ '%.1f'|format(p.projected or 0) }}</span>
+      </li>
+      {% endfor %}
+    </ol>
+  </section>
+  {% endfor %}
+</div>
+{% endif %}
+{% endblock %}

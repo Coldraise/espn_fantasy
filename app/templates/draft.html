@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Draft <span class="muted">· {{ season }}</span></h1>
+{% if not picks %}
+  <p class="notice">
+    {% if draft_at %}
+      {{ meta.draft_type|default('', true)|title }} draft on
+      <strong>{{ draft_at.strftime('%A %d %B, %H:%M') }}</strong> ({{ tz_label }}).
+      The board appears here once ESPN marks the draft complete.
+    {% else %}
+      No draft date set yet.
+    {% endif %}
+  </p>
+{% else %}
+<p class="muted">{{ picks|length }} picks · {{ rounds|length }} rounds</p>
+<div class="scroll">
+<table class="matrix draftboard">
+  <thead><tr><th>Rd</th>{% for t in teams %}<th class="rot {{ 'me' if t.team_id == me_id }}">{{ t.name }}</th>{% endfor %}</tr></thead>
+  <tbody>
+  {% for round_num, round_picks in rounds %}
+    <tr>
+      <th class="rowhead">{{ round_num }}</th>
+      {% for team in teams %}
+        {% set p = round_picks.get(team.team_id) %}
+        <td class="cell {{ 'mecell' if team.team_id == me_id }}">
+          {% if p %}
+            <div class="pname">{{ p.player_name or '—' }}</div>
+            <div class="muted small">R{{ p.round }}.{{ p.round_pick }} · #{{ p.overall_pick }}{%
+              if p.bid_amount %} · ${{ p.bid_amount }}{% endif %}{% if p.keeper %} · keeper{% endif %}</div>
+          {% else %}<span class="muted">—</span>{% endif %}
+        </td>
+      {% endfor %}
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% endif %}
+
+{% if by_team %}
+<h2>Who drafted best</h2>
+<p class="muted small">
+  Value is points scored minus what the average pick in that round returned.
+  Measured against this league's own draft, so a steal means beating the room —
+  not beating a ranking someone published in August.
+</p>
+<table>
+  <thead><tr><th>Franchise</th><th class="num">Picks</th><th class="num">Points</th>
+    <th class="num">Value</th><th>Best pick</th><th>Worst pick</th></tr></thead>
+  <tbody>
+  {% for t in by_team %}
+    <tr class="{{ 'me' if t.team_id == me_id }}">
+      <td>{{ names.get(t.team_id, {}).get('name') or '—' }}</td>
+      <td class="num">{{ t.picks }}</td>
+      <td class="num">{{ t.points }}</td>
+      <td class="num {{ 'good' if t.value > 0 else 'bad' if t.value < 0 }}">{{ '%+.1f'|format(t.value) }}</td>
+      <td class="small">{{ t.best.player_name }} <span class="muted">#{{ t.best.overall_pick }} · {{ '%+.0f'|format(t.best.value) }}</span></td>
+      <td class="small">{{ t.worst.player_name }} <span class="muted">#{{ t.worst.overall_pick }} · {{ '%+.0f'|format(t.worst.value) }}</span></td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+
+<h2>Steals and reaches</h2>
+<div class="posgrid">
+  <section class="poscard">
+    <h3>Best value</h3>
+    <ol class="plist">
+      {% for p in value %}
+      <li><span class="rank">{{ loop.index }}</span>
+        <span class="pn">{{ p.player_name }}
+          <span class="muted small">#{{ p.overall_pick }} · {{ names.get(p.team_id, {}).get('name') or '' }}</span></span>
+        <span class="pl">{{ p.points }}</span>
+        <span class="pp good">{{ '%+.0f'|format(p.value) }}</span></li>
+      {% endfor %}
+    </ol>
+  </section>
+  <section class="poscard">
+    <h3>Worst value</h3>
+    <ol class="plist">
+      {% for p in flops %}
+      <li><span class="rank">{{ loop.index }}</span>
+        <span class="pn">{{ p.player_name }}
+          <span class="muted small">#{{ p.overall_pick }} · {{ names.get(p.team_id, {}).get('name') or '' }}</span></span>
+        <span class="pl">{{ p.points }}</span>
+        <span class="pp bad">{{ '%+.0f'|format(p.value) }}</span></li>
+      {% endfor %}
+    </ol>
+  </section>
+</div>
+{% endif %}
+
+{% if runs %}
+<h2>Positional runs</h2>
+<p class="muted small">Three or more consecutive picks at the same position — the moment somebody panicked and the room followed.</p>
+<table>
+  <thead><tr><th>Position</th><th class="num">Picks</th><th class="num">From</th><th class="num">To</th><th>Who went</th></tr></thead>
+  <tbody>
+  {% for r in runs %}
+    <tr><td><span class="slot">{{ r.position }}</span></td>
+      <td class="num">{{ r.length }}</td><td class="num">#{{ r.start }}</td><td class="num">#{{ r.end }}</td>
+      <td class="small muted">{{ r.players|join(', ') }}</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+{% endblock %}
