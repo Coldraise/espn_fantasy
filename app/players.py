@@ -95,3 +95,31 @@ def group_by_position(rows: list[dict], per_group: int = 60,
         out.append({"label": label, "players": players[:per_group],
                     "total": len(players)})
     return out
+
+
+def leaders(rows: list[dict], per: int = 3, by: str = "projected") -> list[dict]:
+    """The top `per` players in each lineup group, best first.
+
+    `by` is "actual" once a week has been played and "projected" before that.
+    Ranking a played week on projections would list the players we expected to
+    do well rather than the ones who did.
+    """
+    buckets: dict[str, list[dict]] = defaultdict(list)
+    for row in rows:
+        label = group_for(row.get("position"))
+        if label is None:
+            continue
+        buckets[label].append(row)
+
+    out = []
+    for label, _ in POSITION_GROUPS:
+        got = buckets.get(label)
+        if not got:
+            continue
+        got = sorted(got, key=lambda r: -(r.get(by) or 0))
+        out.append({
+            "label": label,
+            "players": [{"name": p.get("name"), "pro_team": p.get("pro_team"),
+                         "value": p.get(by) or 0} for p in got[:per]],
+        })
+    return out

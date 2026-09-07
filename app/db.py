@@ -318,6 +318,27 @@ CREATE TABLE IF NOT EXISTS nfl_team_weeks (
 
 -- What each nflverse release said when we last read it, so an unchanged
 -- release costs one timestamp.json request instead of a download.
+-- Touchdowns as they land. A row is written only when a rostered player's TD
+-- count goes UP between two polls, which is what makes this a feed of events
+-- rather than a standing total: the count itself lives on team_week_players.
+-- Only rostered players are ever polled into that table, so "owned by someone
+-- in the league" is structural here rather than a filter.
+CREATE TABLE IF NOT EXISTS scoring_events (
+    id        INTEGER PRIMARY KEY AUTOINCREMENT,
+    season    INTEGER NOT NULL,
+    week      INTEGER NOT NULL,
+    team_id   INTEGER NOT NULL,
+    player_id INTEGER NOT NULL,
+    name      TEXT,
+    position  TEXT,
+    pro_team  TEXT,
+    tds       INTEGER NOT NULL,
+    scored    INTEGER NOT NULL,
+    at        TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_events_week ON scoring_events (season, week, at);
+
 CREATE TABLE IF NOT EXISTS nflverse_sync (
     tag          TEXT PRIMARY KEY,
     last_updated TEXT,
@@ -366,6 +387,9 @@ _ADDED_COLUMNS = [
     ("team_week_players", "is_starter", "INTEGER NOT NULL DEFAULT 1"),
     ("team_week_players", "injury_status", "TEXT"),
     ("team_week_players", "injured", "INTEGER NOT NULL DEFAULT 0"),
+    # Touchdowns so far this week. The running total is what lets the next poll
+    # tell a new score from one it has already announced.
+    ("team_week_players", "tds", "INTEGER NOT NULL DEFAULT 0"),
 ]
 
 
@@ -617,25 +641,76 @@ def players_synced_at(conn) -> str | None:
 
 
 def replace_team_week_players(conn, season: int, week: int, rows: list[dict]) -> int:
-    """Replace one week's lineups. A lineup is current state, not a record."""
+    """Replace one week's lineups. A lineup is current state, not a record.
+
+    The touchdown diff happens here rather than in the poller because this is
+    the only moment both states exist: the write is a DELETE followed by an
+    INSERT, so once it has run the previous counts are gone. Doing it inside
+    the same transaction also means a crash between the two cannot announce a
+    touchdown that was never stored.
+    """
     with conn:
+        before = {
+            int(r["player_id"]): int(r["tds"] or 0)
+            for r in conn.execute(
+                "SELECT player_id, tds FROM team_week_players WHERE season=? AND week=?",
+                (season, week))
+        }
+        now = _now()
+        events = []
+        for r in rows:
+            pid = int(r["player_id"])
+            tds = int(r.get("tds") or 0)
+            was = before.get(pid)
+            # A player with no previous row is new to the roster mid-week, not
+            # someone who just scored: announcing their season so far as it
+            # happening now would be wrong, so they only seed the baseline.
+            if was is None or tds <= was:
+                continue
+            events.append((season, week, r["team_id"], pid, r.get("name"),
+                           r.get("position"), r.get("pro_team"), tds, tds - was, now))
+        if events:
+            conn.executemany(
+                """INSERT INTO scoring_events
+                   (season, week, team_id, player_id, name, position, pro_team,
+                    tds, scored, at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""", events)
+
         conn.execute("DELETE FROM team_week_players WHERE season=? AND week=?", (season, week))
         conn.executemany(
             """
             INSERT INTO team_week_players
                 (season, week, team_id, player_id, name, position,
                  lineup_slot, pro_team, is_starter, injury_status, injured,
-                 projected, actual, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 projected, actual, tds, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             [(season, week, r["team_id"], r["player_id"], r.get("name"), r.get("position"),
               r.get("lineup_slot"), r.get("pro_team"),
               0 if r.get("is_starter") is False else 1,
               r.get("injury_status"), 1 if r.get("injured") else 0,
-              r.get("projected"), r.get("actual"), _now())
+              r.get("projected"), r.get("actual"), int(r.get("tds") or 0), now)
              for r in rows],
         )
     return len(rows)
+
+
+def recent_scoring_events(conn, season: int, week: int,
+                          within_minutes: int = 150, limit: int = 8) -> list[dict]:
+    """Touchdowns scored in the last few minutes, newest first.
+
+    Time-boxed because this is a live strip: a touchdown from Sunday is not
+    news on Wednesday. Every row is a rostered player by construction, and a
+    row only exists because the count moved while we were polling, so "owned
+    and playing" needs no extra test.
+    """
+    cutoff = (datetime.now(timezone.utc)
+              - timedelta(minutes=within_minutes)).isoformat(timespec="seconds")
+    return [dict(r) for r in conn.execute(
+        """SELECT * FROM scoring_events
+           WHERE season=? AND week=? AND at >= ?
+           ORDER BY at DESC, id DESC LIMIT ?""",
+        (season, week, cutoff, limit))]
 
 
 def fetch_team_week_players(conn, season: int, week: int,

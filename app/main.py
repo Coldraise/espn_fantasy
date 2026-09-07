@@ -137,13 +137,36 @@ def _base_context(request: Request, conn) -> dict:
 
     user = _current_user(request)
     me_id = int(user["team_id"]) if user else None
+    names = db.franchise_names(conn, cfg.franchise_since)
+
+    # The header strip: best three in every lineup slot, and any touchdown a
+    # rostered player has just scored. Both are on every page because the
+    # header is.
+    ticker: list[dict] = []
+    td_events: list[dict] = []
+    ticker_played = False
+    weeks = db.projection_weeks(conn, cfg.current_season)
+    if weeks:
+        ticker_week = weeks[0]
+        rows = db.fetch_player_projections(conn, cfg.current_season, ticker_week)
+        # Before anyone has played, a projection is the only ranking there is.
+        ticker_played = any((r.get("actual") or 0) for r in rows)
+        ticker = players.leaders(
+            rows, per=3, by="actual" if ticker_played else "projected")
+        for event in db.recent_scoring_events(conn, cfg.current_season, ticker_week):
+            event["owner"] = names.get(int(event["team_id"]), {}).get("name")
+            td_events.append(event)
+
     return {
         "request": request,
         "auth": status,
         "me": user,
         "me_id": me_id,
-        "me_name": db.franchise_names(conn, cfg.franchise_since).get(me_id, {}).get("name")
+        "me_name": names.get(me_id, {}).get("name")
                    or (user["username"] if user else None),
+        "ticker": ticker,
+        "ticker_live": ticker_played,
+        "td_events": td_events,
         "cfg": cfg,
         "seasons": db.available_seasons(conn) or list(cfg.seasons),
         "history_seasons": db.history_seasons(conn),

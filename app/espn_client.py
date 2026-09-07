@@ -352,6 +352,41 @@ def _pro_team(pro_team_map: dict, player: dict) -> str | None:
     return abbrev if abbrev and abbrev != "None" else None
 
 
+# Touchdown stat ids, taken from espn_api's PLAYER_STATS_MAP rather than typed
+# from memory. Components only: 105 (defensivePlusSpecialTeamsTouchdowns) is a
+# sum of 94 and 101-104 and would double-count every defensive score, and 63
+# (fumbleRecoveredForTD) overlaps 104. A passing and a receiving touchdown on
+# the same play are two different fantasy players scoring, so both count.
+TD_STAT_IDS = (
+    4,    # passingTouchdowns
+    25,   # rushingTouchdowns
+    43,   # receivingTouchdowns
+    94,   # defensiveTouchdowns
+    101,  # kickoffReturnTouchdowns
+    102,  # puntReturnTouchdowns
+    103,  # interceptionReturnTouchdowns
+    104,  # fumbleReturnTouchdowns
+)
+
+
+def _touchdowns(stat: dict) -> int:
+    """Touchdowns inside one ESPN stat block.
+
+    The raw per-stat dict is keyed by stat id, but as JSON object keys they
+    arrive as strings -- "4", not 4 -- so every lookup coerces. Values are
+    floats and can be fractional for team defences; only whole scores count.
+    """
+    raw = stat.get("stats") or {}
+    total = 0
+    for key, value in raw.items():
+        try:
+            if int(key) in TD_STAT_IDS:
+                total += int(float(value or 0))
+        except (TypeError, ValueError):
+            continue
+    return total
+
+
 def matchup_rosters(season: int, week: int) -> dict[int, list[dict]]:
     """Each team's roster for one week, keyed by team id.
 
@@ -386,6 +421,7 @@ def matchup_rosters(season: int, week: int) -> dict[int, list[dict]]:
             for entry in roster:
                 player = (entry.get("playerPoolEntry") or {}).get("player") or {}
                 projected = actual = None
+                tds = 0
                 for stat in player.get("stats") or []:
                     if stat.get("scoringPeriodId") != scoring_period:
                         continue
@@ -393,6 +429,9 @@ def matchup_rosters(season: int, week: int) -> dict[int, list[dict]]:
                         projected = stat.get("appliedTotal")
                     elif stat.get("statSourceId") == 0:
                         actual = stat.get("appliedTotal")
+                        # Only the real result carries touchdowns -- source 1 is
+                        # the projection, whose "TDs" are a forecast.
+                        tds = _touchdowns(stat)
                 people.append({
                     "player_id": player.get("id") or entry.get("playerId"),
                     "name": player.get("fullName"),
@@ -414,6 +453,7 @@ def matchup_rosters(season: int, week: int) -> dict[int, list[dict]]:
                     "injured": bool(player.get("injured")),
                     "projected": round(projected, 1) if projected is not None else None,
                     "actual": round(actual, 1) if actual is not None else None,
+                    "tds": tds,
                 })
             out[int(team_id)] = people
     return out

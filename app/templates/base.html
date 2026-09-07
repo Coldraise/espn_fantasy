@@ -21,7 +21,28 @@
   <button class="burger" id="burger" aria-label="Open menu" aria-expanded="false" aria-controls="drawer">
     <span></span><span></span><span></span>
   </button>
-  <a class="brand" href="/">{{ meta.name or 'League Monitor' }}</a>
+  {% if ticker %}
+  {# Decorative duplicate of what /players shows, and the marquee needs the
+     run repeated to loop seamlessly -- reading it all twice helps nobody. #}
+  <div class="ticker" aria-hidden="true">
+    <div class="ticker-track">
+      {% for copy in [1, 2] %}
+        {% for g in ticker %}
+        <span class="tk-group">
+          <span class="tk-pos">{{ g.label }}</span>
+          {% for p in g.players %}
+            <span class="tk-p">
+              <span class="tk-rank">{{ loop.index }}</span>{{ p.name }}
+              <span class="tk-team">{{ p.pro_team or '' }}</span>
+              <span class="tk-val">{{ '%.1f'|format(p.value or 0) }}</span>
+            </span>
+          {% endfor %}
+        </span>
+        {% endfor %}
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
   <div class="status">
     {% if state == 'pre_draft' %}<span class="chip amber">pre-draft</span>
     {% elif state == 'drafted' %}<span class="chip violet">drafted</span>
@@ -31,6 +52,20 @@
     {% if me_name %}<span class="who" title="Signed in as {{ me_name }}">{{ me_name }}</span>{% endif %}
   </div>
 </header>
+
+{% if td_events %}
+<div class="tdstrip">
+  {% for e in td_events %}
+    <span class="td-item">
+      <span class="td-badge">TD</span>
+      <b>{{ e.name }}</b>
+      <span class="td-team">{{ e.pro_team or '' }}</span>
+      {%- if e.scored > 1 %} <span class="td-mult">&times;{{ e.scored }}</span>{% endif %}
+      <span class="td-owner">{{ e.owner or 'a franchise' }}</span>
+    </span>
+  {% endfor %}
+</div>
+{% endif %}
 
 <div class="scrim" id="scrim" hidden></div>
 
