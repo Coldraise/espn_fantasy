@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900">
+<defs>
+  <radialGradient id="lampglow">
+    <stop offset="0" stop-color="#ffe6ad" stop-opacity=".32"/>
+    <stop offset="1" stop-color="#ffe6ad" stop-opacity="0"/>
+  </radialGradient>
+</defs>
+<g fill="#030d0a">
+  <path d="M0,170 L700,324 L0,700 Z"/>
+  <path d="M1600,170 L900,324 L1600,700 Z"/>
+</g>
+<g stroke="#ffffff" stroke-opacity=".07" stroke-width="2" fill="none">
+  <path d="M0,206 L700,324"/><path d="M0,248 L700,324"/><path d="M0,294 L700,324"/><path d="M0,344 L700,324"/>
+  <path d="M1600,206 L900,324"/><path d="M1600,248 L900,324"/><path d="M1600,294 L900,324"/><path d="M1600,344 L900,324"/>
+  <path d="M0,170 L700,324 L0,700 Z"/>
+  <path d="M1600,170 L900,324 L1600,700 Z"/>
+</g>
+<rect x="227.5" y="112" width="5" height="108.6" fill="#020907"/><rect x="194" y="92" width="72" height="20" rx="3" fill="#020907"/><circle cx="204.5" cy="102" r="5" fill="#fff3d2" transform="translate(0,0)"/><circle cx="204.5" cy="102" r="5" fill="#fff3d2" transform="translate(17,0)"/><circle cx="204.5" cy="102" r="5" fill="#fff3d2" transform="translate(34,0)"/><circle cx="204.5" cy="102" r="5" fill="#fff3d2" transform="translate(51,0)"/><circle cx="230" cy="102" r="52" fill="url(#lampglow)"/>
+<rect x="517.5" y="112" width="5" height="172.39999999999998" fill="#020907"/><rect x="484" y="92" width="72" height="20" rx="3" fill="#020907"/><circle cx="494.5" cy="102" r="5" fill="#fff3d2" transform="translate(0,0)"/><circle cx="494.5" cy="102" r="5" fill="#fff3d2" transform="translate(17,0)"/><circle cx="494.5" cy="102" r="5" fill="#fff3d2" transform="translate(34,0)"/><circle cx="494.5" cy="102" r="5" fill="#fff3d2" transform="translate(51,0)"/><circle cx="520" cy="102" r="52" fill="url(#lampglow)"/>
+<rect x="1367.5" y="112" width="5" height="108.6" fill="#020907"/><rect x="1334" y="92" width="72" height="20" rx="3" fill="#020907"/><circle cx="1344.5" cy="102" r="5" fill="#fff3d2" transform="translate(0,0)"/><circle cx="1344.5" cy="102" r="5" fill="#fff3d2" transform="translate(17,0)"/><circle cx="1344.5" cy="102" r="5" fill="#fff3d2" transform="translate(34,0)"/><circle cx="1344.5" cy="102" r="5" fill="#fff3d2" transform="translate(51,0)"/><circle cx="1370" cy="102" r="52" fill="url(#lampglow)"/>
+<rect x="1077.5" y="112" width="5" height="172.39999999999998" fill="#020907"/><rect x="1044" y="92" width="72" height="20" rx="3" fill="#020907"/><circle cx="1054.5" cy="102" r="5" fill="#fff3d2" transform="translate(0,0)"/><circle cx="1054.5" cy="102" r="5" fill="#fff3d2" transform="translate(17,0)"/><circle cx="1054.5" cy="102" r="5" fill="#fff3d2" transform="translate(34,0)"/><circle cx="1054.5" cy="102" r="5" fill="#fff3d2" transform="translate(51,0)"/><circle cx="1080" cy="102" r="52" fill="url(#lampglow)"/>
+</svg>

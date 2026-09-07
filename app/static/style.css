@@ -645,7 +645,11 @@ thead th { font-family: var(--display); letter-spacing: .1em; font-size: 12px; }
    composited on the GPU, where animating a background position repaints the
    whole layer on the main thread every frame. */
 .field {
-  position: fixed; inset: 0; z-index: 0; overflow: hidden;
+  /* Out of focus, so the card is the only sharp thing on the page. The inset
+     overhang matters: blur samples beyond the element, and at inset:0 the four
+     edges fade to transparent and show a pale seam against the page. */
+  position: fixed; inset: -40px; z-index: 0; overflow: hidden;
+  filter: blur(3.5px);
   background:
     /* the sun we are running at -- the plane is a child painted over this
        background, so it swallows the lower half at the horizon for free */
@@ -680,12 +684,22 @@ thead th { font-family: var(--display); letter-spacing: .1em; font-size: 12px; }
   content: ""; position: absolute; left: 0; right: 0; top: -1440px; bottom: 0;
   background: url("/static/field.svg") repeat 0 0 / 2600px 1440px, #071c14;
   will-change: transform; backface-visibility: hidden;
-  animation: fieldrun 9s linear infinite;
+  animation: fieldrun 15s linear infinite;
 }
 /* Local +Y is the near ground, so +1440 comes toward the camera. */
 @keyframes fieldrun {
   from { transform: translate3d(0, 0, 0); }
   to   { transform: translate3d(0, 1440px, 0); }
+}
+
+/* The stadium: two raked stands converging on the vanishing point, floodlights
+   above them. It sits after .field-plane in the DOM so it paints over the
+   turf's dark surround -- which is exactly the ground the stands stand on --
+   and stretches to 100% 100% so its horizon stays on the page's horizon at any
+   aspect ratio. A gap is left at the vanishing point for the sun. */
+.stands {
+  position: absolute; inset: 0; pointer-events: none;
+  background: url("/static/stadium.svg") no-repeat 50% 0 / 100% 100%;
 }
 
 /* Dissolve the far distance into the sky: hides the horizon seam and the
@@ -706,11 +720,8 @@ thead th { font-family: var(--display); letter-spacing: .1em; font-size: 12px; }
 
 .loginwrap {
   position: relative; z-index: 1; max-width: none;
-  display: grid; justify-items: center; align-items: center; padding: 24px;
+  display: grid; place-items: center; padding: 24px;
   min-height: 100vh; min-height: 100dvh;
-}
-@media (min-height: 640px) {
-  .loginwrap { align-items: end; padding-bottom: 11vh; }
 }
 .loginbox {
   width: 100%; max-width: 340px; padding: 30px 28px 28px;
