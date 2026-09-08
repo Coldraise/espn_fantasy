@@ -386,3 +386,43 @@ def test_short_name_handles_nothing_to_shorten():
     assert players.short_name("") == ""
     assert players.short_name(None) == ""
     assert players.short_name("  Bijan  Robinson  ") == "Bijan R."
+
+
+# --- one list across every position ----------------------------------------
+
+RANK_ROWS = [
+    {"name": "Kicker", "position": "K", "projected": 9, "actual": 0},
+    {"name": "Back", "position": "RB", "projected": 21, "actual": 0},
+    {"name": "Back2", "position": "RB", "projected": 18, "actual": 0},
+    {"name": "Passer", "position": "QB", "projected": 20, "actual": 0},
+    {"name": "Snapper", "position": "LS", "projected": 99, "actual": 0},
+]
+
+
+def test_ranked_orders_across_positions_not_within_them():
+    """Concatenating the groups would put the best kicker above the second
+    running back, because each group is only sorted inside itself."""
+    got = [p["name"] for p in players.ranked(RANK_ROWS)]
+    assert got == ["Back", "Passer", "Back2", "Kicker"]
+
+
+def test_ranked_tags_each_row_with_its_group():
+    by_name = {p["name"]: p["group"] for p in players.ranked(RANK_ROWS)}
+    assert by_name["Back"] == "RB"
+    assert by_name["Passer"] == "QB"
+
+
+def test_ranked_drops_positions_the_league_does_not_start():
+    assert all(p["name"] != "Snapper" for p in players.ranked(RANK_ROWS))
+
+
+def test_ranked_can_order_on_the_result_instead():
+    rows = [{"name": "A", "position": "RB", "projected": 30, "actual": 2},
+            {"name": "B", "position": "RB", "projected": 1, "actual": 25}]
+    assert [p["name"] for p in players.ranked(rows, by="actual")] == ["B", "A"]
+
+
+def test_ranked_survives_missing_scores():
+    rows = [{"name": "A", "position": "RB", "projected": None},
+            {"name": "B", "position": "RB", "projected": 5}]
+    assert [p["name"] for p in players.ranked(rows)] == ["B", "A"]

@@ -17,6 +17,7 @@ from urllib.parse import quote
 from fastapi import FastAPI, Form, Request
 from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.templating import Jinja2Templates
 
 from . import (analytics, auth, db, espn_client, nflstats, nflweeks, players,
@@ -90,6 +91,11 @@ class _RevalidatingStatic(StaticFiles):
         response.headers["Cache-Control"] = "no-cache"
         return response
 
+
+# The players page renders every player twice -- once grouped for a wide
+# screen, once ranked flat for a narrow one. Uncompressed that is a few hundred
+# kilobytes; gzipped it is a small fraction of that.
+app.add_middleware(GZipMiddleware, minimum_size=1024)
 
 app.mount("/static", _RevalidatingStatic(directory=str(HERE / "static")), name="static")
 
@@ -637,17 +643,28 @@ def player_rankings(request: Request):
         # players, so the tab list and the shown group come out of the same
         # call. A single position gets a deeper list -- there is only one card
         # to fill, so 50 would cut a ranking short for no reason.
+        # No cap: "show all the players" means all of them. It is one render
+        # and scrolling costs nothing, where a cap hides the deep end of the
+        # pool, which is the part worth searching.
         all_groups = players.group_by_position(
-            rows, per_group=100 if pos else 50, available_only=available_only)
+            rows, per_group=None, available_only=available_only)
         positions = [g["label"] for g in all_groups]
         if pos not in positions:
             pos = ""
+        # A phone shows one list ranked across every position rather than nine
+        # stacked cards. It cannot be built by concatenating the groups, whose
+        # order is per-group, so it is ranked here and rendered alongside them.
+        flat = [] if pos else players.ranked(
+            [r for r in rows
+             if not (available_only and (r.get("on_team_id") or 0))],
+            by="actual" if any((r.get("actual") or 0) for r in rows) else "projected")
         context = _base_context(request, conn) | {
             "week": week,
             "weeks": weeks,
             "available_only": available_only,
             "pos": pos,
             "positions": positions,
+            "flat": flat,
             "groups": [g for g in all_groups if g["label"] == pos] if pos
                       else all_groups,
             "last_week": last_week if last_week >= 1 else None,

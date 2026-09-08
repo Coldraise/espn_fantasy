@@ -152,3 +152,21 @@ def short_name(name: str | None) -> str:
     if len(parts) < 2:
         return full
     return f"{parts[0]} {parts[-1][0].upper()}."
+
+
+def ranked(rows: list[dict], by: str = "projected") -> list[dict]:
+    """Every player in one list, best first, tagged with its lineup group.
+
+    The by-position grouping answers "who is the best tight end". This answers
+    "who is the best player", which is a different question and not obtainable
+    by concatenating the groups -- their order is per-group, so the top kicker
+    would sit above the second-best running back.
+    """
+    out = []
+    for row in rows:
+        label = group_for(row.get("position"))
+        if label is None:
+            continue
+        out.append({**row, "group": label})
+    out.sort(key=lambda r: -(r.get(by) or 0))
+    return out

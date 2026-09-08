@@ -38,6 +38,30 @@
   {%- if not drafted %} Nobody is drafted yet, so every player is available.{% endif %}
 </p>
 
+{# A phone gets one list ranked across every position; a wide screen gets the
+   nine cards side by side, which is what makes that width worth having. Both
+   are rendered and CSS picks one -- the flat order cannot be derived from the
+   grouped one, and rebuilding it in the browser would mean shipping the data
+   and then sorting it again. #}
+{% if flat %}
+<ol class="plist flatlist">
+  {% for p in flat %}
+    {% set tint = team_colors.get(p.pro_team) %}
+    <li {% if tint %}style="--tc: {{ tint }}"{% endif %} class="{{ 'tinted' if tint }}">
+      <span class="rank">{{ loop.index }}</span>
+      <span class="pn">
+        {{ p.name }}{% if p.rookie %}<span class="rookie" title="Rookie — first NFL season">R</span>{% endif %}
+        <span class="muted small">{{ p.pro_team }}{% if p.on_team_id %}
+          · {{ team_names.get(p.on_team_id, {}).get('name', 'rostered') }}{% endif %}</span>
+      </span>
+      <span class="fpos">{{ p.group }}</span>
+      <span class="pl">{{ '%.1f'|format(p.last) if p.last is not none else '·' }}</span>
+      <span class="pp">{{ '%.1f'|format(p.projected or 0) }}</span>
+    </li>
+  {% endfor %}
+</ol>
+{% endif %}
+
 <div class="posgrid{{ ' one' if pos }}">
   {% for g in groups %}
   <section class="poscard">
