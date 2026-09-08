@@ -10,10 +10,14 @@
   {% endif %}
   {% if other_games %}
     {% if my_game %}<h2>Rest of the week</h2>{% endif %}
-    <div class="games compact">
-      {% for game in other_games %}
-        {% with compact = true %}{% include "_matchup.html" %}{% endwith %}
-      {% endfor %}
+    {# One panel rather than loose cards, and each opens in place. #}
+    <div class="restbox">
+      <div class="games compact">
+        {% for game in other_games %}
+          {% with compact = true %}{% include "_matchup.html" %}{% endwith %}
+        {% endfor %}
+      </div>
+      <p class="resthint muted small">Tap a matchup for the full lineups</p>
     </div>
   {% elif not my_game %}
     <p class="empty">No matchups scheduled for this week.</p>

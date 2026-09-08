@@ -1,0 +1,51 @@
+{#  The season schedule, shared by the pre-season hub and the in-season
+    dashboard. It used to live only on the former, so it disappeared at the
+    draft -- taking the trade-deadline marker with it, at the point in the year
+    it starts to matter.
+
+    Expects: grid {weeks, rows, markers}, me_id, and week (the current one). #}
+{% if grid.weeks %}
+<h2>Season schedule</h2>
+<div class="scroll">
+<table class="matrix schedule">
+  <thead>
+    <tr>
+      <th></th>
+      {% for w in grid.weeks %}
+        {% set marks = grid.markers.get(w) %}
+        <th class="rot {{ 'nowweek' if week and w == week }}">
+          <span class="wk">{{ w }}</span>
+          {% if marks %}
+            <span class="wkmark" title="{{ marks|map(attribute='label')|join(' · ') }}">
+              {%- for m in marks %}{{ m.icon }}{% endfor -%}
+            </span>
+          {% endif %}
+        </th>
+      {% endfor %}
+    </tr>
+  </thead>
+  <tbody>
+  {% for row in grid.rows %}
+    <tr class="{{ 'me' if row.team_id == me_id }}">
+      <th class="rowhead {{ 'me' if row.team_id == me_id }}">{{ row.name }}</th>
+      {% for w in grid.weeks %}
+        {% set opp = row.opponents.get(w) %}
+        <td class="cell small {{ 'mecell' if me_id and opp and opp.id == me_id }}
+                   {{ 'nowweek' if week and w == week }}">{{ opp.name if opp and opp.name else '—' }}</td>
+      {% endfor %}
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% if grid.markers %}
+<p class="wklegend">
+  {% for w, marks in grid.markers|dictsort %}
+    {% for m in marks %}
+      <span><b>{{ m.icon }}</b> {{ m.label }}
+        <span class="muted">week {{ w }} · {{ m.date.strftime('%d %b') }}</span></span>
+    {% endfor %}
+  {% endfor %}
+</p>
+{% endif %}
+{% endif %}

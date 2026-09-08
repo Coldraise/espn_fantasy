@@ -162,6 +162,50 @@
   });
 })();
 </script>
+<script>
+/* Opening one of the "rest of the week" cards. The full lineups are already in
+   the page -- the card only hides the rows past the third until it is open --
+   so this toggles a class and nothing is fetched.
+
+   The ids matter: htmx replaces the whole scoreboard every 30 seconds while
+   games are live, which would silently close whatever you had open. Open cards
+   are remembered by id across the swap and reopened afterwards. */
+(function () {
+  var open = new Set();
+
+  function setOpen(card, want) {
+    card.classList.toggle('open', want);
+    card.setAttribute('aria-expanded', String(want));
+    if (want) { open.add(card.id); } else { open.delete(card.id); }
+  }
+
+  function cardFrom(target) {
+    var card = target.closest && target.closest('.games.compact .game');
+    /* Team names inside the card are real links to their history. */
+    return (card && !target.closest('a')) ? card : null;
+  }
+
+  document.addEventListener('click', function (e) {
+    var card = cardFrom(e.target);
+    if (card) { setOpen(card, !card.classList.contains('open')); }
+  });
+
+  document.addEventListener('keydown', function (e) {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    var card = cardFrom(e.target);
+    if (!card) return;
+    e.preventDefault();               /* space would scroll the page */
+    setOpen(card, !card.classList.contains('open'));
+  });
+
+  document.body.addEventListener('htmx:afterSwap', function () {
+    open.forEach(function (id) {
+      var card = document.getElementById(id);
+      if (card) { card.classList.add('open'); card.setAttribute('aria-expanded', 'true'); }
+    });
+  });
+})();
+</script>
 {% block scripts %}{% endblock %}
 </body>
 </html>

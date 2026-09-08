@@ -44,13 +44,19 @@
      looking at rather than a bare scoreline. Already sorted best-first by
      db.fetch_team_week_players, so the slice is the top 3. Every row is tinted
      with that player's NFL team colour. #}
-  {% set shown = (players or [])[:3] if compact else (players or []) %}
+  {# Compact cards render the whole lineup too and let CSS show only the first
+     three until the card is opened. The rows were already fetched -- this only
+     ever sliced them -- so expanding needs no second request. #}
+  {% set shown = players or [] %}
   <ol class="toplayers">
     {% for p in shown %}
       {% set tint = team_colors.get(p.pro_team) %}
       <li {% if tint %}style="--tc: {{ tint }}"{% endif %} class="{{ 'tinted' if tint }}">
         <span class="slot">{{ p.lineup_slot }}</span>
-        <span class="pname">{{ p.name }}{% if p.rookie %}<span class="rookie" title="Rookie — first NFL season">R</span>{% endif %}</span>
+        {# Both spellings ship and CSS picks one: a narrow row has no space for
+           the full name and the NFL team together, and the name is what you
+           are actually reading. #}
+        <span class="pname"><span class="nm-full">{{ p.name }}</span><span class="nm-abbr">{{ p.name|short_name }}</span>{% if p.rookie %}<span class="rookie" title="Rookie — first NFL season">R</span>{% endif %}</span>
         <span class="pro">{{ p.pro_team or '' }}</span>
         <span class="ppts">{{ '%.1f'|format((p.actual if p.actual is not none else p.projected) or 0) }}</span>
       </li>
@@ -63,7 +69,12 @@
 </div>
 {% endmacro %}
 
-<div class="game {{ 'final' if game.final }} {{ 'mine' if me_id and (game.home.id == me_id or (game.away and game.away.id == me_id)) }}">
+{# The id is stable across an htmx scoreboard swap, which is what lets an
+   opened card be reopened after the 30s refresh replaces it. #}
+<div class="game {{ 'final' if game.final }} {{ 'mine' if me_id and (game.home.id == me_id or (game.away and game.away.id == me_id)) }}"
+     id="game-{{ game.home.id }}-{{ game.away.id if game.away else 'bye' }}"
+     {% if compact %}role="button" tabindex="0" aria-expanded="false"
+     aria-label="Show the full lineups for {{ game.home.name }} against {{ game.away.name if game.away else 'a bye' }}"{% endif %}>
   {{ side(game.home, lineups.get(game.home.id), managers.get(game.home.id), records.get(game.home.id), 'left', compact, me_id) }}
 
   <div class="mmid">

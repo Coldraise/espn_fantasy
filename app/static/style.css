@@ -489,6 +489,29 @@ mark { background: var(--amber-soft); color: inherit; border-radius: 3px; paddin
   .mname { font-size: 14.5px; }
 }
 
+/* ---------- rest of the week ---------- */
+.restbox {
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: var(--radius); box-shadow: var(--lift);
+  padding: 12px 12px 4px; margin-bottom: 4px;
+}
+.restbox .games.compact { gap: 10px; }
+/* The cards inside carry the panel, so they must not each look like one too. */
+.restbox .games.compact .game {
+  box-shadow: none; background: var(--raised); border-color: var(--line-soft);
+  cursor: pointer;
+}
+.restbox .games.compact .game:hover { border-color: var(--red); }
+.restbox .games.compact .game:focus-visible {
+  outline: 2px solid var(--red); outline-offset: 2px;
+}
+.resthint { margin: 8px 0 8px; text-align: center; }
+.games.compact .game.open { cursor: default; }
+/* Collapsed shows a top three; open shows the lineup. The rows are always in
+   the page, so opening costs no request. */
+.games.compact .game:not(.open) .toplayers li:nth-child(n+4) { display: none; }
+.games.compact .game.open { grid-row-gap: 4px; }
+
 /* ---------- draft scoreboard (the hub's focal point) ---------- */
 .scoreboard {
   position: relative; overflow: hidden;
@@ -724,7 +747,7 @@ thead th { font-family: var(--display); letter-spacing: .1em; font-size: 12px; }
   min-height: 100vh; min-height: 100dvh;
 }
 .loginbox {
-  width: 100%; max-width: 340px; padding: 30px 28px 28px;
+  width: 100%; max-width: 340px; padding: 30px 28px 28px; text-align: center;
   background: rgba(6,20,15,.55);
   border: 1px solid rgba(255,255,255,.13);
   border-top: 3px solid #c4352f;
@@ -744,7 +767,7 @@ thead th { font-family: var(--display); letter-spacing: .1em; font-size: 12px; }
   color: rgba(255,255,255,.5);
 }
 .loginbox input {
-  width: 100%; padding: 12px 14px; font-size: 15px; color: #fff;
+  width: 100%; padding: 12px 14px; font-size: 15px; color: #fff; text-align: center;
   background: rgba(255,255,255,.06);
   border: 1px solid rgba(255,255,255,.14); border-radius: 9px; outline: none;
   transition: border-color .15s, box-shadow .15s, background .15s;
@@ -867,6 +890,17 @@ td .slot {
 }
 .credit { margin-top: 26px; padding-top: 12px; border-top: 1px solid var(--line-soft); }
 
+/* ---------- season schedule markers ---------- */
+.schedule .rot .wk { display: block; }
+.schedule .wkmark { display: block; font-size: 11px; line-height: 1.4; }
+.schedule th.rot.nowweek { color: var(--red); }
+.schedule td.nowweek, .schedule th.rot.nowweek { background: var(--red-tint); }
+.wklegend {
+  display: flex; flex-wrap: wrap; gap: 6px 18px;
+  margin: 8px 0 0; font-size: 12.5px;
+}
+.wklegend b { font-style: normal; }
+
 /* ---------- transaction feed ---------- */
 .move {
   font-family: var(--display); font-size: 10.5px; font-weight: 700;
@@ -916,8 +950,22 @@ td .slot {
    direction: rtl and carries its own grid rule. */
 .games.compact .toplayers li,
 .games.compact .mside.right .toplayers li {
-  grid-template-columns: 34px 1fr 26px 38px;
+  /* No team column: three cards across leaves each side ~150px, and the name
+     is worth more than the abbreviation. Opening the card brings it back. */
+  grid-template-columns: 28px 1fr 36px;
   column-gap: 4px; padding: 2px 4px; font-size: 11.5px;
+}
+.games.compact .toplayers .pro { display: none; }
+
+/* An opened card takes the whole row, and with the width it can afford the
+   full names and the NFL team again. */
+.games.compact .game.open { grid-column: 1 / -1; }
+.games.compact .game.open .nm-full { display: inline; }
+.games.compact .game.open .nm-abbr { display: none; }
+.games.compact .game.open .toplayers .pro { display: block; }
+.games.compact .game.open .toplayers li,
+.games.compact .game.open .mside.right .toplayers li {
+  grid-template-columns: 42px 1fr 32px 46px; font-size: 12.5px;
 }
 .games.compact .toplayers .slot { font-size: 9px; padding: 1px 3px; letter-spacing: .04em; }
 .games.compact .toplayers .pro { font-size: 9px; letter-spacing: .02em; }
@@ -946,6 +994,10 @@ td .slot {
   from { opacity: .25; transform: translateY(34px) scale(.94); }
   to   { opacity: 1; transform: none; }
 }
+@keyframes rise-blur {
+  from { opacity: .2; filter: blur(7px); transform: translateY(40px) scale(.94); }
+  to   { opacity: 1; filter: blur(0); transform: none; }
+}
 @supports (animation-timeline: view()) {
   @media (prefers-reduced-motion: no-preference) {
     .game, .poscard, .rule, .countdown, .notice, .newsitem, .scroll, table {
@@ -953,8 +1005,54 @@ td .slot {
       animation-timeline: view();
       animation-range: entry 0% entry 340px;
     }
+    /* Only the name is overridden, so the timeline, range and fill all carry
+       over from the rule above instead of being restated and drifting. */
+    .games.compact .game { animation-name: rise-blur; }
+    /* An opened card must not still be arriving, or it reads as out of focus
+       exactly when you have asked to look at it closely. */
+    .games.compact .game.open { animation: none; filter: none; }
     /* The wrapper already animates, and .matrix .rowhead is position:sticky --
        transforming the table too compounds the scale for no gain. */
     .scroll table { animation: none; }
+  }
+}
+
+/* ---------- lineup rows on a narrow screen ----------
+
+   A row cannot carry the slot, the full name, the NFL team and the points at
+   phone width -- the name is what gets clipped, and it is the one thing worth
+   reading. Below 560px the team column goes and the name shortens to
+   "Derrick H.". Both spellings are in the markup; only one is ever shown.
+
+   Hiding .pro is not enough on its own: these rows are a grid with explicit
+   tracks, and a display:none child leaves its track sitting there at full
+   width. The columns have to be restated without it, including for the
+   mirrored right-hand side. */
+.nm-abbr { display: none; }
+/* The three "rest of the week" cards are narrow at every width -- three across
+   leaves each side about 50px for a name -- so collapsed they show the short
+   form and drop the NFL team, which is the less useful of the two. Opening one
+   gives it the full row, and with the room it takes both back. */
+.games.compact .nm-full { display: none; }
+.games.compact .nm-abbr { display: inline; }
+
+
+@media (max-width: 560px) {
+  .toplayers .nm-full { display: none; }
+  .toplayers .nm-abbr { display: inline; }
+  .toplayers .pro { display: none; }
+
+  .toplayers li,
+  .mside.right .toplayers li { grid-template-columns: 34px 1fr 40px; column-gap: 5px; }
+  .games.compact .toplayers li,
+  .games.compact .mside.right .toplayers li { grid-template-columns: 30px 1fr 36px; }
+  .games.feature .toplayers li { font-size: 12.5px; }
+
+  .games.compact .game.open .nm-full { display: none; }
+  .games.compact .game.open .nm-abbr { display: inline; }
+  .games.compact .game.open .toplayers .pro { display: none; }
+  .games.compact .game.open .toplayers li,
+  .games.compact .game.open .mside.right .toplayers li {
+    grid-template-columns: 30px 1fr 36px;
   }
 }

@@ -18,7 +18,8 @@ from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from . import analytics, auth, db, espn_client, nflstats, players, poller, rules
+from . import (analytics, auth, db, espn_client, nflstats, nflweeks, players,
+               poller, rules)
 from .config import ConfigError, get_config
 
 logging.basicConfig(
@@ -29,6 +30,8 @@ log = logging.getLogger("fantasy")
 
 HERE = Path(__file__).resolve().parent
 templates = Jinja2Templates(directory=str(HERE / "templates"))
+# Lineup rows are too narrow on a phone for a full name and an NFL team both.
+templates.env.filters["short_name"] = players.short_name
 
 
 @asynccontextmanager
@@ -210,7 +213,12 @@ def _schedule_grid(conn, season: int, names: dict) -> dict:
             },
         })
     out.sort(key=lambda r: r["name"].lower())
-    return {"weeks": weeks, "rows": out}
+    # The grid stores week numbers only, so anything dated -- the trade
+    # deadline, the two holidays -- has to be placed by deriving the calendar.
+    settings = db.get_meta(conn, "settings") or {}
+    deadline = (settings.get("tradeSettings") or {}).get("deadlineDate")
+    return {"weeks": weeks, "rows": out,
+            "markers": nflweeks.season_markers(season, weeks, deadline)}
 
 
 def _scoreboard(conn, season: int) -> tuple[int | None, list[dict]]:
@@ -476,6 +484,9 @@ def dashboard(request: Request):
             "my_game": my_game, "other_games": other_games,
             "corrections": db.recent_corrections(conn, 8),
             "names": db.team_name_map(conn),
+            # The schedule used to vanish at the draft, which is exactly when a
+            # trade-deadline marker starts being worth looking at.
+            "grid": _schedule_grid(conn, season, names),
         }
     return templates.TemplateResponse("dashboard.html", context)
 

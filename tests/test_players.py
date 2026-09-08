@@ -351,3 +351,38 @@ def test_projection_sync_is_throttled():
     finally:
         espn_client.player_projections = original
         poller.PROJECTION_MAX_AGE_MINUTES = original_age
+
+
+# --- shortened names for narrow rows ---------------------------------------
+
+def test_short_name_takes_the_first_name_and_an_initial():
+    assert players.short_name("Derrick Henry") == "Derrick H."
+    assert players.short_name("Bijan Robinson") == "Bijan R."
+
+
+def test_short_name_keeps_punctuation_inside_a_name():
+    """An apostrophe or hyphen is part of the name, not a separator."""
+    assert players.short_name("Ja'Marr Chase") == "Ja'Marr C."
+    assert players.short_name("A.J. Brown") == "A.J. B."
+    assert players.short_name("T.J. Watt") == "T.J. W."
+
+
+def test_short_name_drops_generational_suffixes():
+    """Without this, "Kenneth Walker III" initials to "Kenneth I."."""
+    assert players.short_name("Kenneth Walker III") == "Kenneth W."
+    assert players.short_name("Marvin Harrison Jr.") == "Marvin H."
+    assert players.short_name("Michael Pittman Jr.") == "Michael P."
+
+
+def test_short_name_leaves_team_defences_alone():
+    """The general rule would make "Titans D/ST" into "Titans D." -- plausible
+    enough on screen that nobody would report it, and wrong."""
+    assert players.short_name("Titans D/ST") == "Titans D/ST"
+    assert players.short_name("49ers D/ST") == "49ers D/ST"
+
+
+def test_short_name_handles_nothing_to_shorten():
+    assert players.short_name("Titans") == "Titans"
+    assert players.short_name("") == ""
+    assert players.short_name(None) == ""
+    assert players.short_name("  Bijan  Robinson  ") == "Bijan R."

@@ -123,3 +123,32 @@ def leaders(rows: list[dict], per: int = 3, by: str = "projected") -> list[dict]
                          "value": p.get(by) or 0} for p in got[:per]],
         })
     return out
+
+
+# Generational suffixes are not surnames. Without stripping these first,
+# "Kenneth Walker III" initials to "Kenneth I."
+_NAME_SUFFIXES = {"jr", "jr.", "sr", "sr.", "ii", "iii", "iv", "v"}
+
+
+def short_name(name: str | None) -> str:
+    """"Derrick Henry" -> "Derrick H.", for rows too narrow for the full name.
+
+    Team defences are returned untouched. ESPN names them "Titans D/ST", which
+    the general rule would happily turn into "Titans D." -- plausible enough on
+    screen that it would never be reported as a bug, and wrong.
+
+    Compound surnames are a deliberate simplification: "Amon-Ra St. Brown"
+    becomes "Amon-Ra B." rather than "Amon-Ra St. B.". Encoding which multi-word
+    surnames are really one name is a bigger job than this line of a lineup row
+    is worth.
+    """
+    full = (name or "").strip()
+    if not full or full.upper().endswith("D/ST"):
+        return full
+
+    parts = full.split()
+    while len(parts) > 1 and parts[-1].lower().rstrip(",") in _NAME_SUFFIXES:
+        parts.pop()
+    if len(parts) < 2:
+        return full
+    return f"{parts[0]} {parts[-1][0].upper()}."

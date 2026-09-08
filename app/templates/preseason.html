@@ -16,22 +16,6 @@
 </section>
 {% endif %}
 
-<div class="statline">
-  <div><b>{{ meta.teams_joined or '?' }}<span class="of">/{{ meta.size or '?' }}</span></b><span>Managers</span></div>
-  <div><b>{{ meta.matchup_period_count or '?' }}</b><span>Week season</span></div>
-  <div><b>{{ meta.playoff_team_count or '?' }}</b><span>Playoff spots</span></div>
-  <div><b>{{ history_seasons|length }}</b><span>Seasons played</span></div>
-</div>
-
-{% if not drafted %}
-<p class="notice">
-  The season hasn't started and the draft hasn't happened, so there are no
-  scores or rosters yet. Weekly stats — head-to-head, all-play, luck — begin
-  filling in once week 1 is played.
-  <a href="/history">The all-time records</a> are complete and available now.
-</p>
-{% endif %}
-
 <h2>Week 1{% if not drafted %}<span class="provisional">provisional rosters</span>{% endif %}</h2>
 {% if not drafted %}
   <p class="muted small">
@@ -48,35 +32,37 @@
   {% endif %}
   {% if other_games %}
     {% if my_game %}<h3 class="rest-head">Rest of the week</h3>{% endif %}
-    <div class="games compact">
-      {% for game in other_games %}
-        {% with compact = true %}{% include "_matchup.html" %}{% endwith %}
-      {% endfor %}
+    {# One panel rather than three loose cards, and each opens in place. #}
+    <div class="restbox">
+      <div class="games compact">
+        {% for game in other_games %}
+          {% with compact = true %}{% include "_matchup.html" %}{% endwith %}
+        {% endfor %}
+      </div>
+      <p class="resthint muted small">Tap a matchup for the full lineups</p>
     </div>
   {% endif %}
 {% else %}
   <p class="empty">Schedule not published yet.</p>
 {% endif %}
 
-{% if grid.weeks %}
-<h2>Season schedule</h2>
-<div class="scroll">
-<table class="matrix">
-  <thead><tr><th></th>{% for w in grid.weeks %}<th class="rot">{{ w }}</th>{% endfor %}</tr></thead>
-  <tbody>
-  {% for row in grid.rows %}
-    <tr class="{{ 'me' if row.team_id == me_id }}">
-      <th class="rowhead {{ 'me' if row.team_id == me_id }}">{{ row.name }}</th>
-      {% for w in grid.weeks %}
-        {% set opp = row.opponents.get(w) %}
-        <td class="cell small {{ 'mecell' if me_id and opp and opp.id == me_id }}">{{ opp.name if opp and opp.name else '—' }}</td>
-      {% endfor %}
-    </tr>
-  {% endfor %}
-  </tbody>
-</table>
-</div>
+{% include "_schedule.html" %}
+
+{% if not drafted %}
+<p class="notice">
+  The season hasn't started and the draft hasn't happened, so there are no
+  scores or rosters yet. Weekly stats — head-to-head, all-play, luck — begin
+  filling in once week 1 is played.
+  <a href="/history">The all-time records</a> are complete and available now.
+</p>
 {% endif %}
+
+<div class="statline">
+  <div><b>{{ meta.teams_joined or '?' }}<span class="of">/{{ meta.size or '?' }}</span></b><span>Managers</span></div>
+  <div><b>{{ meta.matchup_period_count or '?' }}</b><span>Week season</span></div>
+  <div><b>{{ meta.playoff_team_count or '?' }}</b><span>Playoff spots</span></div>
+  <div><b>{{ history_seasons|length }}</b><span>Seasons played</span></div>
+</div>
 
 <script>
 (function () {
