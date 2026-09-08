@@ -487,7 +487,7 @@ def sync_news(conn, reporters, keep_days, force: bool = False) -> int:
     return written
 
 
-def sync_draft(conn, season: int | None = None) -> int:
+def sync_draft(conn, season: int | None = None, force: bool = False) -> int:
     """Store the draft board once ESPN reports the draft complete.
 
     Gated on the `drafted` flag, never on len(picks): ESPN returns a full array
@@ -503,11 +503,15 @@ def sync_draft(conn, season: int | None = None) -> int:
         return 0
     _drafted = True
 
-    if db.fetch_draft_picks(conn, season):
+    if not force and db.fetch_draft_picks(conn, season):
         return 0  # already stored; the board does not change after the draft
 
+    # A fresh League already carries the board: its _fetch_league() runs
+    # _fetch_players() before _fetch_draft(), so the picks arrive with names
+    # already resolved. Do NOT call refresh_draft() on top of that -- espn-api's
+    # _fetch_draft appends to self.draft without clearing it, so a second call
+    # stores the whole board twice (448 rows for a 224-pick draft).
     league = espn_client.get_league(season, refresh=True)
-    espn_client.call(league.refresh_draft, refresh_players=True)
 
     rows = []
     for index, pick in enumerate(getattr(league, "draft", []) or [], start=1):

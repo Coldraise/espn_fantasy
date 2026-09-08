@@ -282,6 +282,12 @@ app uses, wrapped in `app/espn_client.py` so breakage stays in one place.
   Slots are filled in order, each taking the best eligible player still unused.
   For a fixed lineup this matches what a manager could actually have set, and
   it cannot invent a lineup the rules forbid.
+- **`league.refresh_draft()` appends, it does not replace.** espn-api's
+  `_fetch_draft` adds to `self.draft` without clearing it, and a freshly
+  constructed `League` has already fetched the board (with names — the player
+  map is loaded first). Calling `refresh_draft()` on top of that stores every
+  pick twice: a 224-pick board became 448 rows, i.e. a 56-round draft in which
+  everyone was picked twice.
 - **The transaction feed is read directly, not through espn-api.** Its
   `recent_activity()` resolves any player not on a current roster with a
   separate request — and a dropped player is by definition not on a roster, so a
