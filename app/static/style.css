@@ -1001,9 +1001,15 @@ td .slot {
       animation-timeline: view();
       animation-range: entry 0% entry 340px;
     }
-    /* Only the name is overridden, so the timeline, range and fill all carry
-       over from the rule above instead of being restated and drifting. */
-    .games.compact .game { animation-name: rise-blur; }
+    /* Only the name and the range are overridden, so the timeline and fill
+       carry over from the rule above instead of being restated and drifting.
+       A longer range than the 340px everything else uses: coming into focus
+       wants to be felt, and at 340px it had resolved before you noticed it
+       had started. */
+    .games.compact .game {
+      animation-name: rise-blur;
+      animation-range: entry 0% entry 620px;
+    }
     /* An opened card must not still be arriving, or it reads as out of focus
        exactly when you have asked to look at it closely. */
     .games.compact .game.open { animation: none; filter: none; }

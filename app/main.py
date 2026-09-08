@@ -7,6 +7,7 @@ its outage -- it just shows the last known-good data with a staleness note.
 
 from __future__ import annotations
 
+import hashlib
 import logging
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
@@ -34,6 +35,24 @@ templates = Jinja2Templates(directory=str(HERE / "templates"))
 templates.env.filters["short_name"] = players.short_name
 
 
+def _asset_version() -> str:
+    """Content hash of the stylesheet, appended to its URL.
+
+    This is load-bearing rather than housekeeping. What a matchup card shows --
+    a top three or the whole lineup, a shortened name or a full one -- is
+    decided in CSS now, not in the template, so a browser holding an old
+    stylesheet does not merely look dated, it shows the wrong thing entirely.
+    A hashed URL means a changed stylesheet is a different file to fetch.
+    """
+    try:
+        return hashlib.sha256((HERE / "static" / "style.css").read_bytes()).hexdigest()[:10]
+    except OSError:
+        return "dev"
+
+
+templates.env.globals["asset_v"] = _asset_version()
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     cfg = get_config()  # raises ConfigError before the server ever binds
@@ -55,7 +74,24 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="League Monitor", lifespan=lifespan)
-app.mount("/static", StaticFiles(directory=str(HERE / "static")), name="static")
+class _RevalidatingStatic(StaticFiles):
+    """Static files a browser must not sit on.
+
+    The stylesheet link carries a content hash, so a changed stylesheet is a
+    changed URL and can never be served stale. The files the CSS itself pulls
+    in -- the pitch and the stadium -- keep fixed URLs, so they get this
+    instead: cache freely, but check with the ETag before reusing. A 304 is a
+    few bytes, and the alternative is a browser holding a stale asset for as
+    long as its heuristics feel like it.
+    """
+
+    def file_response(self, *args, **kwargs):
+        response = super().file_response(*args, **kwargs)
+        response.headers["Cache-Control"] = "no-cache"
+        return response
+
+
+app.mount("/static", _RevalidatingStatic(directory=str(HERE / "static")), name="static")
 
 
 # --- authentication -------------------------------------------------------
