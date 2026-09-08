@@ -416,7 +416,7 @@ mark { background: var(--amber-soft); color: inherit; border-radius: 3px; paddin
   grid-template-columns: 1fr auto 1fr;
   align-items: start;
   padding: 16px 18px;
-  gap: 14px;
+  gap: 8px;
 }
 .mside { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .mside.right { text-align: right; align-items: flex-end; }
@@ -473,7 +473,7 @@ mark { background: var(--amber-soft); color: inherit; border-radius: 3px; paddin
   background: var(--red); color: #fff; vertical-align: middle;
 }
 .mmid { display: flex; flex-direction: column; align-items: center; gap: 3px;
-        padding-top: 6px; min-width: 46px; }
+        padding-top: 6px; min-width: 28px; }
 .mmid .vs { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; }
 .mmid .margin { font-size: 13px; font-weight: 650; color: var(--muted);
                 font-variant-numeric: tabular-nums; }
@@ -485,7 +485,7 @@ mark { background: var(--amber-soft); color: inherit; border-radius: 3px; paddin
 }
 @media (max-width: 560px) {
   .games { grid-template-columns: 1fr; }
-  .game { padding: 13px; gap: 8px; }
+  .game { padding: 13px; gap: 4px; }
   .mname { font-size: 14.5px; }
 }
 
@@ -497,8 +497,13 @@ mark { background: var(--amber-soft); color: inherit; border-radius: 3px; paddin
 }
 /* One card per row. Three across left about 33px for a name -- four
    characters -- which is not a name at all. Full width buys the whole name and
-   the NFL team, and makes opening one a change of depth rather than of shape. */
+   the NFL team, and makes opening one a change of depth rather than of shape.
+
+   Capped, though: a row is four tracks and only the name flexes, so on a
+   1100px card every spare pixel piles up between the name and the points --
+   which is the middle of the card, and reads as a hole in it. */
 .restbox .games.compact { grid-template-columns: 1fr; gap: 8px; }
+.restbox .games.compact .game { max-width: 780px; margin-inline: auto; width: 100%; }
 /* The cards inside carry the panel, so they must not each look like one too. */
 .restbox .games.compact .game {
   box-shadow: none; background: var(--raised); border-color: var(--line-soft);
@@ -816,17 +821,17 @@ thead th { font-family: var(--display); letter-spacing: .1em; font-size: 12px; }
 }
 .games.feature .mname { font-size: 24px; }
 .games.feature .mscore { font-size: 46px; }
-.games.feature .mmid { min-width: 70px; }
+.games.feature .mmid { min-width: 42px; }
 .games.feature .mmid .margin { font-size: 19px; }
 .games.feature .toplayers li { font-size: 13.5px; }
 
 /* the rest of the week: no lineups, so the card is one line of name + score */
 .games.compact { grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 8px; }
-.games.compact .game { padding: 10px 13px; gap: 8px; align-items: center; border-top-width: 2px; }
+.games.compact .game { padding: 10px 13px; gap: 5px; align-items: center; border-top-width: 2px; }
 .games.compact .mname { font-size: 15.5px; }
 .games.compact .mscore { font-size: 22px; margin-top: 1px; }
 .games.compact .mproj { font-size: 10.5px; }
-.games.compact .mmid { padding-top: 0; min-width: 38px; }
+.games.compact .mmid { padding-top: 0; min-width: 22px; }
 .games.compact .mmid .margin { font-size: 12.5px; }
 .games.compact .titles { font-size: 10px; }
 .mmanager.plain { font-size: 11px; cursor: default; border-bottom: 0; }
