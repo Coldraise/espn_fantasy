@@ -34,6 +34,10 @@
   /* what makes a panel read as hovering over the field */
   --lift: 0 16px 38px rgba(0,0,0,.5), 0 1px 0 rgba(255,255,255,.04) inset;
   --radius: 10px;
+  /* The sticky top bar's real height: 15px padding + a 34px burger + 15px
+     padding + the 3px red border. Page furniture that sticks below it offsets
+     by this rather than by a guess. */
+  --topbar-h: 67px;
 
   /* NFL shield red, the drawer and topbar accent */
   --nfl-red:  #d50a0a;
@@ -1036,14 +1040,20 @@ td .slot {
    list, ranked across every position, because nine cards stacked is nine
    scrolls to reach the ninth. Both are in the page; only one is ever shown.
 
-   The filter row sticks to the top so choosing a position does not mean
-   scrolling back up through five hundred rows to reach it. */
+   Everything sticks as one block: both filter rows and the column header, so
+   choosing a position never means scrolling back up through five hundred rows,
+   and the two numbers on a row are always labelled. The page is the only thing
+   that scrolls -- .plist's scroll box is a desktop device, and nested inside
+   the page scroll on a phone it just gives you two things to flick. */
 .flatlist { display: none; }
 .flatlist .fpos {
   font-family: var(--display); font-size: 9.5px; font-weight: 700;
   letter-spacing: .05em; color: var(--green); background: var(--green-soft);
   border-radius: 3px; padding: 1px 5px; text-align: center;
 }
+/* The wrapper is inert on a wide screen, where each card prints its own head. */
+.pfilters .plhead.sticky { display: none; }
+.plhead .hp { text-align: left; }
 
 @media (max-width: 640px) {
   .posgrid { display: none; }
@@ -1054,15 +1064,34 @@ td .slot {
     background: none; border: 0; box-shadow: none; padding: 0;
   }
 
-  .flatlist { display: block; }
-  .flatlist li { grid-template-columns: 26px 1fr auto auto auto; column-gap: 7px; }
+  /* One scroll on the page, rather than a scroll box inside a scroll. */
+  .plist { max-height: none; overflow: visible; }
 
-  .scope.posscope {
-    position: sticky; top: 62px; z-index: 5;
-    margin: -10px -20px 10px; padding: 8px 20px;
+  .flatlist { display: block; }
+
+  .pfilters {
+    position: sticky; top: calc(var(--topbar-h) - 1px); z-index: 5;
+    margin: -10px -20px 10px; padding: 8px 20px 0;
     background: rgba(8,21,15,.93);
     backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
     border-bottom: 1px solid var(--line);
+  }
+  .pfilters .scope { margin: 0 0 6px; }
+  .pfilters .plhead.sticky { display: grid; border-bottom: 0; }
+  /* The sticky head replaces the card's own, which would scroll away. */
+  .posgrid.one .plhead { display: none; }
+
+  /* A header and its rows are separate grids, so they line up only if the
+     tracks AND the horizontal padding match -- .plist li insets its tracks by
+     6px, and a head padded to 0 would sit that far out of step. */
+  .pfilters .plhead.sticky { padding: 4px 6px 6px; }
+  .flatlist li,
+  .pfilters .plhead.flat {
+    grid-template-columns: 26px minmax(0, 1fr) 40px 44px 44px; column-gap: 7px;
+  }
+  .posgrid.one .plist li,
+  .pfilters .plhead.pos {
+    grid-template-columns: 20px minmax(0, 1fr) 44px 44px; column-gap: 8px;
   }
 }
 

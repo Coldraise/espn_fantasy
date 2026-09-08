@@ -7,23 +7,44 @@
 {% else %}
 {% set availq = '&available=1' if available_only else '' %}
 {% set posq = '&pos=' ~ pos|urlencode|replace('/', '%2F') if pos else '' %}
-<p class="scope">
-  {% for w in weeks %}
-    <a href="/players?week={{ w }}{{ availq }}{{ posq }}"
-       class="{{ 'on' if w == week }}">Week {{ w }}</a>
-  {% endfor %}
-  <a href="/players?week={{ week }}{{ '' if available_only else '&available=1' }}{{ posq }}"
-     class="{{ 'on' if available_only }}">{{ 'All players' if available_only else 'Available only' }}</a>
-</p>
+{# Both filter rows and the column header are one element so a phone can stick
+   them as a single block. Sticky boxes do not stack, and the position row wraps
+   to two or three lines on a narrow screen, so its height could never have been
+   a `top` offset for a header sitting below it. #}
+<div class="pfilters">
+  <p class="scope">
+    {% for w in weeks %}
+      <a href="/players?week={{ w }}{{ availq }}{{ posq }}"
+         class="{{ 'on' if w == week }}">Week {{ w }}</a>
+    {% endfor %}
+    <a href="/players?week={{ week }}{{ '' if available_only else '&available=1' }}{{ posq }}"
+       class="{{ 'on' if available_only }}">{{ 'All players' if available_only else 'Available only' }}</a>
+  </p>
 
-<p class="scope posscope">
-  <a href="/players?week={{ week }}{{ availq }}"
-     class="{{ 'on' if not pos }}">All positions</a>
-  {% for label in positions %}
-    <a href="/players?week={{ week }}{{ availq }}&pos={{ label|urlencode|replace('/', '%2F') }}"
-       class="{{ 'on' if label == pos }}">{{ label }}</a>
-  {% endfor %}
-</p>
+  <p class="scope posscope">
+    <a href="/players?week={{ week }}{{ availq }}"
+       class="{{ 'on' if not pos }}">All positions</a>
+    {% for label in positions %}
+      <a href="/players?week={{ week }}{{ availq }}&pos={{ label|urlencode|replace('/', '%2F') }}"
+         class="{{ 'on' if label == pos }}">{{ label }}</a>
+    {% endfor %}
+  </p>
+
+  {# The phone list carries no header of its own, so two bare numbers per row
+     say nothing about which week they belong to. Which shape it takes follows
+     whichever list is actually on screen: `flat` is empty exactly when a
+     position is picked, and then the single position card is the list. Hidden
+     above 640px, where each card prints its own header. #}
+  {% if flat %}
+    <div class="plhead sticky flat">
+      <span></span><span class="hp">Player</span><span></span><span>Last</span><span>Proj</span>
+    </div>
+  {% else %}
+    <div class="plhead sticky pos">
+      <span></span><span class="hp">Player</span><span>Last</span><span>Proj</span>
+    </div>
+  {% endif %}
+</div>
 
 <p class="muted small">
   ESPN's projected points for week {{ week }}, best first in each lineup slot
