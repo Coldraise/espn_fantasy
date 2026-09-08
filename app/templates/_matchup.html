@@ -1,9 +1,15 @@
 {#  One matchup card, shared by the pre-season hub and the live scoreboard.
     Expects: game (home/away/bye/final/revision), lineups {team_id: [players]},
     managers {team_id: name}, records {team_id: {...}}, live (bool),
-    me_id (signed-in franchise) and compact (top 3 players only, half the size). #}
+    me_id (signed-in franchise) and compact (three rows until opened).
+
+    The lineup is one list down the middle rather than one per side. The slot
+    is a fact about the row -- both franchises start a quarterback -- so it is
+    printed once between the two scores instead of twice at the outer edges,
+    which is where the width was going. #}
 {% set compact = compact|default(false) %}
-{% macro side(team, players, manager, rec, align, compact, me_id) %}
+
+{% macro side(team, manager, rec, align, compact, me_id) %}
 <div class="mside {{ align }} {{ 'me' if me_id and team.id == me_id }}">
   <a class="mteam" href="/history#t{{ team.id }}"
      title="{{ rec.tip if rec else 'No record yet' }}">
@@ -38,35 +44,19 @@
     <div class="mscore">{{ '%.1f'|format(team.points or 0) }}</div>
     {% if team.projected %}<div class="mproj">proj {{ '%.0f'|format(team.projected) }}</div>{% endif %}
   {% endif %}
-
-  {# The featured card shows the whole starting lineup; the rest of the week
-     shows each team's best three, which is what makes a compact card worth
-     looking at rather than a bare scoreline. Already sorted best-first by
-     db.fetch_team_week_players, so the slice is the top 3. Every row is tinted
-     with that player's NFL team colour. #}
-  {# Compact cards render the whole lineup too and let CSS show only the first
-     three until the card is opened. The rows were already fetched -- this only
-     ever sliced them -- so expanding needs no second request. #}
-  {% set shown = players or [] %}
-  <ol class="toplayers">
-    {% for p in shown %}
-      {% set tint = team_colors.get(p.pro_team) %}
-      <li {% if tint %}style="--tc: {{ tint }}"{% endif %} class="{{ 'tinted' if tint }}">
-        <span class="slot">{{ p.lineup_slot }}</span>
-        {# Both spellings ship and CSS picks one: a narrow row has no space for
-           the full name and the NFL team together, and the name is what you
-           are actually reading. #}
-        <span class="pname"><span class="nm-full">{{ p.name }}</span><span class="nm-abbr">{{ p.name|short_name }}</span>{% if p.rookie %}<span class="rookie" title="Rookie — first NFL season">R</span>{% endif %}</span>
-        <span class="pro">{{ p.pro_team or '' }}</span>
-        <span class="ppts">{{ '%.1f'|format((p.actual if p.actual is not none else p.projected) or 0) }}</span>
-      </li>
-    {% else %}
-      {# Only the featured card explains an empty lineup. Three lines of filler
-         in a card this small is worse than the blank it replaces. #}
-      {% if not compact %}<li class="muted small">Lineup set at the draft</li>{% endif %}
-    {% endfor %}
-  </ol>
 </div>
+{% endmacro %}
+
+{% macro player(p, align) %}
+  {% set tint = team_colors.get(p.pro_team) if p else none %}
+  <span class="lp {{ align }} {{ 'tinted' if tint }}" {% if tint %}style="--tc: {{ tint }}"{% endif %}>
+    {%- if p -%}
+      <span class="pname"><span class="nm-full">{{ p.name }}</span><span class="nm-abbr">{{ p.name|short_name }}</span>{% if p.rookie %}<span class="rookie" title="Rookie — first NFL season">R</span>{% endif %}</span>
+      <span class="pro">{{ p.pro_team or '' }}</span>
+    {%- else -%}
+      <span class="pname muted">—</span>
+    {%- endif -%}
+  </span>
 {% endmacro %}
 
 {# The id is stable across an htmx scoreboard swap, which is what lets an
@@ -75,19 +65,40 @@
      id="game-{{ game.home.id }}-{{ game.away.id if game.away else 'bye' }}"
      {% if compact %}role="button" tabindex="0" aria-expanded="false"
      aria-label="Show the full lineups for {{ game.home.name }} against {{ game.away.name if game.away else 'a bye' }}"{% endif %}>
-  {{ side(game.home, lineups.get(game.home.id), managers.get(game.home.id), records.get(game.home.id), 'left', compact, me_id) }}
 
-  <div class="mmid">
-    {% if game.bye %}<span class="vs">BYE</span>
-    {% elif game.home.points or (game.away and game.away.points) %}
-      <span class="margin">{{ '%+.1f'|format((game.home.points or 0) - ((game.away or {}).points or 0)) }}</span>
-    {% else %}<span class="vs">vs</span>{% endif %}
-    {% if game.revision and game.revision > 1 %}<span class="rev" title="ESPN revised this score">rev {{ game.revision }}</span>{% endif %}
+  <div class="mhead">
+    {{ side(game.home, managers.get(game.home.id), records.get(game.home.id), 'left', compact, me_id) }}
+
+    <div class="mmid">
+      {% if game.bye %}<span class="vs">BYE</span>
+      {% elif game.home.points or (game.away and game.away.points) %}
+        <span class="margin">{{ '%+.1f'|format((game.home.points or 0) - ((game.away or {}).points or 0)) }}</span>
+      {% else %}<span class="vs">vs</span>{% endif %}
+      {% if game.revision and game.revision > 1 %}<span class="rev" title="ESPN revised this score">rev {{ game.revision }}</span>{% endif %}
+    </div>
+
+    {% if game.away %}
+      {{ side(game.away, managers.get(game.away.id), records.get(game.away.id), 'right', compact, me_id) }}
+    {% else %}
+      <div class="mside right"><span class="mname muted">BYE</span></div>
+    {% endif %}
   </div>
 
-  {% if game.away %}
-    {{ side(game.away, lineups.get(game.away.id), managers.get(game.away.id), records.get(game.away.id), 'right', compact, me_id) }}
-  {% else %}
-    <div class="mside right"><span class="mname muted">BYE</span></div>
+  {% set rows = pair_lineups(lineups.get(game.home.id),
+                             lineups.get(game.away.id) if game.away else none) %}
+  {% if rows %}
+  <ol class="lineup">
+    {% for r in rows %}
+      <li>
+        {{ player(r.home, 'home') }}
+        <span class="ppts">{{ '%.1f'|format((r.home.actual if r.home and r.home.actual is not none else (r.home.projected if r.home else 0)) or 0) }}</span>
+        <span class="slot">{{ r.label }}</span>
+        <span class="ppts">{{ '%.1f'|format((r.away.actual if r.away and r.away.actual is not none else (r.away.projected if r.away else 0)) or 0) }}</span>
+        {{ player(r.away, 'away') }}
+      </li>
+    {% endfor %}
+  </ol>
+  {% elif not compact %}
+    <p class="muted small lineup-empty">Lineup set at the draft</p>
   {% endif %}
 </div>

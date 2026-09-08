@@ -34,6 +34,9 @@ HERE = Path(__file__).resolve().parent
 templates = Jinja2Templates(directory=str(HERE / "templates"))
 # Lineup rows are too narrow on a phone for a full name and an NFL team both.
 templates.env.filters["short_name"] = players.short_name
+# The card prints a lineup slot once down its middle, which needs both
+# franchises' starters aligned on that slot rather than each sorted alone.
+templates.env.globals["pair_lineups"] = players.pair_lineups
 
 
 def _asset_version() -> str:

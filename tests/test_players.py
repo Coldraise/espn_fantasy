@@ -426,3 +426,60 @@ def test_ranked_survives_missing_scores():
     rows = [{"name": "A", "position": "RB", "projected": None},
             {"name": "B", "position": "RB", "projected": 5}]
     assert [p["name"] for p in players.ranked(rows)] == ["B", "A"]
+
+
+# --- one lineup down the middle of a matchup card --------------------------
+
+def test_pair_lineups_puts_both_franchises_on_one_slot_row():
+    """The card prints the slot once between the two scores, which is only
+    honest if the row holds the same slot on both sides."""
+    home = [{"name": "QB1", "lineup_slot": "QB", "projected": 20}]
+    away = [{"name": "qb1", "lineup_slot": "QB", "projected": 15}]
+    rows = players.pair_lineups(home, away)
+    assert len(rows) == 1
+    assert rows[0]["slot"] == "QB"
+    assert rows[0]["home"]["name"] == "QB1"
+    assert rows[0]["away"]["name"] == "qb1"
+
+
+def test_pair_lineups_reads_in_slot_order_not_points_order():
+    """Both sides arrive sorted by points, so row three of one is a running
+    back and row three of the other a kicker. Pairing has to re-order."""
+    home = [{"name": "K", "lineup_slot": "K", "projected": 30},
+            {"name": "QB", "lineup_slot": "QB", "projected": 1}]
+    away = [{"name": "qb", "lineup_slot": "QB", "projected": 9}]
+    assert [r["slot"] for r in players.pair_lineups(home, away)] == ["QB", "K"]
+
+
+def test_repeated_slots_pair_best_with_best():
+    home = [{"name": "RBlow", "lineup_slot": "RB", "projected": 4},
+            {"name": "RBhigh", "lineup_slot": "RB", "projected": 19}]
+    away = [{"name": "rbhigh", "lineup_slot": "RB", "projected": 17},
+            {"name": "rblow", "lineup_slot": "RB", "projected": 2}]
+    rows = players.pair_lineups(home, away)
+    assert [(r["home"]["name"], r["away"]["name"]) for r in rows] == [
+        ("RBhigh", "rbhigh"), ("RBlow", "rblow")]
+
+
+def test_a_slot_only_one_side_starts_leaves_the_other_empty():
+    rows = players.pair_lineups([{"name": "K", "lineup_slot": "K", "projected": 8}], [])
+    assert rows[0]["home"]["name"] == "K"
+    assert rows[0]["away"] is None
+
+
+def test_a_bye_week_still_lists_the_lineup():
+    rows = players.pair_lineups([{"name": "QB", "lineup_slot": "QB", "projected": 8}], None)
+    assert len(rows) == 1 and rows[0]["away"] is None
+
+
+def test_flex_is_labelled_the_way_a_scoreboard_writes_it():
+    assert players.slot_label("RB/WR") == "W/R"
+    assert players.slot_label("RB/WR/TE") == "W/R/T"
+    assert players.slot_label("QB") == "QB"
+    assert players.slot_label(None) == ""
+
+
+def test_an_unknown_slot_sorts_last_rather_than_vanishing():
+    home = [{"name": "X", "lineup_slot": "MYSTERY", "projected": 5},
+            {"name": "QB", "lineup_slot": "QB", "projected": 5}]
+    assert [r["slot"] for r in players.pair_lineups(home, [])] == ["QB", "MYSTERY"]

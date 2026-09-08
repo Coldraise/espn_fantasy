@@ -170,3 +170,64 @@ def ranked(rows: list[dict], by: str = "projected") -> list[dict]:
         out.append({**row, "group": label})
     out.sort(key=lambda r: -(r.get(by) or 0))
     return out
+
+
+# Lineup slots in the order a box score reads them. Anything ESPN sends that is
+# not here sorts to the end rather than being dropped -- an unknown slot is
+# still someone's starter.
+SLOT_ORDER = [
+    "QB", "RB", "WR", "TE", "RB/WR", "RB/WR/TE", "WR/TE", "OP", "FLEX",
+    "K", "P", "D/ST", "DP", "DL", "DE", "DT", "LB", "DB", "CB", "S", "EDR",
+]
+
+# The flex slots, written the way a scoreboard writes them.
+SLOT_LABELS = {"RB/WR": "W/R", "RB/WR/TE": "W/R/T", "WR/TE": "W/T"}
+
+
+def slot_label(slot: str | None) -> str:
+    return SLOT_LABELS.get(slot or "", slot or "")
+
+
+def _slot_rank(slot: str) -> tuple[int, str]:
+    try:
+        return (SLOT_ORDER.index(slot), "")
+    except ValueError:
+        return (len(SLOT_ORDER), slot)
+
+
+def pair_lineups(home: list[dict] | None, away: list[dict] | None) -> list[dict]:
+    """One row per lineup slot, both franchises on it.
+
+    The slot is a property of the row, not of either player, which is what lets
+    a card print it once down the middle instead of twice. That only holds if
+    the two lineups are aligned by slot: left and right both arrive sorted by
+    points, so row three of one is a running back and row three of the other is
+    a kicker, and a single shared label would be a lie about one of them.
+
+    Where a slot appears more than once -- two running backs, three receivers --
+    the higher scorer of each side pairs with the higher scorer of the other.
+    """
+    def by_slot(players):
+        buckets: dict[str, list[dict]] = defaultdict(list)
+        for player in players or []:
+            buckets[player.get("lineup_slot") or ""].append(player)
+        for group in buckets.values():
+            group.sort(key=lambda p: -((p.get("actual")
+                                        if p.get("actual") is not None
+                                        else p.get("projected")) or 0))
+        return buckets
+
+    left, right = by_slot(home), by_slot(away)
+    slots = sorted(set(left) | set(right), key=_slot_rank)
+
+    rows = []
+    for slot in slots:
+        theirs, ours = left.get(slot, []), right.get(slot, [])
+        for i in range(max(len(theirs), len(ours))):
+            rows.append({
+                "slot": slot,
+                "label": slot_label(slot),
+                "home": theirs[i] if i < len(theirs) else None,
+                "away": ours[i] if i < len(ours) else None,
+            })
+    return rows
