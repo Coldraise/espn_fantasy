@@ -466,13 +466,15 @@ mark { background: var(--amber-soft); color: inherit; border-radius: 3px; paddin
    so it is printed once between the two scores rather than twice at the outer
    edges -- which is where the width was going, and why the names had none.
 
-   The five tracks are fixed and the whole block is centred, so every row lines
-   up and the scores sit against the slot with nothing between them. */
+   The three middle tracks are fixed, so the scores stay against the slot with
+   nothing between them and every row lines up. The two name tracks take
+   everything else: that is what makes a row span its card instead of leaving a
+   484px island centred in a 940px one, with the names inside it clipped. */
 .lineup { list-style: none; margin: 10px 0 0; padding: 8px 0 0;
           border-top: 1px solid var(--line-soft); }
 .lineup li {
-  display: grid; justify-content: center; align-items: baseline;
-  grid-template-columns: minmax(0, 168px) 42px 48px 42px minmax(0, 168px);
+  display: grid; align-items: baseline;
+  grid-template-columns: minmax(0, 1fr) 42px 48px 42px minmax(0, 1fr);
   column-gap: 4px; padding: 3px 4px; border-radius: 4px; font-size: 12.5px;
 }
 .lineup .lp { display: flex; align-items: baseline; gap: 5px; min-width: 0;
@@ -535,7 +537,7 @@ mark { background: var(--amber-soft); color: inherit; border-radius: 3px; paddin
    1100px card every spare pixel piles up between the name and the points --
    which is the middle of the card, and reads as a hole in it. */
 .restbox .games.compact { grid-template-columns: 1fr; gap: 8px; }
-.restbox .games.compact .game { max-width: 560px; margin-inline: auto; width: 100%; }
+.restbox .games.compact .game { max-width: 780px; margin-inline: auto; width: 100%; }
 /* The cards inside carry the panel, so they must not each look like one too. */
 .restbox .games.compact .game {
   box-shadow: none; background: var(--raised); border-color: var(--line-soft);
@@ -972,14 +974,14 @@ td .slot {
 .games.compact .mhead { align-items: start; }
 .games.compact .lineup { margin-top: 6px; padding-top: 6px; }
 .games.compact .lineup li {
-  grid-template-columns: minmax(0, 150px) 38px 42px 38px minmax(0, 150px);
+  grid-template-columns: minmax(0, 1fr) 38px 42px 38px minmax(0, 1fr);
   column-gap: 3px; padding: 2px 3px; font-size: 11.5px;
 }
 
 /* An opened card takes the whole row, so the rows get desktop spacing. */
 .games.compact .game.open { grid-column: 1 / -1; }
 .games.compact .game.open .lineup li {
-  grid-template-columns: minmax(0, 168px) 42px 48px 42px minmax(0, 168px);
+  grid-template-columns: minmax(0, 1fr) 42px 48px 42px minmax(0, 1fr);
   font-size: 12.5px;
 }
 .games.compact .lineup .slot { font-size: 9px; padding: 1px 3px; letter-spacing: .04em; }
