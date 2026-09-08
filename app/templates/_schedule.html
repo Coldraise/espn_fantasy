@@ -10,7 +10,7 @@
 <table class="matrix schedule">
   <thead>
     <tr>
-      <th></th>
+      <th class="rowhead"></th>
       {% for w in grid.weeks %}
         {% set marks = grid.markers.get(w) %}
         <th class="rot {{ 'nowweek' if week and w == week }}">

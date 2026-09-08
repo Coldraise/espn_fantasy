@@ -45,7 +45,7 @@
 <h2>Season by season</h2>
 <div class="scroll">
 <table class="matrix">
-  <thead><tr><th></th>{% for s in grid.seasons %}<th class="rot">{{ s }}</th>{% endfor %}</tr></thead>
+  <thead><tr><th class="rowhead"></th>{% for s in grid.seasons %}<th class="rot">{{ s }}</th>{% endfor %}</tr></thead>
   <tbody>
   {% for row in grid.rows %}
     <tr class="{{ 'me' if row.team_id == me_id }}">

@@ -15,7 +15,7 @@
 <p class="muted">{{ picks|length }} picks · {{ rounds|length }} rounds</p>
 <div class="scroll">
 <table class="matrix draftboard">
-  <thead><tr><th>Rd</th>{% for t in teams %}<th class="rot {{ 'me' if t.team_id == me_id }}">{{ t.name }}</th>{% endfor %}</tr></thead>
+  <thead><tr><th class="rowhead">Rd</th>{% for t in teams %}<th class="rot {{ 'me' if t.team_id == me_id }}">{{ t.name }}</th>{% endfor %}</tr></thead>
   <tbody>
   {% for round_num, round_picks in rounds %}
     <tr>

@@ -363,12 +363,24 @@ tbody tr:target { background: var(--red-soft); box-shadow: inset 2px 0 0 var(--r
 .bad { color: var(--red); font-weight: 600; }
 
 .scroll { overflow-x: auto; border-radius: var(--radius); }
-/* the wrapper carries the lift so the table inside keeps square corners */
-.scroll table { box-shadow: none; }
+/* The wrapper carries the lift so the table inside keeps square corners -- and
+   it does the clipping and the rounding too, so the base rule's overflow:hidden
+   has to come back off here. That overflow makes the table its own scroll
+   container, and .rowhead's position:sticky then resolves against a box that
+   never scrolls, which is why the first column has never actually held. */
+.scroll table { box-shadow: none; overflow: visible; }
 .matrix { min-width: 100%; width: auto; }
 .matrix th, .matrix td { border-right: 1px solid var(--line-soft); white-space: nowrap; }
 .matrix .rowhead { text-align: left; font-weight: 600; position: sticky; left: 0;
-  background: var(--surface); z-index: 1; }
+  background: var(--surface); z-index: 2; box-shadow: 1px 0 0 var(--line); }
+/* The corner cell holds with them, or the header row slides out from over its
+   own column. Its tint is translucent, so it is stacked over the opaque surface
+   rather than swapped for it -- the weeks passing underneath must not show
+   through the one cell that is supposed to stay put. */
+.matrix thead .rowhead {
+  background: linear-gradient(var(--green-tint), var(--green-tint)), var(--surface);
+  z-index: 3;
+}
 .matrix .rot { font-size: 10.5px; text-align: center; max-width: 92px;
   overflow: hidden; text-overflow: ellipsis; }
 .matrix .cell { text-align: center; font-variant-numeric: tabular-nums; }
@@ -876,8 +888,13 @@ thead th { font-family: var(--display); letter-spacing: .1em; font-size: 12px; }
 tbody tr.me > td { background: var(--green-soft); }
 tbody tr.me:hover > td { background: var(--green-soft); }
 tbody tr.me > td:first-child { font-weight: 700; box-shadow: inset 2px 0 0 var(--red); }
-.matrix .rowhead.me { background: var(--green-soft); color: var(--ink); font-weight: 700;
-  box-shadow: inset 2px 0 0 var(--red); }
+/* Same opaque stacking as the corner, and the sticky column's right-hand
+   hairline has to be restated beside the red inset -- one box-shadow property. */
+.matrix .rowhead.me {
+  background: linear-gradient(var(--green-soft), var(--green-soft)), var(--surface);
+  color: var(--ink); font-weight: 700;
+  box-shadow: inset 2px 0 0 var(--red), 1px 0 0 var(--line);
+}
 .matrix th.rot.me { color: var(--red); font-weight: 700; }
 .matrix td.mecell { background: var(--green-soft); font-weight: 600; }
 

@@ -19,7 +19,7 @@
 {% else %}
 <div class="scroll">
 <table class="matrix">
-  <thead><tr><th></th>{% for t in teams %}<th class="rot {{ 'me' if t == me_id }}">{{ names.get(t, t) }}</th>{% endfor %}</tr></thead>
+  <thead><tr><th class="rowhead"></th>{% for t in teams %}<th class="rot {{ 'me' if t == me_id }}">{{ names.get(t, t) }}</th>{% endfor %}</tr></thead>
   <tbody>
   {% for row_team in teams %}
     <tr class="{{ 'me' if row_team == me_id }}">
