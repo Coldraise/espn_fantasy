@@ -149,6 +149,10 @@ main, .banner { position: relative; z-index: 1; }
   .ticker-track { animation: none; }
   .ticker { overflow-x: auto; }
 }
+/* A phone's bar is the burger and the status chip with nothing to spare -- a
+   marquee between them has nowhere to run. The touchdown strip below stays:
+   it only appears when a rostered player has just scored. */
+@media (max-width: 640px) { .ticker { display: none; } }
 .tk-group { display: inline-flex; align-items: center; gap: 12px; white-space: nowrap; }
 .tk-pos {
   font-family: var(--display); font-size: 11px; font-weight: 700;
