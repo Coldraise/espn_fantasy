@@ -495,7 +495,10 @@ mark { background: var(--amber-soft); color: inherit; border-radius: 3px; paddin
   border-radius: var(--radius); box-shadow: var(--lift);
   padding: 12px 12px 4px; margin-bottom: 4px;
 }
-.restbox .games.compact { gap: 10px; }
+/* One card per row. Three across left about 33px for a name -- four
+   characters -- which is not a name at all. Full width buys the whole name and
+   the NFL team, and makes opening one a change of depth rather than of shape. */
+.restbox .games.compact { grid-template-columns: 1fr; gap: 8px; }
 /* The cards inside carry the panel, so they must not each look like one too. */
 .restbox .games.compact .game {
   box-shadow: none; background: var(--raised); border-color: var(--line-soft);
@@ -950,19 +953,12 @@ td .slot {
    direction: rtl and carries its own grid rule. */
 .games.compact .toplayers li,
 .games.compact .mside.right .toplayers li {
-  /* No team column: three cards across leaves each side ~150px, and the name
-     is worth more than the abbreviation. Opening the card brings it back. */
-  grid-template-columns: 28px 1fr 36px;
+  grid-template-columns: 30px 1fr 24px 34px;
   column-gap: 4px; padding: 2px 4px; font-size: 11.5px;
 }
-.games.compact .toplayers .pro { display: none; }
 
-/* An opened card takes the whole row, and with the width it can afford the
-   full names and the NFL team again. */
+/* An opened card takes the whole row, so the rows get desktop spacing. */
 .games.compact .game.open { grid-column: 1 / -1; }
-.games.compact .game.open .nm-full { display: inline; }
-.games.compact .game.open .nm-abbr { display: none; }
-.games.compact .game.open .toplayers .pro { display: block; }
 .games.compact .game.open .toplayers li,
 .games.compact .game.open .mside.right .toplayers li {
   grid-template-columns: 42px 1fr 32px 46px; font-size: 12.5px;
@@ -1029,13 +1025,6 @@ td .slot {
    width. The columns have to be restated without it, including for the
    mirrored right-hand side. */
 .nm-abbr { display: none; }
-/* The three "rest of the week" cards are narrow at every width -- three across
-   leaves each side about 50px for a name -- so collapsed they show the short
-   form and drop the NFL team, which is the less useful of the two. Opening one
-   gives it the full row, and with the room it takes both back. */
-.games.compact .nm-full { display: none; }
-.games.compact .nm-abbr { display: inline; }
-
 
 @media (max-width: 560px) {
   .toplayers .nm-full { display: none; }
@@ -1048,9 +1037,6 @@ td .slot {
   .games.compact .mside.right .toplayers li { grid-template-columns: 30px 1fr 36px; }
   .games.feature .toplayers li { font-size: 12.5px; }
 
-  .games.compact .game.open .nm-full { display: none; }
-  .games.compact .game.open .nm-abbr { display: inline; }
-  .games.compact .game.open .toplayers .pro { display: none; }
   .games.compact .game.open .toplayers li,
   .games.compact .game.open .mside.right .toplayers li {
     grid-template-columns: 30px 1fr 36px;
