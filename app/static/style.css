@@ -782,6 +782,15 @@ thead th { font-family: var(--display); letter-spacing: .1em; font-size: 12px; }
 .mr.gov { font-weight: 700; background: var(--raised); border-radius: 3px; }
 .opp { font-family: var(--display); font-size: 11.5px; letter-spacing: .04em;
        color: var(--muted); text-align: right; }
+/* Everything left of this line describes the opposition, everything right of
+   it describes the player. A hairline in the gutter says so without spending a
+   second header row on it. The negative margin pulls the border half way into
+   the 8px column gap so it sits between the two groups rather than crowding
+   Last; the cells are right-aligned, so widening one leftwards moves no text. */
+.divide, .poscard.matchups .plist .pl {
+  border-left: 1px solid var(--line-soft);
+  margin-left: -4px; padding-left: 4px;
+}
 
 /* ---------- signed-in franchise ---------- */
 .topbar .who {

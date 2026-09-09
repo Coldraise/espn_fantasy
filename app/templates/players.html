@@ -53,7 +53,7 @@
        actually governs this position -- Run for a back, Pass for a receiver --
        and drops the other three, which the wide card still shows in full. #}
     <div class="plhead sticky pos matchups">
-      <span></span><span class="hp">Player</span><span>Opp</span><span>{{ matchup_axis|capitalize }}</span><span>Last</span><span>Proj</span>
+      <span></span><span class="hp">Player</span><span>Opp</span><span>{{ matchup_axis|capitalize }}</span><span class="divide">Last</span><span>Proj</span>
     </div>
   {% else %}
     <div class="plhead sticky pos">
@@ -112,7 +112,7 @@
     {% if matchups %}
     <div class="plhead">
       <span></span><span></span><span>Opp</span><span>Run</span><span>Pass</span>
-      <span>Kick</span><span>Def</span><span>Last</span><span>Proj</span>
+      <span>Kick</span><span>Def</span><span class="divide">Last</span><span>Proj</span>
     </div>
     {% else %}
     <div class="plhead"><span></span><span></span><span>Last</span><span>Proj</span></div>
