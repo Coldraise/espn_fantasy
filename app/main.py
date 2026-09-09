@@ -745,6 +745,31 @@ def player_rankings(request: Request):
             [r for r in rows
              if not (available_only and (r.get("on_team_id") or 0))],
             by="actual" if any((r.get("actual") or 0) for r in rows) else "projected")
+        shown = [g for g in all_groups if g["label"] == pos] if pos else all_groups
+
+        # Matchup columns are a per-position feature only: rating a defence
+        # against every position at once means scanning a full season of
+        # nflverse rows, which an unfiltered page must not pay for on every load.
+        matchup_season = None
+        matchups = False
+        axis = nflstats.AXIS_FOR_GROUP.get(pos)
+        if pos:
+            seasons = db.nfl_seasons(conn)
+            matchup_season = seasons[0] if seasons else None
+            opponents = nflstats.opponent_map(
+                db.fetch_nfl_games(conn, cfg.current_season, week))
+            # Both a stored season and a stored schedule are required: with no
+            # schedule synced for this week there is nothing to rate a player's
+            # opponent against, and the page falls back to its plain four
+            # columns rather than a card full of dashes.
+            if matchup_season and opponents:
+                ratings = nflstats.defense_ratings(
+                    db.fetch_nfl_team_weeks(conn, matchup_season),
+                    db.fetch_nfl_player_weeks(conn, matchup_season))
+                for group in shown:
+                    nflstats.attach_matchups(group["players"], ratings, opponents, axis)
+                matchups = True
+
         context = _base_context(request, conn) | {
             "week": week,
             "weeks": weeks,
@@ -752,13 +777,16 @@ def player_rankings(request: Request):
             "pos": pos,
             "positions": positions,
             "flat": flat,
-            "groups": [g for g in all_groups if g["label"] == pos] if pos
-                      else all_groups,
+            "groups": shown,
             "last_week": last_week if last_week >= 1 else None,
             "has_last": bool(last),
             "team_names": db.franchise_names(conn, cfg.franchise_since),
             "team_colors": players.PRO_TEAM_COLORS,
             "total": len(rows),
+            "matchups": matchups,
+            "matchup_season": matchup_season,
+            "matchup_axis": axis,
+            "matchup_stale": bool(matchup_season and matchup_season != cfg.current_season),
         }
     return templates.TemplateResponse("players.html", context)
 

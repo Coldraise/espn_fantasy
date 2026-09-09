@@ -248,3 +248,187 @@ def split_by_unit(rows: list[dict]) -> dict[str, list[dict]]:
         else:
             groups["offence"].append(row)
     return groups
+
+
+# --- matchup ratings --------------------------------------------------------
+#
+# "Who does a fantasy manager want to start this week" turns on the defence
+# across the ball, not the player's own stat line, so this section ranks NFL
+# defences instead of players. Rank 1 is deliberately the SOFTEST matchup
+# (most generous defence), the opposite of a normal "power ranking", because
+# the number is read straight off a player's row: a 1 there means start them.
+
+MATCHUP_AXES = ("run", "pass", "kick", "def")
+
+# The lineup-group labels from players.POSITION_GROUPS, mapped to the axis
+# that governs whether a player at that position has a good week.
+AXIS_FOR_GROUP = {"QB": "pass", "RB": "run", "WR": "pass", "TE": "pass",
+                  "K": "kick", "D/ST": "def", "LB": "def", "DL": "def", "DB": "def"}
+
+
+def _rank_desc(values: dict[str, float]) -> dict[str, int]:
+    """Rank a {team: value} map, highest value = rank 1.
+
+    Competition ranking (1, 2, 2, 4), not dense or ordinal: two teams tied on
+    the underlying number are tied in the rank too, and the team behind them
+    drops to reflect the two teams ahead -- 1, 2, 3, 4 would claim a
+    difference between the tied teams that the data does not show. A team
+    with no value (bye, no data) gets no entry rather than a fabricated one.
+    """
+    present = [(team, value) for team, value in values.items() if value is not None]
+    present.sort(key=lambda tv: -tv[1])
+    ranks: dict[str, int] = {}
+    for i, (team, value) in enumerate(present):
+        if i > 0 and value == present[i - 1][1]:
+            ranks[team] = ranks[present[i - 1][0]]
+        else:
+            ranks[team] = i + 1
+    return ranks
+
+
+def defense_ratings(team_weeks: list[dict], player_weeks: list[dict]) -> dict[str, dict]:
+    """How generous each NFL defence is, per lineup axis, for one season so far.
+
+    `team_weeks` and `player_weeks` are expected pre-filtered to REG season and
+    one season, same as everywhere else in this module -- the ranking is only
+    meaningful team-against-team within a single year.
+
+    Games played by team X is the count of distinct weeks in `team_weeks` where
+    `team == X`, and every per-game figure below divides by that same number.
+    A defence plays exactly as many games as its own offence, so counting weeks
+    per stat bucket instead would divide the run figure by one number and the
+    pass figure by another for a team that, say, had a bye mid-way through.
+    """
+    games: dict[str, set[int]] = defaultdict(set)
+    for row in team_weeks:
+        team = row.get("team")
+        if team:
+            games[team].add(row.get("week"))
+    game_count = {team: len(weeks) for team, weeks in games.items()}
+
+    def per_game(totals: dict[str, float]) -> dict[str, float]:
+        return {team: round(total / game_count[team], 1)
+                for team, total in totals.items() if game_count.get(team)}
+
+    # Allowed to each position group, from the offence's own stat lines --
+    # `opponent` on a player-week row is the defence that faced them that week.
+    run_pts: dict[str, float] = defaultdict(float)
+    pass_pts: dict[str, float] = defaultdict(float)
+    kick_pts: dict[str, float] = defaultdict(float)
+    for row in player_weeks:
+        opponent = row.get("opponent")
+        if not opponent:
+            continue
+        position = (row.get("position") or "").upper()
+        if position in ("RB", "FB"):
+            run_pts[opponent] += row.get("fantasy_points_ppr") or 0.0
+        elif position in ("QB", "WR", "TE"):
+            pass_pts[opponent] += row.get("fantasy_points_ppr") or 0.0
+        elif position == "K":
+            # nflverse leaves fantasy_points and fantasy_points_ppr at 0.0 for
+            # kickers (verified: 568 of 569 rows in 2025), so the points have
+            # to be rebuilt from the made-kick counters. A flat 3 per field
+            # goal is a deliberate simplification -- the file carries fg_long
+            # but no per-distance breakdown, so distance bonuses cannot be
+            # reconstructed.
+            kick_pts[opponent] += 3 * (row.get("fg_made") or 0) + (row.get("pat_made") or 0)
+
+    # Raw yardage allowed, from the team-week rows of the offences X faced.
+    rush_yds: dict[str, float] = defaultdict(float)
+    pass_yds: dict[str, float] = defaultdict(float)
+    # Defence-facing composite: how generously team X's OFFENCE feeds a
+    # fantasy defence. Interceptions are X's own thrown picks; sacks, forced
+    # fumbles and solo tackles are recorded on the row of whoever X played,
+    # so they read off `opponent == X` rather than `team == X`.
+    ints: dict[str, float] = defaultdict(float)
+    sacks: dict[str, float] = defaultdict(float)
+    fumbles: dict[str, float] = defaultdict(float)
+    tackles: dict[str, float] = defaultdict(float)
+    for row in team_weeks:
+        team, opponent = row.get("team"), row.get("opponent")
+        if opponent:
+            rush_yds[opponent] += row.get("rushing_yards") or 0.0
+            pass_yds[opponent] += row.get("passing_yards") or 0.0
+            sacks[opponent] += row.get("def_sacks") or 0.0
+            fumbles[opponent] += row.get("def_fumbles_forced") or 0.0
+            tackles[opponent] += row.get("def_tackles_solo") or 0.0
+        if team:
+            ints[team] += row.get("passing_interceptions") or 0.0
+
+    run_pg, pass_pg, kick_pg = per_game(run_pts), per_game(pass_pts), per_game(kick_pts)
+    rush_pg, pass_yds_pg = per_game(rush_yds), per_game(pass_yds)
+    ints_pg, sacks_pg = per_game(ints), per_game(sacks)
+    fumbles_pg, tackles_pg = per_game(fumbles), per_game(tackles)
+
+    run_rank = _rank_desc(run_pg)
+    pass_rank = _rank_desc(pass_pg)
+    kick_rank = _rank_desc(kick_pg)
+
+    # Four separate ranks, averaged, and the average re-ranked -- rather than
+    # one rank over a summed or weighted score -- so an outlier stat (a team
+    # with three pick-sixes) cannot dominate the composite on its own scale.
+    # Tackles are the weakest signal of the four: a team that simply runs a
+    # lot of plays collects tackles against it whether its defence is soft or
+    # not, but by choice it is weighted the same as the other three.
+    ints_rank, sacks_rank = _rank_desc(ints_pg), _rank_desc(sacks_pg)
+    fumbles_rank, tackles_rank = _rank_desc(fumbles_pg), _rank_desc(tackles_pg)
+    avg_rank = {
+        team: statistics.fmean([ints_rank[team], sacks_rank[team],
+                                fumbles_rank[team], tackles_rank[team]])
+        for team in game_count if team in ints_rank and team in sacks_rank
+                                and team in fumbles_rank and team in tackles_rank
+    }
+    # Lowest average = softest defence = rank 1, the same direction as every
+    # other rank here; negating the average lets the same "highest wins"
+    # _rank_desc do the final pass instead of a second ranking rule to keep in sync.
+    def_rank = _rank_desc({team: -avg for team, avg in avg_rank.items()})
+
+    out = {}
+    for team, count in game_count.items():
+        out[team] = {
+            "games": count,
+            "run_pts": run_pg.get(team), "pass_pts": pass_pg.get(team),
+            "kick_pts": kick_pg.get(team),
+            "rush_yds": rush_pg.get(team), "pass_yds": pass_yds_pg.get(team),
+            "ints": ints_pg.get(team), "sacks": sacks_pg.get(team),
+            "fumbles": fumbles_pg.get(team), "tackles": tackles_pg.get(team),
+            "run_rank": run_rank.get(team), "pass_rank": pass_rank.get(team),
+            "kick_rank": kick_rank.get(team), "def_rank": def_rank.get(team),
+        }
+    return out
+
+
+def opponent_map(games: list[dict]) -> dict[str, dict]:
+    """nfl_games rows -> {team: {opponent, home}} for both sides of every game.
+
+    A team on a bye has no row here, and no game to inherit a rank from --
+    the caller renders the absence, and inventing an opponent would be a lie
+    about the schedule.
+    """
+    out = {}
+    for row in games:
+        home, away = row.get("home_team"), row.get("away_team")
+        if not home or not away:
+            continue
+        out[home] = {"opponent": away, "home": True}
+        out[away] = {"opponent": home, "home": False}
+    return out
+
+
+def attach_matchups(rows: list[dict], ratings: dict, opponents: dict,
+                    axis: str | None) -> None:
+    """Mutate each player row in place with the week's matchup, or None.
+
+    None covers a bye, a free agent whose pro_team is "FA", and a week whose
+    schedule has not been synced yet -- three different reasons with the same
+    shape, so the caller does not need to tell them apart to render "no game".
+    A matched opponent with no ratings row still yields a dict: the
+    abbreviation is worth showing even when the rank columns come out blank.
+    """
+    for row in rows:
+        opponent = opponents.get(row.get("pro_team") or "")
+        if not opponent:
+            row["matchup"] = None
+            continue
+        row["matchup"] = {"opponent": opponent["opponent"], "home": opponent["home"],
+                          "axis": axis, **ratings.get(opponent["opponent"], {})}

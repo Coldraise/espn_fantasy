@@ -421,6 +421,9 @@ mark { background: var(--amber-soft); color: inherit; border-radius: 3px; paddin
 /* One position picked: a single readable column, rather than one narrow card
    stranded at the left of a grid sized for nine. */
 .posgrid.one { grid-template-columns: minmax(0, 620px); }
+/* A card carrying matchup columns needs the extra width those columns take,
+   so it gets its own cap rather than fighting .one for the same track. */
+.posgrid.one.wide { grid-template-columns: minmax(0, 880px); }
 /* The position row is the secondary choice, so it tucks under the week row. */
 .posscope { margin-top: -10px; }
 .poscard { background: var(--surface); border: 1px solid var(--line);
@@ -758,6 +761,27 @@ thead th { font-family: var(--display); letter-spacing: .1em; font-size: 12px; }
 .plist .pp { text-align: right; }
 .poscard { padding-bottom: 6px; }
 .plist { max-height: 620px; overflow-y: auto; }
+
+/* A card carrying matchup columns needs five more tracks than the plain
+   Last/Proj shape above -- scoped to `.matchups` so the nine-card unfiltered
+   grid, which never carries a `p.matchup`, is untouched. */
+.poscard.matchups .plhead,
+.poscard.matchups .plist li {
+  grid-template-columns: 20px minmax(0,1fr) 52px 32px 34px 32px 32px 44px 44px;
+}
+/* The head is outside .plist's scroll box, so it only lines up with the rows
+   if it repeats their 6px horizontal inset -- the same trap the phone rules
+   further down call out. Two columns could sit visibly out of step without
+   anyone noticing; seven cannot. */
+.poscard.matchups .plhead { padding-left: 6px; padding-right: 6px; }
+.mr { font-variant-numeric: tabular-nums; text-align: right; font-size: 12.5px; color: var(--muted); }
+.mr.soft { color: var(--green); }
+.mr.tough { color: var(--red); }
+/* Neutral rather than the green/red tint above: the governing column has to
+   read as the one that matters regardless of which way its own rank leans. */
+.mr.gov { font-weight: 700; background: var(--raised); border-radius: 3px; }
+.opp { font-family: var(--display); font-size: 11.5px; letter-spacing: .04em;
+       color: var(--muted); text-align: right; }
 
 /* ---------- signed-in franchise ---------- */
 .topbar .who {
@@ -1204,6 +1228,16 @@ td .slot {
   .posgrid.one .plist li,
   .pfilters .plhead.pos {
     grid-template-columns: 20px minmax(0, 1fr) 44px 44px; column-gap: 8px;
+  }
+
+  /* A phone has room for one rank column, not four, so the other three are
+     dropped rather than shown. The tracks below carry it and the higher
+     specificity is deliberate -- it has to win over the plain 4-track rule
+     just above, which still applies to a card with no matchup data. */
+  .posgrid.one .mr:not(.gov) { display: none; }
+  .posgrid.one .poscard.matchups .plist li,
+  .pfilters .plhead.pos.matchups {
+    grid-template-columns: 20px minmax(0, 1fr) 46px 34px 44px 44px; column-gap: 8px;
   }
 }
 

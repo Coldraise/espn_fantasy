@@ -1,5 +1,14 @@
 {% extends "base.html" %}
 {% block content %}
+{# One rank cell: a middot when the position has no game stored for that team
+   this week, a bold neutral background on the axis that actually governs this
+   position's fantasy day, and a colour cue at either tail of the 1-32 range.
+   The raw figure behind the rank travels in `title` -- a rank with no visible
+   units is a number nobody can check. #}
+{% macro rank(value, title, axis, gov) %}
+<span class="mr {{ 'gov' if axis == gov }} {{ 'soft' if value and value <= 8 else ('tough' if value and value >= 25 else '') }}"
+      title="{{ title }}">{{ value or '·' }}</span>
+{% endmacro %}
 <h1>Players <span class="muted">· week {{ week }} projections</span></h1>
 
 {% if not groups %}
@@ -39,6 +48,13 @@
     <div class="plhead sticky flat">
       <span></span><span class="hp">Player</span><span></span><span>Last</span><span>Proj</span>
     </div>
+  {% elif matchups %}
+    {# A phone only has room for one rank column, so it carries the axis that
+       actually governs this position -- Run for a back, Pass for a receiver --
+       and drops the other three, which the wide card still shows in full. #}
+    <div class="plhead sticky pos matchups">
+      <span></span><span class="hp">Player</span><span>Opp</span><span>{{ matchup_axis|capitalize }}</span><span>Last</span><span>Proj</span>
+    </div>
   {% else %}
     <div class="plhead sticky pos">
       <span></span><span class="hp">Player</span><span>Last</span><span>Proj</span>
@@ -57,6 +73,12 @@
     <b>Last</b> fills in from week 2 — there is no week before this one.
   {% endif %}
   {%- if not drafted %} Nobody is drafted yet, so every player is available.{% endif %}
+  {%- if matchups %} Run/Pass/Kick/Def rank the week's opponent from 1 (softest
+    matchup) to 32 (toughest); Def rates the opponent's offence on fumbles,
+    interceptions, sacks and tackles conceded.
+    {%- if matchup_stale %} These figures come from the {{ matchup_season }}
+      season, because the current one has no games played yet.{% endif %}
+  {%- endif %}
 </p>
 
 {# A phone gets one list ranked across every position; a wide screen gets the
@@ -83,11 +105,18 @@
 </ol>
 {% endif %}
 
-<div class="posgrid{{ ' one' if pos }}">
+<div class="posgrid{{ ' one' if pos }}{{ ' wide' if matchups }}">
   {% for g in groups %}
-  <section class="poscard">
+  <section class="poscard{{ ' matchups' if matchups }}">
     <h3>{{ g.label }} <span class="muted small">{{ g.players|length }} of {{ g.total }}</span></h3>
+    {% if matchups %}
+    <div class="plhead">
+      <span></span><span></span><span>Opp</span><span>Run</span><span>Pass</span>
+      <span>Kick</span><span>Def</span><span>Last</span><span>Proj</span>
+    </div>
+    {% else %}
     <div class="plhead"><span></span><span></span><span>Last</span><span>Proj</span></div>
+    {% endif %}
     <ol class="plist">
       {% for p in g.players %}
       {# Same tint as the matchup cards, so a player reads the same colour
@@ -101,6 +130,32 @@
           <span class="muted small">{{ p.pro_team }}{% if p.on_team_id %}
             · {{ team_names.get(p.on_team_id, {}).get('name', 'rostered') }}{% endif %}</span>
         </span>
+        {% if matchups %}
+        {# A matched opponent with no ratings row (schedule synced, box scores
+           not yet) still prints its abbreviation -- only the ranks go blank,
+           via the middot in the rank() macro. #}
+        <span class="opp">{{ (('vs ' if p.matchup.home else '@') ~ p.matchup.opponent) if p.matchup else '·' }}</span>
+        {{ rank(p.matchup.get('run_rank') if p.matchup else none,
+                (p.matchup.get('run_pts')|string ~ ' PPR/g to RBs, '
+                  ~ p.matchup.get('rush_yds')|string ~ ' rush yds/g')
+                  if p.matchup and p.matchup.get('run_pts') is not none else '',
+                'run', matchup_axis) }}
+        {{ rank(p.matchup.get('pass_rank') if p.matchup else none,
+                (p.matchup.get('pass_pts')|string ~ ' PPR/g to QB/WR/TE, '
+                  ~ p.matchup.get('pass_yds')|string ~ ' pass yds/g')
+                  if p.matchup and p.matchup.get('pass_pts') is not none else '',
+                'pass', matchup_axis) }}
+        {{ rank(p.matchup.get('kick_rank') if p.matchup else none,
+                (p.matchup.get('kick_pts')|string ~ ' kick pts/g')
+                  if p.matchup and p.matchup.get('kick_pts') is not none else '',
+                'kick', matchup_axis) }}
+        {{ rank(p.matchup.get('def_rank') if p.matchup else none,
+                (p.matchup.get('sacks')|string ~ ' sacks, ' ~ p.matchup.get('ints')|string
+                  ~ ' INT, ' ~ p.matchup.get('fumbles')|string ~ ' fum, '
+                  ~ p.matchup.get('tackles')|string ~ ' tkl per game')
+                  if p.matchup and p.matchup.get('sacks') is not none else '',
+                'def', matchup_axis) }}
+        {% endif %}
         <span class="pl">{{ '%.1f'|format(p.last) if p.last is not none else '·' }}</span>
         <span class="pp">{{ '%.1f'|format(p.projected or 0) }}</span>
       </li>
@@ -109,5 +164,18 @@
   </section>
   {% endfor %}
 </div>
+
+{# CC-BY-4.0 is a licence condition rather than a courtesy, so the credit
+   travels with the data: it appears on whichever page is actually serving
+   nflverse numbers, which is this one only once the matchup columns are on.
+   The usage page carries its own copy for the same reason. #}
+{% if matchups %}
+<p class="muted small credit">
+  Opponent ratings from <a href="https://github.com/nflverse/nflverse-data">nflverse</a>,
+  CC-BY-4.0. Run and Pass rank a defence on PPR points allowed per game to
+  RB/FB and to QB/WR/TE; Kick rebuilds a kicker's points from made field goals
+  and extra points, which nflverse leaves at zero.
+</p>
+{% endif %}
 {% endif %}
 {% endblock %}

@@ -26,9 +26,18 @@ durable local history, and the rivalry math ESPN never shows you.
   projection bias, and a **lineup calls** table showing points left on the bench
   for each team. Best and worst week per franchise.
 - **Head-to-head** — W-L matrix between every pair of teams.
-- **Players** — the top 50 per lineup position for a given week, each showing
+- **Players** — every player per lineup position for a given week, each showing
   last week's actual score beside this week's projection, with an
-  "available only" filter and rookie badges. Works before the draft.
+  "available only" filter and rookie badges. Choosing a single position adds
+  opponent-matchup columns to each row: the NFL team faced, then four league
+  ranks — **Run**, **Pass**, **Kick** and **Def**, where 1 is softest and 32
+  is toughest, with the governing rank highlighted. Run, Pass and Kick rank a
+  defence on what it concedes per game; **Def** rates the opponent's *offence*
+  on the fumbles, interceptions, sacks and tackles it gives up, which is what a
+  fantasy defence scores on. Hover a rank to see the per-game stats behind it. Ranks come from the most recent season nflverse
+  has published, which before the current season's week 1 is played is last
+  year's — the page says so when that is the case. A phone shows only the
+  governing column. Works before the draft.
 - **Draft** — the board once ESPN marks the draft complete, with **value
   analysis** (who drafted best, best and worst value picks, positional runs),
   round.pick and auction bid displayed per cell.
