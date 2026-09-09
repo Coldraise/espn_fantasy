@@ -367,6 +367,32 @@ def sync_nflverse(conn, season: int, force: bool = False) -> int:
     return written
 
 
+def sync_nfl_pbp(conn, season: int, force: bool = False) -> int:
+    """Pull nflverse per-down target/carry counts for one season.
+
+    Same release-timestamp gate as sync_nflverse, checked against the `pbp`
+    release instead of `stats_player` -- an unchanged release costs one
+    timestamp.json request rather than an 18MB download.
+    """
+    stamp = nflverse.release_timestamp("pbp")
+    known = db.get_nflverse_sync(conn, f"pbp:{season}")
+    if not force and stamp and known and known.get("last_updated") == stamp:
+        return 0
+
+    try:
+        rows = nflverse.play_by_play_downs(season)
+    except nflverse.NotPublished:
+        # Normal before a season's week 1 has been played. Recording the
+        # timestamp anyway would claim we have data we do not.
+        log.info("nflverse has no play-by-play for %s yet", season)
+        return 0
+
+    written = db.replace_nfl_player_down_weeks(conn, season, rows)
+    db.set_nflverse_sync(conn, f"pbp:{season}", stamp, written)
+    log.info("nflverse pbp %s: %d player-down-weeks", season, written)
+    return written
+
+
 def sync_nfl_seasons(conn, current_season: int, force: bool = False) -> int:
     """Keep the current NFL season fresh, plus the last completed one.
 
@@ -375,9 +401,11 @@ def sync_nfl_seasons(conn, current_season: int, force: bool = False) -> int:
     and then skipped rather than re-downloaded every day for a year.
     """
     written = sync_nflverse(conn, current_season, force=force)
+    written += sync_nfl_pbp(conn, current_season, force=force)
     previous = current_season - 1
     if force or previous not in db.nfl_seasons(conn):
         written += sync_nflverse(conn, previous, force=force)
+        written += sync_nfl_pbp(conn, previous, force=force)
     return written
 
 
@@ -647,6 +675,7 @@ def tick() -> None:
             ("player reference", False, lambda: sync_players(conn)),
             ("nflverse ids", False, lambda: sync_nfl_ids(conn)),
             ("nflverse stats", False, lambda: sync_nfl_seasons(conn, cfg.current_season)),
+            ("nflverse play-by-play", False, lambda: sync_nfl_pbp(conn, cfg.current_season)),
             ("transactions", False, lambda: sync_activity(conn, cfg.current_season)),
             ("projections", True, lambda: sync_projections(conn, cfg.current_season, upcoming)),
             ("matchup lineups", True, lambda: sync_matchup_players(conn, cfg.current_season, upcoming)),

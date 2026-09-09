@@ -767,6 +767,10 @@ thead th { font-family: var(--display); letter-spacing: .1em; font-size: 12px; }
   padding: 3px 9px; border-radius: 4px;
   background: rgba(255,255,255,.14); color: #fff;
 }
+/* It is a link to your own roster now, so it has to look like one can be
+   pressed -- the corner is the one place every page shows your franchise. */
+a.who { text-decoration: none; transition: background .12s ease; }
+a.who:hover { background: var(--nfl-red); }
 /* the nav takes the slack, so the draft note and the account block always sit
    on the floor of the drawer whether or not both are present */
 .drawer-nav { margin-bottom: auto; }
@@ -1248,4 +1252,62 @@ td .slot {
   }
   .games .mdl .lineup .nm-full { display: none; }
   .games .mdl .lineup .nm-abbr { display: inline; }
+}
+
+/* ---------- NFL usage, per roster ---------- */
+
+/* One block per franchise, so the page reads as eight rosters rather than one
+   long league-wide list somebody has to filter first. */
+.roster { margin: 0 0 34px; scroll-margin-top: 76px; }   /* clears the sticky topbar */
+.roster > h2 { margin-bottom: 4px; }
+.roster.mine > h2 { color: var(--red); }
+.roster.mine { border-left: 3px solid var(--red); padding-left: 14px; margin-left: -17px; }
+.roster h3 { font-family: var(--display); font-size: 12.5px; font-weight: 600;
+             text-transform: uppercase; letter-spacing: .1em; color: var(--muted);
+             margin: 16px 0 6px; }
+.rmeta { margin: 0 0 10px; }
+.roster h2 .chip.small { font-size: 9px; padding: 2px 6px; vertical-align: middle;
+                         background: var(--red); }
+.totals-head { margin-top: 34px; }
+
+/* The two four-column blocks of per-down counters. The spanning header is what
+   makes eight bare numbers legible, so it carries the rule that groups them. */
+.usage .grouphead th { border-bottom: 0; padding-bottom: 0; }
+.usage th.group {
+  font-family: var(--display); font-size: 9.5px; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--muted);
+  border-bottom: 1px solid var(--line); text-align: center;
+}
+.usage th.down, .usage td.down { width: 26px; padding-left: 2px; padding-right: 2px; }
+.usage th.down { text-align: right; color: var(--muted); }
+/* A zero here is the point -- a receiver with no third-down targets is telling
+   you something -- but it should not shout as loudly as a real count. */
+.usage td.down.zero { color: var(--muted); opacity: .35; }
+.usage td.down { font-variant-numeric: tabular-nums; }
+
+/* The week strip can run to eighteen entries; keep it on one tidy line. */
+.scope.weeks { gap: 4px; }
+.scope.weeks a { min-width: 26px; text-align: center; padding-left: 6px; padding-right: 6px; }
+
+/* ---------- page foot ---------- */
+
+/* Where the staleness stamp lives now. In the top bar it sat beside the league
+   state and read as part of the chrome; down here it reads as what it is, a
+   note about the data above it. */
+.pagefoot {
+  max-width: 1180px; margin: 0 auto; padding: 0 20px 40px;
+  display: flex; justify-content: flex-end;
+}
+.pagefoot .stamp {
+  font-size: 11.5px; color: var(--muted);
+  padding: 5px 10px; border: 1px solid var(--line-soft); border-radius: 999px;
+}
+.pagefoot .stamp b { color: var(--ink); font-weight: 650; }
+
+@media (max-width: 560px) {
+  /* Twenty columns will not fit a phone. The per-down counters are the reason
+     to open this page, so they stay and the derived columns go. */
+  .usage th.wide, .usage td.wide { display: none; }
+  .roster.mine { margin-left: 0; padding-left: 10px; }
+  .pagefoot { justify-content: center; padding-bottom: 28px; }
 }

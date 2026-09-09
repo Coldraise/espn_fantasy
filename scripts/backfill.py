@@ -48,6 +48,7 @@ def backfill_nflverse(cfg, seasons: list[int]) -> int:
             for season in seasons:
                 try:
                     total += poller.sync_nflverse(conn, season, force=True)
+                    total += poller.sync_nfl_pbp(conn, season, force=True)
                 except nflverse.NotPublished:
                     log.info("%s: nflverse has not published this season yet", season)
             db.finish_poll_run(conn, run_id, "ok", total)

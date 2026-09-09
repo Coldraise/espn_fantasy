@@ -113,15 +113,57 @@ def team_defence_summary(rows: list[dict]) -> dict:
     }
 
 
+DOWN_KEYS = ("targets_d1", "targets_d2", "targets_d3", "targets_d4",
+             "carries_d1", "carries_d2", "carries_d3", "carries_d4")
+
+
+def down_counters(rows: list[dict]) -> dict:
+    """Per-down targets and carries, summed over the weeks handed in.
+
+    Summed rather than averaged on purpose: a count of third-down targets is a
+    fact about a role, and a per-game average of it would round the difference
+    between one and two third-down looks a week down to nothing.
+    """
+    out = {key: int(sum(r.get(key) or 0 for r in rows)) for key in DOWN_KEYS}
+    out["down_targets"] = sum(out[k] for k in DOWN_KEYS if k.startswith("targets"))
+    out["down_carries"] = sum(out[k] for k in DOWN_KEYS if k.startswith("carries"))
+    return out
+
+
+def weeks_in_range(weeks: list[int], mode: str, week: int | None = None,
+                   span: int = 4) -> list[int]:
+    """Which weeks a range covers, given the weeks actually on hand.
+
+    Pure and given the available weeks rather than a season length, because
+    "the last four weeks" in September is however many have been played -- a
+    fixed window would silently include weeks with no rows and divide by them.
+    """
+    known = sorted({int(w) for w in weeks if w is not None})
+    if not known:
+        return []
+    if mode == "season":
+        return known
+    end = week if week in known else known[-1]
+    if mode == "week":
+        return [end]
+    upto = [w for w in known if w <= end]
+    return upto[-span:]
+
+
 def usage_rows(roster: list[dict], id_map: dict[int, dict],
                player_weeks: list[dict], team_weeks: list[dict],
-               recent: int = 4) -> list[dict]:
+               recent: int = 4, down_weeks: list[dict] | None = None) -> list[dict]:
     """Join a fantasy roster to NFL reality.
 
     `roster` is team_week_players rows (ESPN player ids); `id_map` is the
     espn -> gsis/pfr mapping. A player with no mapping is still returned, with
     empty stats and `matched: False` -- silently dropping them would make a
     roster look shorter than it is, which reads as a bug.
+
+    `player_weeks` and `down_weeks` are expected to be filtered to the range
+    being shown before they get here: every number below is computed over
+    whatever rows it is given, which is what makes one week, four weeks and a
+    whole season the same code path.
     """
     by_gsis: dict[str, list[dict]] = defaultdict(list)
     for row in player_weeks:
@@ -129,6 +171,9 @@ def usage_rows(roster: list[dict], id_map: dict[int, dict],
     by_team: dict[str, list[dict]] = defaultdict(list)
     for row in team_weeks:
         by_team[row["team"]].append(row)
+    by_down: dict[str, list[dict]] = defaultdict(list)
+    for row in down_weeks or []:
+        by_down[row["gsis_id"]].append(row)
 
     out = []
     for entry in roster:
@@ -156,6 +201,7 @@ def usage_rows(roster: list[dict], id_map: dict[int, dict],
             weeks = by_gsis.get(gsis_id or "", [])
             record["matched"] = bool(weeks)
             record |= player_summary(weeks, position, recent=recent)
+            record |= down_counters(by_down.get(gsis_id or "", []))
         out.append(record)
 
     out.sort(key=lambda r: -(r.get("ppr") or 0))

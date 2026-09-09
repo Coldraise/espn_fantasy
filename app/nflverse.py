@@ -256,3 +256,64 @@ def snap_counts(season: int) -> dict[tuple[str, int], dict]:
             continue
         out[(pfr_id, int(week))] = {name: _num(row.get(name)) for name in SNAP_STATS}
     return out
+
+
+# The eight counters play_by_play_downs produces, kept as a tuple so the row
+# builder and any future column list agree the same way PLAYER_WEEK_STATS does.
+DOWN_COUNTER_STATS = (
+    "targets_d1", "targets_d2", "targets_d3", "targets_d4",
+    "carries_d1", "carries_d2", "carries_d3", "carries_d4",
+)
+
+
+def play_by_play_downs(season: int) -> list[dict]:
+    """One row per (gsis_id, week) counting targets and carries by down.
+
+    Deliberate exception to fetch_csv's documented read-whole policy. Full
+    play-by-play is 48,771 rows by 372 columns -- gzip.decompress() into a 93MB
+    string and list(csv.DictReader(...)) over it would materialise millions of
+    live strings just to keep eight counters. Streaming the bytes through
+    GzipFile and TextIOWrapper into csv.DictReader instead, discarding each row
+    as soon as it is counted, measures at 1.7s and 13MB peak RSS for a full
+    season.
+
+    Raises NotPublished for a season whose week 1 has not been played yet, same
+    as weekly_player_stats -- `_get` is what raises it, on the file's 404.
+    """
+    raw = _get(f"{BASE}/pbp/play_by_play_{season}.csv.gz")
+    counts: dict[tuple[str, int], dict[str, int]] = {}
+    with gzip.GzipFile(fileobj=io.BytesIO(raw)) as gz:
+        text = io.TextIOWrapper(gz, encoding="utf-8", errors="replace")
+        for row in csv.DictReader(text):
+            # Playoff weeks would inflate usage averages the same way they
+            # would in nfl_player_weeks -- db.fetch_nfl_player_weeks already
+            # excludes them, and this must agree or the two tables disagree.
+            if (row.get("season_type") or "").strip() != "REG":
+                continue
+            # down is blank on kickoffs, extra points and two-point tries.
+            down = (row.get("down") or "").strip()
+            if down not in {"1", "2", "3", "4"}:
+                continue
+            try:
+                week = int(row.get("week"))
+            except (TypeError, ValueError):
+                continue
+
+            if row.get("pass_attempt") == "1":
+                receiver = (row.get("receiver_player_id") or "").strip()
+                if receiver:
+                    key = (receiver, week)
+                    counters = counts.setdefault(key, dict.fromkeys(DOWN_COUNTER_STATS, 0))
+                    counters[f"targets_d{down}"] += 1
+
+            if row.get("rush_attempt") == "1":
+                rusher = (row.get("rusher_player_id") or "").strip()
+                if rusher:
+                    key = (rusher, week)
+                    counters = counts.setdefault(key, dict.fromkeys(DOWN_COUNTER_STATS, 0))
+                    counters[f"carries_d{down}"] += 1
+
+    return [
+        {"season": season, "week": week, "gsis_id": gsis_id, **counters}
+        for (gsis_id, week), counters in counts.items()
+    ]

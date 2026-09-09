@@ -43,13 +43,18 @@
     </div>
   </div>
   {% endif %}
+  {#  No chip once the draft is done: "drafted" is true for five months and
+      stops being news the day after it happens. Pre-draft and live both say
+      something about right now, so they stay. The staleness stamp moved to the
+      foot of the page, where a timestamp belongs. #}
   <div class="status">
     {% if state == 'pre_draft' %}<span class="chip amber">pre-draft</span>
-    {% elif state == 'drafted' %}<span class="chip violet">drafted</span>
-    {% elif live %}<span class="chip green pulse">live</span>
-    {% else %}<span class="chip">idle</span>{% endif %}
-    {% if stale_minutes is not none %}<span class="muted small">{{ stale_minutes }}m ago</span>{% endif %}
-    {% if me_name %}<span class="who" title="Signed in as {{ me_name }}">{{ me_name }}</span>{% endif %}
+    {% elif live %}<span class="chip green pulse">live</span>{% endif %}
+    {% if me_name %}
+      {% if me_id %}<a class="who" href="/usage#t{{ me_id }}"
+         title="{{ me_name }} — your roster's NFL usage">{{ me_name }}</a>
+      {% else %}<span class="who" title="Signed in as {{ me_name }}">{{ me_name }}</span>{% endif %}
+    {% endif %}
   </div>
 </header>
 
@@ -137,6 +142,14 @@
 {% endif %}
 
 <main>{% block content %}{% endblock %}</main>
+
+<footer class="pagefoot">
+  {% if stale_minutes is not none %}
+    <span class="stamp">Data refreshed <b>{{ stale_minutes }}m</b> ago</span>
+  {% else %}
+    <span class="stamp muted">No successful poll yet</span>
+  {% endif %}
+</footer>
 
 <script>
 (function () {

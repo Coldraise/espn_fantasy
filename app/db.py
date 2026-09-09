@@ -300,6 +300,27 @@ CREATE TABLE IF NOT EXISTS nfl_player_weeks (
 
 CREATE INDEX IF NOT EXISTS idx_nfl_weeks_gsis ON nfl_player_weeks (gsis_id);
 
+-- Per-down target/carry counts, one row per (season, week, gsis_id). A
+-- separate table rather than eight more columns on nfl_player_weeks: that
+-- table is replaced wholesale from a different nflverse file by
+-- sync_nflverse, and merging two independently-published sources into one
+-- wholesale replace creates a sync order somebody has to remember.
+CREATE TABLE IF NOT EXISTS nfl_player_down_weeks (
+    season     INTEGER NOT NULL,
+    week       INTEGER NOT NULL,
+    gsis_id    TEXT    NOT NULL,
+    targets_d1 INTEGER NOT NULL DEFAULT 0,
+    targets_d2 INTEGER NOT NULL DEFAULT 0,
+    targets_d3 INTEGER NOT NULL DEFAULT 0,
+    targets_d4 INTEGER NOT NULL DEFAULT 0,
+    carries_d1 INTEGER NOT NULL DEFAULT 0,
+    carries_d2 INTEGER NOT NULL DEFAULT 0,
+    carries_d3 INTEGER NOT NULL DEFAULT 0,
+    carries_d4 INTEGER NOT NULL DEFAULT 0,
+    updated_at TEXT NOT NULL,
+    PRIMARY KEY (season, week, gsis_id)
+);
+
 -- Team-grain rows, for fantasy D/ST. Team defences carry no espn_id and no
 -- gsis_id, so they can only ever join on the team abbreviation.
 CREATE TABLE IF NOT EXISTS nfl_team_weeks (
@@ -981,6 +1002,7 @@ _NFL_PLAYER_WEEK_COLUMNS = (
 _NFL_TEAM_WEEK_COLUMNS = (
     ("season", "week", "team", "opponent", "season_type") + _nflverse.TEAM_WEEK_STATS
 )
+_NFL_PLAYER_DOWN_WEEK_COLUMNS = ("season", "week", "gsis_id") + _nflverse.DOWN_COUNTER_STATS
 
 
 def replace_nfl_player_ids(conn, rows: dict[int, dict]) -> int:
@@ -1025,6 +1047,10 @@ def replace_nfl_team_weeks(conn, season: int, rows: list[dict]) -> int:
     return _replace_rows(conn, "nfl_team_weeks", _NFL_TEAM_WEEK_COLUMNS, season, rows)
 
 
+def replace_nfl_player_down_weeks(conn, season: int, rows: list[dict]) -> int:
+    return _replace_rows(conn, "nfl_player_down_weeks", _NFL_PLAYER_DOWN_WEEK_COLUMNS, season, rows)
+
+
 def set_nflverse_sync(conn, tag: str, last_updated: str | None, rows: int) -> None:
     with conn:
         conn.execute(
@@ -1053,6 +1079,23 @@ def fetch_nfl_player_weeks(conn, season: int, gsis_ids: list[str] | None = None)
     a player's usage rate alongside seventeen regular-season weeks.
     """
     sql = "SELECT * FROM nfl_player_weeks WHERE season=? AND season_type='REG'"
+    params: list = [season]
+    if gsis_ids is not None:
+        if not gsis_ids:
+            return []
+        sql += f" AND gsis_id IN ({','.join('?' * len(gsis_ids))})"
+        params += list(gsis_ids)
+    return [dict(r) for r in conn.execute(sql + " ORDER BY week, gsis_id", params)]
+
+
+def fetch_nfl_player_down_weeks(conn, season: int, gsis_ids: list[str] | None = None) -> list[dict]:
+    """Per-down target/carry counts, optionally narrowed to one set of players.
+
+    No season_type filter here, unlike fetch_nfl_player_weeks: the aggregation
+    in play_by_play_downs already drops non-REG plays, so there is nothing left
+    to exclude at read time.
+    """
+    sql = "SELECT * FROM nfl_player_down_weeks WHERE season=?"
     params: list = [season]
     if gsis_ids is not None:
         if not gsis_ids:

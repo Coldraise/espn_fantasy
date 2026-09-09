@@ -609,10 +609,31 @@ def usage(request: Request):
                   (db.fetch_team_week_players(conn, cfg.current_season, roster_week)
                    if roster_week else {}).values() for p in players_]
 
+        player_weeks = db.fetch_nfl_player_weeks(conn, season)
+        down_weeks = db.fetch_nfl_player_down_weeks(conn, season)
+
+        # The range is applied by filtering rows before any of the maths runs,
+        # so a week, four weeks and a season are one code path rather than
+        # three sets of nearly-identical sums.
+        stored_weeks = sorted({int(r["week"]) for r in player_weeks if r.get("week")})
+        mode = request.query_params.get("range") or "week"
+        if mode not in ("week", "l4", "season"):
+            mode = "week"
+        try:
+            asked_week = int(request.query_params.get("week") or 0) or None
+        except ValueError:
+            asked_week = None
+        span = nflstats.weeks_in_range(stored_weeks, mode, asked_week)
+        in_range = set(span)
+        if in_range:
+            player_weeks = [r for r in player_weeks if r.get("week") in in_range]
+            down_weeks = [r for r in down_weeks if r.get("week") in in_range]
+
         rows = nflstats.usage_rows(
-            roster, db.nfl_id_map(conn),
-            db.fetch_nfl_player_weeks(conn, season),
-            db.fetch_nfl_team_weeks(conn, season),
+            roster, db.nfl_id_map(conn), player_weeks,
+            [r for r in db.fetch_nfl_team_weeks(conn, season)
+             if not in_range or r.get("week") in in_range],
+            down_weeks=down_weeks,
         )
         names = db.franchise_names(conn, cfg.franchise_since)
         summary = nflstats.franchise_usage(rows)
@@ -621,22 +642,41 @@ def usage(request: Request):
              for tid, vals in summary.items()),
             key=lambda r: -(r["ppr"] or 0))
 
-        # Default to your own franchise -- the roster you actually care about.
+        # An explicit ?team= narrows the page to one roster; without it every
+        # franchise gets a section, the signed-in one first.
         try:
             selected = int(request.query_params.get("team") or 0)
         except ValueError:
             selected = 0
         if selected not in summary:
-            selected = context["me_id"] if context["me_id"] in summary else 0
+            selected = 0
 
-        picked = [r for r in rows if r["team_id"] == selected] if selected else rows
+        order = [t["team_id"] for t in table]
+        if context["me_id"] in order:
+            order.remove(context["me_id"])
+            order.insert(0, context["me_id"])
+        if selected:
+            order = [selected]
+
+        rosters = [{
+            "team_id": team_id,
+            "name": names.get(team_id, {}).get("name") or f"Team {team_id}",
+            "summary": summary.get(team_id) or {},
+            "groups": nflstats.split_by_unit(
+                [r for r in rows if r["team_id"] == team_id]),
+        } for team_id in order]
+
         context |= {
             "season": season, "nfl_seasons": seasons,
             "roster_week": roster_week,
             "reference": season < cfg.current_season,
             "table": table, "names": names,
             "selected": selected,
-            "groups": nflstats.split_by_unit(picked),
+            "rosters": rosters,
+            "mode": mode, "weeks": stored_weeks, "span": span,
+            # A trend is last-four-weeks form against the season average, which
+            # says nothing when the page is already showing four weeks or one.
+            "show_trend": mode == "season",
             "team_colors": players.PRO_TEAM_COLORS,
         }
     return templates.TemplateResponse("usage.html", context)
