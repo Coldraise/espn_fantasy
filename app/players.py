@@ -195,6 +195,56 @@ def _slot_rank(slot: str) -> tuple[int, str]:
         return (len(SLOT_ORDER), slot)
 
 
+def live_totals(lineup: list[dict], games: dict[str, dict]) -> dict:
+    """A team's headline score pair: what's on the board now, and where the
+    week is expected to land.
+
+    The two sums deliberately cover different sets of starters. `actual` only
+    counts a player once their game has state 'in' or 'post' -- a starter whose
+    game is still 'pre', or who has no game row at all (a bye, an unresolved
+    pro_team), contributes nothing, even if a stale number happens to sit in
+    their `actual` column. Crediting a franchise with points from a player who
+    has not kicked off yet is the whole failure mode this exists to avoid.
+    `projected` has no such filter: it sums every starter, because it stands
+    for the full expected final total, the number `actual` is climbing toward.
+    """
+    actual = projected = 0.0
+    counted = pending = 0
+    for p in lineup:
+        projected += p.get("projected") or 0
+        game = games.get(p.get("pro_team")) if p.get("pro_team") else None
+        if game and game.get("state") in ("in", "post"):
+            actual += p.get("actual") or 0
+            counted += 1
+        else:
+            pending += 1
+    return {"actual": round(actual, 1), "projected": round(projected, 1),
+            "counted": counted, "pending": pending}
+
+
+def roster_rows(roster: list[dict]) -> list[dict]:
+    """One franchise's roster, ordered the way a box score reads: starters in
+    SLOT_ORDER, then bench and IR.
+
+    `pair_lineups` answers a different question -- it pairs two franchises'
+    starters onto shared-slot rows for a matchup card, and drops anyone not a
+    starter in the process. This is one team on its own, for the modal a click
+    on a team name opens, so there is no second side to align against and the
+    reserve slots that a matchup card has no room for need to survive. Sorting
+    the whole roster by `_slot_rank` does the ordering in one pass: real lineup
+    slots (QB, RB, ...) all rank below the reserve slots (BE, IR, RES), which
+    are not in SLOT_ORDER and so fall to the end together, in the same order
+    `pair_lineups` would put them in if it ever saw them.
+    """
+    rows = sorted(roster or [], key=lambda p: _slot_rank(p.get("lineup_slot") or ""))
+    return [{
+        "player": p,
+        "slot": p.get("lineup_slot") or "",
+        "label": slot_label(p.get("lineup_slot")),
+        "reserve": not p.get("is_starter"),
+    } for p in rows]
+
+
 def pair_lineups(home: list[dict] | None, away: list[dict] | None) -> list[dict]:
     """One row per lineup slot, both franchises on it.
 

@@ -189,11 +189,15 @@
 
   function dialogFor(target) {
     if (!target.closest) return null;
-    var card = target.closest('.game[data-dialog]');
-    /* Team names inside the card are real links to their history, and a click
-       inside the open dialog must not reopen the card behind it. */
-    if (!card || target.closest('a') || target.closest('dialog')) return null;
-    return document.getElementById(card.getAttribute('data-dialog'));
+    /* The team name sits inside the card and carries its own data-dialog, so
+       the innermost match wins: a click on the name opens the roster, a click
+       anywhere else on the card opens the matchup. A click inside an already
+       open dialog must not reopen whatever is behind it, and a real link --
+       "All-time record" inside the roster dialog -- must still navigate. */
+    var host = target.closest('[data-dialog]');
+    if (!host || target.closest('dialog')) return null;
+    if (target.closest('a[href]')) return null;
+    return document.getElementById(host.getAttribute('data-dialog'));
   }
 
   function show(dlg) {

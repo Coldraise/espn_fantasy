@@ -483,3 +483,67 @@ def test_an_unknown_slot_sorts_last_rather_than_vanishing():
     home = [{"name": "X", "lineup_slot": "MYSTERY", "projected": 5},
             {"name": "QB", "lineup_slot": "QB", "projected": 5}]
     assert [r["slot"] for r in players.pair_lineups(home, [])] == ["QB", "MYSTERY"]
+
+
+# --- the card's headline pair: on the board now, and where it lands --------
+
+def test_live_totals_excludes_players_whose_game_has_not_kicked_off():
+    """Four starters: one final, one live, one still pre-kickoff with a stale
+    actual sitting in its column, and one with no game row at all (a bye).
+
+    actual = 24.5 (post) + 10.2 (in) = 34.7 -- the pre-kickoff player's 5.0 and
+    the bye's None are both excluded, so 2 of the 4 starters feed it.
+    projected = 18.0 + 15.0 + 12.0 + 9.0 = 54.0 -- every starter counts here,
+    which is what makes it read as the full expected total rather than a
+    partial one.
+    """
+    lineup = [
+        {"pro_team": "DET", "actual": 24.5, "projected": 18.0},
+        {"pro_team": "KC", "actual": 10.2, "projected": 15.0},
+        {"pro_team": "BUF", "actual": 5.0, "projected": 12.0},
+        {"pro_team": None, "actual": None, "projected": 9.0},
+    ]
+    games = {"DET": {"state": "post"}, "KC": {"state": "in"}, "BUF": {"state": "pre"}}
+    totals = players.live_totals(lineup, games)
+    assert totals["actual"] == 34.7
+    assert totals["projected"] == 54.0
+    assert totals["counted"] == 2, "only the post and in players fed actual"
+    assert totals["pending"] == 2, "the pre-kickoff player and the bye have not played"
+
+
+def test_live_totals_rounds_to_one_decimal():
+    lineup = [{"pro_team": "DET", "actual": 1.111, "projected": 2.222}]
+    games = {"DET": {"state": "in"}}
+    totals = players.live_totals(lineup, games)
+    assert totals["actual"] == 1.1 and totals["projected"] == 2.2
+
+
+# --- one franchise's roster, ordered for the modal a team name opens -------
+
+def test_roster_rows_puts_starters_first_in_slot_order():
+    roster = [
+        {"name": "Bench RB", "lineup_slot": "BE", "is_starter": 0},
+        {"name": "QB1", "lineup_slot": "QB", "is_starter": 1},
+        {"name": "IR Guy", "lineup_slot": "IR", "is_starter": 0},
+        {"name": "Flex", "lineup_slot": "FLEX", "is_starter": 1},
+    ]
+    rows = players.roster_rows(roster)
+    assert [r["player"]["name"] for r in rows] == ["QB1", "Flex", "Bench RB", "IR Guy"]
+
+
+def test_roster_rows_marks_reserve_from_is_starter():
+    roster = [
+        {"name": "Starter", "lineup_slot": "QB", "is_starter": 1},
+        {"name": "Benched", "lineup_slot": "BE", "is_starter": 0},
+    ]
+    by_name = {r["player"]["name"]: r["reserve"] for r in players.roster_rows(roster)}
+    assert by_name["Starter"] is False
+    assert by_name["Benched"] is True
+
+
+def test_roster_rows_keeps_an_unknown_slot_rather_than_dropping_it():
+    """A starter in a slot this league has never seen must still show up --
+    dropped silently is worse than shown in the wrong place."""
+    roster = [{"name": "Oddity", "lineup_slot": "MYSTERY", "is_starter": 1}]
+    names = [r["player"]["name"] for r in players.roster_rows(roster)]
+    assert names == ["Oddity"]

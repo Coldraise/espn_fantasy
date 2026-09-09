@@ -57,6 +57,11 @@
      so the site still reads right with no network. */
   --display: "Barlow Condensed", "Helvetica Neue Condensed", "Arial Narrow",
              ui-sans-serif, system-ui, sans-serif;
+
+  /* One width for both the featured matchup and every compact card below it,
+     so the two are tied together and cannot drift apart the next time either
+     changes. */
+  --card-w: 1040px;
 }
 
 * { box-sizing: border-box; }
@@ -289,7 +294,10 @@ main, .banner { position: relative; z-index: 1; }
 .scrim { position: fixed; inset: 0; z-index: 50; background: rgba(3,14,10,.5); }
 
 /* ---------- layout ---------- */
-main { padding: 22px 20px 60px; max-width: 1180px; margin: 0 auto; }
+/* Never narrower than the old fixed width, roughly 80% of the viewport on a
+   wide monitor, and capped so a line of text on an ultrawide doesn't run the
+   full screen. */
+main { padding: 22px 20px 60px; max-width: clamp(1180px, 80vw, 1560px); margin: 0 auto; }
 h1 { font-family: var(--display); font-size: 30px; margin: 2px 0 16px; font-weight: 700;
      text-transform: uppercase; letter-spacing: .01em; line-height: 1.1; }
 h2 { font-family: var(--display); font-size: 15px; margin: 30px 0 10px; font-weight: 600;
@@ -611,6 +619,18 @@ mark { background: var(--amber-soft); color: inherit; border-radius: 3px; paddin
   letter-spacing: .12em; text-transform: uppercase; color: var(--muted);
   border-top: 1px solid var(--line-soft); padding-top: 7px;
 }
+.rdlg-name { margin: 4px 28px 2px 0; font-size: 18px; font-weight: 700; }
+.rdlg-mgr { margin-left: 8px; font-size: 12px; font-weight: 500; color: var(--muted); }
+.rdlg-hist { display: inline-block; margin-bottom: 8px; font-size: 12px; }
+/* One franchise, not two, so the paired grid the rest of the lineup uses
+   would leave an empty away column beside every player. This is the same
+   three pieces of information -- slot, player, points -- read left to right
+   instead of split down the middle. */
+.games .rdlg .lineup li {
+  grid-template-columns: 44px minmax(0, 1fr) 46px;
+  align-items: center; column-gap: 6px; padding: 3px 5px; font-size: 12.5px;
+}
+.rdlg .lineup .slot { font-size: 9.5px; }
 .mmid { display: flex; flex-direction: column; align-items: center; gap: 3px;
         padding-top: 6px; min-width: 0; }
 .mmid .vs { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; }
@@ -640,9 +660,13 @@ mark { background: var(--amber-soft); color: inherit; border-radius: 3px; paddin
 
    Capped, though: a row is four tracks and only the name flexes, so on a
    1100px card every spare pixel piles up between the name and the points --
-   which is the middle of the card, and reads as a hole in it. */
+   which is the middle of the card, and reads as a hole in it.
+
+   The cap is --card-w, the same variable the featured card below uses, so
+   your matchup and the rest of the week are always the same width and cannot
+   drift apart the next time one of them changes without the other. */
 .restbox .games.compact { grid-template-columns: 1fr; gap: 8px; }
-.restbox .games.compact .game { max-width: 780px; margin-inline: auto; width: 100%; }
+.restbox .games.compact .game { max-width: var(--card-w); margin-inline: auto; width: 100%; }
 /* The cards inside carry the panel, so they must not each look like one too. */
 .restbox .games.compact .game {
   box-shadow: none; background: var(--raised); border-color: var(--line-soft);
@@ -983,8 +1007,9 @@ a.who:hover { background: var(--nfl-red); }
 .mine-head::before { background: var(--red); }
 /* One centred column rather than the full page width: the card carries two
    16-man lineups, so it needs room, but stretched edge to edge on a wide screen
-   the two sides drift so far apart they stop reading as one matchup. */
-.games.feature { grid-template-columns: minmax(0, 940px); justify-content: center;
+   the two sides drift so far apart they stop reading as one matchup. Capped at
+   --card-w, the same variable the rest of the week is capped at below. */
+.games.feature { grid-template-columns: minmax(0, var(--card-w)); justify-content: center;
                  margin-bottom: 4px; }
 .games.feature .game {
   padding: 22px 26px; border-top: 3px solid var(--red);

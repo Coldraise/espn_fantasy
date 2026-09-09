@@ -37,6 +37,9 @@ templates.env.filters["short_name"] = players.short_name
 # The card prints a lineup slot once down its middle, which needs both
 # franchises' starters aligned on that slot rather than each sorted alone.
 templates.env.globals["pair_lineups"] = players.pair_lineups
+# The roster modal a team name opens is one franchise's own list, so it needs
+# its own ordering rather than a pairing built for two.
+templates.env.globals["roster_rows"] = players.roster_rows
 
 _DAY_ABBR = ("Mo", "Tu", "We", "Th", "Fr", "Sa", "Su")
 
@@ -390,6 +393,10 @@ def _card_context(conn, season: int, week: int | None) -> dict:
     return {
         "lineups": lineups,
         "rosters": rosters,
+        # Summed from the same starter rows the card already has, rather than
+        # trusted from ESPN, so the headline number can enforce its own rule
+        # about who has actually kicked off -- see live_totals.
+        "totals": {tid: players.live_totals(ps, games) for tid, ps in lineups.items()},
         "managers": {t["team_id"]: t.get("owner")
                      for t in db.fetch_teams(conn, cfg.current_season)},
         "records": records,

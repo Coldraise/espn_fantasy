@@ -1,9 +1,12 @@
 {#  One matchup card, shared by the pre-season hub and the live scoreboard.
     Expects: game (home/away/bye/final/revision), lineups {team_id: [players]},
     managers {team_id: name}, records {team_id: {...}}, live (bool),
-    me_id (signed-in franchise) and compact (three rows on the card itself).
-    Also renders a <dialog> per matchup holding the whole roster -- bench and
-    IR included -- from `rosters`, which is what a tap on the card opens.
+    me_id (signed-in franchise), compact (three rows on the card itself) and
+    totals {team_id: {actual, projected, counted, pending}}. Also renders a
+    <dialog> per matchup holding the whole roster -- bench and IR included --
+    from `rosters`, which is what a tap on the card opens, plus one <dialog>
+    per franchise, also from `rosters`, which is what a tap on a team name
+    opens instead.
 
     The lineup is one list down the middle rather than one per side. The slot
     is a fact about the row -- both franchises start a quarterback -- so it is
@@ -12,6 +15,7 @@
 {% set compact = compact|default(false) %}
 {% set games = games|default({}) %}
 {% set rosters = rosters|default({}) %}
+{% set totals = totals|default({}) %}
 
 {# ESPN's injury vocabulary, shortened to what fits beside a name. ACTIVE and
    NORMAL are the overwhelming majority and say nothing worth a badge. #}
@@ -21,8 +25,31 @@
 {# The non-scoring slots, printed the way a manager talks about them. #}
 {% set RESERVE = {'BE': 'Bench', 'IR': 'Injured reserve', 'RES': 'Reserve'} %}
 
-{% macro side(team, manager, rec, align, compact, me_id) %}
+{#  `nested` is set when this side is drawn inside an open <dialog>. The
+    roster trigger is suppressed there: the dialog script refuses to open one
+    dialog from inside another, so a button in that position would advertise
+    aria-haspopup and then do nothing. The plain history link works anywhere,
+    so that is what the modal header gets. #}
+{% macro side(team, manager, rec, align, compact, me_id, totals, nested=false) %}
 <div class="mside {{ align }} {{ 'me' if me_id and team.id == me_id }}">
+  {% if rosters.get(team.id) and not nested %}
+  {# A roster to show: the name opens it instead of navigating away. Same
+     inner markup and title as the link below, so the two only differ in the
+     one thing that changed -- what a click does. #}
+  <span class="mteam" role="button" tabindex="0" data-dialog="rdlg-{{ team.id }}"
+        aria-haspopup="dialog" aria-label="Show {{ team.name }}'s roster"
+        title="{{ rec.tip if rec else 'No record yet' }}">
+    <span class="mname">{{ team.name }}</span>
+    {% if rec and rec.titles %}
+      <span class="titles" title="{{ rec.titles }} championship{{ 's' if rec.titles != 1 }}">
+        {%- for _ in range(rec.titles if rec.titles <= 3 else 1) -%}🏆{%- endfor -%}
+        {%- if rec.titles > 3 %}<span class="tcount">×{{ rec.titles }}</span>{% endif -%}
+      </span>
+    {% endif %}
+  </span>
+  {% else %}
+  {# No roster synced -- the pre-season hub -- so there is nothing to open;
+     the link to the franchise's all-time page is the only useful click. #}
   <a class="mteam" href="/history#t{{ team.id }}"
      title="{{ rec.tip if rec else 'No record yet' }}">
     <span class="mname">{{ team.name }}</span>
@@ -33,6 +60,7 @@
       </span>
     {% endif %}
   </a>
+  {% endif %}
 
   {% if compact %}
     <div class="mmanager plain">{{ manager or 'slot open' }}</div>
@@ -52,7 +80,13 @@
   </div>
   {% endif %}
 
-  {% if team.points is not none and (live or team.points) %}
+  {% if totals %}
+    {# Summed from the stored starter rows, not ESPN's own figure -- the two
+       can legitimately disagree, so ESPN's number rides along in the title
+       and a mismatch is something to notice on hover, not something hidden. #}
+    <div class="mscore" title="ESPN has {{ '%.1f'|format(team.points or 0) }}">{{ '%.1f'|format(totals.actual) }}</div>
+    {% if totals.projected %}<div class="mproj">proj {{ '%.0f'|format(totals.projected) }}</div>{% endif %}
+  {% elif team.points is not none and (live or team.points) %}
     <div class="mscore">{{ '%.1f'|format(team.points or 0) }}</div>
     {% if team.projected %}<div class="mproj">proj {{ '%.0f'|format(team.projected) }}</div>{% endif %}
   {% endif %}
@@ -129,7 +163,7 @@
      aria-label="Show the full lineups for {{ game.home.name }} against {{ opponent }}"{% endif %}>
 
   <div class="mhead">
-    {{ side(game.home, managers.get(game.home.id), records.get(game.home.id), 'left', compact, me_id) }}
+    {{ side(game.home, managers.get(game.home.id), records.get(game.home.id), 'left', compact, me_id, totals.get(game.home.id)) }}
 
     <div class="mmid">
       {% if game.bye %}<span class="vs">BYE</span>
@@ -140,7 +174,7 @@
     </div>
 
     {% if game.away %}
-      {{ side(game.away, managers.get(game.away.id), records.get(game.away.id), 'right', compact, me_id) }}
+      {{ side(game.away, managers.get(game.away.id), records.get(game.away.id), 'right', compact, me_id, totals.get(game.away.id)) }}
     {% else %}
       <div class="mside right"><span class="mname muted">BYE</span></div>
     {% endif %}
@@ -165,6 +199,35 @@
   {% endif %}
 </div>
 
+{# One franchise's whole roster, opened by a tap on its name rather than on
+   the card. A franchise plays exactly one matchup a week, so `_matchup.html`
+   renders it from exactly one of the two included cards -- the feature card
+   if it's your game, one compact card otherwise -- and this pair of dialogs
+   is safe to emit here without a seen-it-already guard. #}
+{% for t in [game.home, game.away] if t and rosters.get(t.id) %}
+<dialog class="mdl rdlg" id="rdlg-{{ t.id }}" aria-label="{{ t.name }}'s roster">
+  <div class="mdl-in">
+    <form method="dialog"><button class="mdl-x" aria-label="Close">×</button></form>
+    <h3 class="rdlg-name">{{ t.name }}<span class="rdlg-mgr">{{ managers.get(t.id) or 'slot open' }}</span></h3>
+    <a class="rdlg-hist" href="/history#t{{ t.id }}">All-time record</a>
+    {% set ns = namespace(reserve=none) %}
+    <ol class="lineup">
+      {% for r in roster_rows(rosters.get(t.id)) %}
+        {% if r.reserve and r.slot != ns.reserve %}
+          {% set ns.reserve = r.slot %}
+          <li class="lsep"><span>{{ RESERVE.get(r.slot, r.label) }}</span></li>
+        {% endif %}
+        <li class="{{ 'benched' if r.reserve }}">
+          <span class="slot">{{ r.label }}</span>
+          {{ player(r.player, 'home', true) }}
+          {{ pts(r.player) }}
+        </li>
+      {% endfor %}
+    </ol>
+  </div>
+</dialog>
+{% endfor %}
+
 {% if full_rows %}
 {#  The matchup on its own, over a darkened page: the starters, then the bench
     and IR that the cards have never had room for. Every row is already in the
@@ -175,7 +238,7 @@
   <div class="mdl-in">
     <form method="dialog"><button class="mdl-x" aria-label="Close">×</button></form>
     <div class="mhead">
-      {{ side(game.home, managers.get(game.home.id), records.get(game.home.id), 'left', true, me_id) }}
+      {{ side(game.home, managers.get(game.home.id), records.get(game.home.id), 'left', true, me_id, totals.get(game.home.id), true) }}
       <div class="mmid">
         {% if game.bye %}<span class="vs">BYE</span>
         {% elif game.home.points or (game.away and game.away.points) %}
@@ -183,7 +246,7 @@
         {% else %}<span class="vs">vs</span>{% endif %}
       </div>
       {% if game.away %}
-        {{ side(game.away, managers.get(game.away.id), records.get(game.away.id), 'right', true, me_id) }}
+        {{ side(game.away, managers.get(game.away.id), records.get(game.away.id), 'right', true, me_id, totals.get(game.away.id), true) }}
       {% else %}
         <div class="mside right"><span class="mname muted">BYE</span></div>
       {% endif %}

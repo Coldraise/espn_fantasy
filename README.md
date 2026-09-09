@@ -5,19 +5,23 @@ durable local history, and the rivalry math ESPN never shows you.
 
 - **Scoreboard** — live scores during games, refreshed in place. Your own
   franchise's matchup leads, centred and full size, with both complete starting
-  lineups; the rest of the week follows in a compact grid showing each team's
-  top three. Every lineup row is tinted in the player's NFL team colour, and
-  names it too wherever the row is wide enough for both that and a kickoff.
-  Each player's number shows a faded
-  projection before kickoff, light green while their game is live, and bold
-  white once it is final; a 25+ point week burns. Kickoff times are labelled
-  with the day the game is played on (`Th`, `Su`) and the time in your clock
-  (`2:35`, `19:00`). Out and Questionable players wear badges. Tapping any
-  matchup opens it over a darkened page with the full roster — starters, bench,
-  and injured reserve. Before the season starts this becomes a
+  lineups; the rest of the week follows in an equally-wide compact grid showing
+  each team's top three. The card's score sums starters who have begun play or
+  are in progress, with the projection below summing every starter's projection —
+  "on the board now" above "where this ends up" — and hovering shows ESPN's team
+  total. Every lineup row is tinted in the player's NFL team colour, and names it
+  too wherever the row is wide enough for both that and a kickoff. Each player's
+  number shows a faded projection before kickoff, light green while their game is
+  live, and bold white once it is final; a 25+ point week burns. Kickoff times
+  are labelled with the day the game is played on (`Th`, `Su`) and the time in
+  your clock (`2:35`, `19:00`). Out and Questionable players wear badges.
+  Clicking a team name opens that franchise's roster — starters, bench, and
+  injured reserve, with all-time record linked. Tapping the matchup opens it over
+  a darkened page as before. Before the season starts this becomes a
   **pre-season hub**: draft countdown, managers, week-1 matchups and the full
-  schedule grid. Your franchise is highlighted wherever it appears in a table
-  or grid — schedule, all-time, standings, head-to-head, draft board.
+  schedule grid; team names are history links when rosters are not yet synced.
+  Your franchise is highlighted wherever it appears in a table or grid — schedule,
+  all-time, standings, head-to-head, draft board.
 - **All-time** — franchise records across every season ESPN has, with titles,
   average finish, best and worst finish, points for per season, season span and
   playoff seed — a season-by-season grid.
@@ -34,10 +38,11 @@ durable local history, and the rivalry math ESPN never shows you.
   is toughest, with the governing rank highlighted. Run, Pass and Kick rank a
   defence on what it concedes per game; **Def** rates the opponent's *offence*
   on the fumbles, interceptions, sacks and tackles it gives up, which is what a
-  fantasy defence scores on. Hover a rank to see the per-game stats behind it. Ranks come from the most recent season nflverse
-  has published, which before the current season's week 1 is played is last
-  year's — the page says so when that is the case. A phone shows only the
-  governing column. Works before the draft.
+  fantasy defence scores on. Hover a rank to see the per-game stats behind it.
+  Ranks come from the most recent season nflverse has published, which before
+  the current season's week 1 is played is last year's — the page says so when
+  that is the case. A phone shows only the governing column. Works before the
+  draft.
 - **Draft** — the board once ESPN marks the draft complete, with **value
   analysis** (who drafted best, best and worst value picks, positional runs),
   round.pick and auction bid displayed per cell.
