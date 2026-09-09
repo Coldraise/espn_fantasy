@@ -1,7 +1,8 @@
 {% extends "base.html" %}
 {% block content %}
-{% set shown = 'Week %s'|format(span[-1]) if mode == 'week' and span
-               else ('Last %s weeks'|format(span|length) if mode == 'l4' and span else 'Full season') %}
+{% set shown = 'no weeks played yet' if not span
+               else ('Week %s'|format(span[-1]) if mode == 'week'
+                     else ('Last %s weeks'|format(span|length) if mode == 'l4' else 'Full season')) %}
 <h1>NFL usage <span class="muted">· {{ season }} · {{ shown }}</span></h1>
 
 {% if not nfl_seasons %}
