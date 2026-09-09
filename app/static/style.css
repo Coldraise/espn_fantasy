@@ -1085,6 +1085,12 @@ td .slot {
 
 .games.compact .lineup .slot { font-size: 9px; padding: 1px 3px; letter-spacing: .04em; }
 .games.compact .lineup .pro { font-size: 9px; letter-spacing: .02em; }
+/* A 320px card cannot carry the NFL team and the kickoff both without eating
+   the name between them. The kickoff wins: the colour tint already says which
+   team a player belongs to, and it is the fact that changes. The feature card
+   and the modal are wide enough for both. */
+.games.compact .game .lineup .pro { display: none; }
+.games.compact .game .lineup .gtime { font-size: 9px; }
 .games.compact .lineup .rookie { margin-left: 3px; font-size: 8px; padding: 1px 3px; }
 
 /* The players list is 50 rows deep, so tinted and untinted rows need the same

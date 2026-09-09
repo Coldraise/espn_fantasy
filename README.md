@@ -6,8 +6,15 @@ durable local history, and the rivalry math ESPN never shows you.
 - **Scoreboard** — live scores during games, refreshed in place. Your own
   franchise's matchup leads, centred and full size, with both complete starting
   lineups; the rest of the week follows in a compact grid showing each team's
-  top three. Every lineup row carries the player's NFL team beside their name
-  and is tinted in that team's colour. Before the season starts this becomes a
+  top three. Every lineup row is tinted in the player's NFL team colour, and
+  names it too wherever the row is wide enough for both that and a kickoff.
+  Each player's number shows a faded
+  projection before kickoff, light green while their game is live, and bold
+  white once it is final; a 25+ point week burns. Kickoff times are labelled
+  with the day the game is played on (`Th`, `Su`) and the time in your clock
+  (`2:35`, `19:00`). Out and Questionable players wear badges. Tapping any
+  matchup opens it over a darkened page with the full roster — starters, bench,
+  and injured reserve. Before the season starts this becomes a
   **pre-season hub**: draft countdown, managers, week-1 matchups and the full
   schedule grid. Your franchise is highlighted wherever it appears in a table
   or grid — schedule, all-time, standings, head-to-head, draft board.
@@ -167,6 +174,35 @@ reporters — the page does the filtering.
 ESPN has no official API; everything here is built on the endpoints its own web
 app uses, wrapped in `app/espn_client.py` so breakage stays in one place.
 
+- **The NFL game state comes from the public scoreboard endpoint, not the fantasy
+  API.** `site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard` returns
+  `status.type.state` as `pre`/`in`/`post`, the quarter and clock, and kickoff
+  times, all without needing the fantasy session cookies. This is the same
+  reasoning already written for the NFL roster and news endpoints — kickoff times
+  and live/final state survive expired cookies, so the scoreboard stays useful
+  when authentication fails.
+- **A kickoff is shown with the NFL's day and the reader's clock.** Thursday
+  Night Football kicks off 20:35 ET, which is 02:35 Friday in Budapest. It is
+  labelled `Th 2:35`, not `Fr 2:35`, because the day names the game everyone
+  talks about while the clock has to be the one the reader lives in. This is a
+  third position in the two-timezone split that `app/config.py` and
+  `app/nflweeks.py` already describe: `display_timezone` handles the time, a
+  constant `LEAGUE_TZ` handles the day.
+- **The injury report is `player.injuryStatus`, not the roster entry's.** Both
+  keys exist on every matchup entry. The entry's describes the roster slot and
+  reads `NORMAL` for all 224 players — including the four who are out. The
+  player's carries `ACTIVE`/`QUESTIONABLE`/`OUT`. Reading the wrong one is
+  silent — it stores a real-looking value that is never the one anybody wants —
+  which is exactly how it went unnoticed until something finally rendered it.
+- **Bench and IR sort themselves.** `BE`, `IR`, `RES` are absent from
+  `players.SLOT_ORDER`, so `_slot_rank` puts them after every starter with no
+  extra ordering code — which is what makes the modal's starters-then-bench-then-IR
+  order free.
+- **The modal is rendered into the page, not fetched.** Every roster row is
+  already in the context, so opening a matchup costs no request. Because the
+  dialog lives inside the swapped `#scoreboard`, the 30-second live refresh
+  re-renders it with fresh numbers while it is open. It is reopened by id after
+  the swap, the same trick the old inline expansion used.
 - **History comes at a coarser grain than the current season.** Past seasons are
   served as season *totals* only — W-L-T, points for/against, final rank. No
   weekly schedule is retrievable for them by any means (four different requests
