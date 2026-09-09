@@ -1,13 +1,25 @@
 {#  One matchup card, shared by the pre-season hub and the live scoreboard.
     Expects: game (home/away/bye/final/revision), lineups {team_id: [players]},
     managers {team_id: name}, records {team_id: {...}}, live (bool),
-    me_id (signed-in franchise) and compact (three rows until opened).
+    me_id (signed-in franchise) and compact (three rows on the card itself).
+    Also renders a <dialog> per matchup holding the whole roster -- bench and
+    IR included -- from `rosters`, which is what a tap on the card opens.
 
     The lineup is one list down the middle rather than one per side. The slot
     is a fact about the row -- both franchises start a quarterback -- so it is
     printed once between the two scores instead of twice at the outer edges,
     which is where the width was going. #}
 {% set compact = compact|default(false) %}
+{% set games = games|default({}) %}
+{% set rosters = rosters|default({}) %}
+
+{# ESPN's injury vocabulary, shortened to what fits beside a name. ACTIVE and
+   NORMAL are the overwhelming majority and say nothing worth a badge. #}
+{% set INJURY = {'OUT': ['O', 'Out'], 'QUESTIONABLE': ['Q', 'Questionable'],
+                 'DOUBTFUL': ['D', 'Doubtful'], 'INJURY_RESERVE': ['IR', 'Injured reserve'],
+                 'SUSPENSION': ['S', 'Suspended']} %}
+{# The non-scoring slots, printed the way a manager talks about them. #}
+{% set RESERVE = {'BE': 'Bench', 'IR': 'Injured reserve', 'RES': 'Reserve'} %}
 
 {% macro side(team, manager, rec, align, compact, me_id) %}
 <div class="mside {{ align }} {{ 'me' if me_id and team.id == me_id }}">
@@ -47,24 +59,74 @@
 </div>
 {% endmacro %}
 
-{% macro player(p, align) %}
+{% macro player(p, align, full=false) %}
   {% set tint = team_colors.get(p.pro_team) if p else none %}
+  {% set flag = INJURY.get(p.injury_status) if p else none %}
   <span class="lp {{ align }} {{ 'tinted' if tint }}" {% if tint %}style="--tc: {{ tint }}"{% endif %}>
     {%- if p -%}
-      <span class="pname"><span class="nm-full">{{ p.name }}</span><span class="nm-abbr">{{ p.name|short_name }}</span>{% if p.rookie %}<span class="rookie" title="Rookie — first NFL season">R</span>{% endif %}</span>
+      <span class="pname"><span class="nm-full">{{ p.name }}</span><span class="nm-abbr">{{ p.name|short_name }}</span>{% if p.rookie %}<span class="rookie" title="Rookie — first NFL season">R</span>{% endif %}{% if flag %}<span class="inj inj-{{ flag[0]|lower }}" title="{{ flag[1] }}">{{ flag[0] }}</span>{% endif %}</span>
       <span class="pro">{{ p.pro_team or '' }}</span>
+      {{- gtime(p, full) -}}
     {%- else -%}
       <span class="pname muted">—</span>
     {%- endif -%}
   </span>
 {% endmacro %}
 
+{# When a player is on the field, in their own words: the kickoff before the
+   game, the quarter and clock during it. The day is the NFL's -- Thursday
+   night is "Th" even though it is Friday morning here -- and the clock is the
+   reader's, which is what the `kickoff` filter keeps apart. #}
+{% macro gtime(p, full=false) %}
+  {%- set g = games.get(p.pro_team) if p.pro_team else none -%}
+  {%- if g and g.state == 'pre' -%}
+    <span class="gtime">{{ g.kickoff_utc|kickoff }}</span>
+  {%- elif g and g.state == 'in' -%}
+    <span class="gtime live">{{ ('Q%s %s'|format(g.period, g.clock)) if g.period else 'LIVE' }}</span>
+  {%- elif g and full -%}
+    <span class="gtime done">Final</span>
+  {%- elif games and not g and full -%}
+    <span class="gtime">BYE</span>
+  {%- endif -%}
+{% endmacro %}
+
+{# One number per player, and its look is the state of their game: a faded
+   projection before kickoff, green while they are on the field, bold white
+   once it is over. A 25-point week burns. #}
+{% macro pts(p) %}
+  {%- if not p -%}
+    <span class="ppts bye">—</span>
+  {%- else -%}
+    {%- set g = games.get(p.pro_team) if p.pro_team else none -%}
+    {%- set state = g.state if g else none -%}
+    {%- if state == 'pre' -%}
+      {%- set value = p.projected or 0 -%}{%- set klass = 'pre' -%}
+    {%- elif state in ('in', 'post') -%}
+      {%- set value = p.actual or 0 -%}{%- set klass = 'live' if state == 'in' else 'done' -%}
+    {%- else -%}
+      {#- No game row yet, or the player's team is on bye: fall back to the
+          number the card printed before any of this existed. -#}
+      {%- set value = (p.actual if p.actual is not none else p.projected) or 0 -%}
+      {%- set klass = 'bye' if (games and p.pro_team) else '' -%}
+    {%- endif -%}
+    <span class="ppts {{ klass }}{{ ' fire' if (p.actual or 0) >= 25 }}">{{ '—' if klass == 'bye' else '%.1f'|format(value) }}</span>
+  {%- endif -%}
+{% endmacro %}
+
+{% set gid = '%s-%s'|format(game.home.id, game.away.id if game.away else 'bye') %}
+{% set opponent = game.away.name if game.away else 'a bye' %}
+{# The whole roster, bench and IR included, for the modal. Empty on the
+   pre-season hub, which has no roster rows to open. #}
+{% set full_rows = pair_lineups(rosters.get(game.home.id),
+                                rosters.get(game.away.id) if game.away else none) if rosters else [] %}
+
 {# The id is stable across an htmx scoreboard swap, which is what lets an
-   opened card be reopened after the 30s refresh replaces it. #}
+   opened matchup be reopened after the 30s refresh replaces it. #}
 <div class="game {{ 'final' if game.final }} {{ 'mine' if me_id and (game.home.id == me_id or (game.away and game.away.id == me_id)) }}"
-     id="game-{{ game.home.id }}-{{ game.away.id if game.away else 'bye' }}"
-     {% if compact %}role="button" tabindex="0" aria-expanded="false"
-     aria-label="Show the full lineups for {{ game.home.name }} against {{ game.away.name if game.away else 'a bye' }}"{% endif %}>
+     id="game-{{ gid }}"
+     {% if full_rows %}data-dialog="dlg-{{ gid }}" role="button" tabindex="0"
+     aria-haspopup="dialog"
+     aria-label="Show the full lineups for {{ game.home.name }} against {{ opponent }}"{% endif %}>
 
   <div class="mhead">
     {{ side(game.home, managers.get(game.home.id), records.get(game.home.id), 'left', compact, me_id) }}
@@ -91,9 +153,9 @@
     {% for r in rows %}
       <li>
         {{ player(r.home, 'home') }}
-        <span class="ppts">{{ '%.1f'|format((r.home.actual if r.home and r.home.actual is not none else (r.home.projected if r.home else 0)) or 0) }}</span>
+        {{ pts(r.home) }}
         <span class="slot">{{ r.label }}</span>
-        <span class="ppts">{{ '%.1f'|format((r.away.actual if r.away and r.away.actual is not none else (r.away.projected if r.away else 0)) or 0) }}</span>
+        {{ pts(r.away) }}
         {{ player(r.away, 'away') }}
       </li>
     {% endfor %}
@@ -102,3 +164,48 @@
     <p class="muted small lineup-empty">Lineup set at the draft</p>
   {% endif %}
 </div>
+
+{% if full_rows %}
+{#  The matchup on its own, over a darkened page: the starters, then the bench
+    and IR that the cards have never had room for. Every row is already in the
+    page, so opening this fetches nothing -- which is also what keeps it honest
+    during a live refresh, since the modal is re-rendered with the same swap. #}
+<dialog class="mdl" id="dlg-{{ gid }}"
+        aria-label="{{ game.home.name }} against {{ opponent }}, full lineups">
+  <div class="mdl-in">
+    <form method="dialog"><button class="mdl-x" aria-label="Close">×</button></form>
+    <div class="mhead">
+      {{ side(game.home, managers.get(game.home.id), records.get(game.home.id), 'left', true, me_id) }}
+      <div class="mmid">
+        {% if game.bye %}<span class="vs">BYE</span>
+        {% elif game.home.points or (game.away and game.away.points) %}
+          <span class="margin">{{ '%+.1f'|format((game.home.points or 0) - ((game.away or {}).points or 0)) }}</span>
+        {% else %}<span class="vs">vs</span>{% endif %}
+      </div>
+      {% if game.away %}
+        {{ side(game.away, managers.get(game.away.id), records.get(game.away.id), 'right', true, me_id) }}
+      {% else %}
+        <div class="mside right"><span class="mname muted">BYE</span></div>
+      {% endif %}
+    </div>
+
+    {% set ns = namespace(reserve=none) %}
+    <ol class="lineup">
+      {% for r in full_rows %}
+        {% set benched = (r.home and not r.home.is_starter) or (r.away and not r.away.is_starter) %}
+        {% if benched and r.slot != ns.reserve %}
+          {% set ns.reserve = r.slot %}
+          <li class="lsep"><span>{{ RESERVE.get(r.slot, r.label) }}</span></li>
+        {% endif %}
+        <li class="{{ 'benched' if benched }}">
+          {{ player(r.home, 'home', true) }}
+          {{ pts(r.home) }}
+          <span class="slot">{{ r.label }}</span>
+          {{ pts(r.away) }}
+          {{ player(r.away, 'away', true) }}
+        </li>
+      {% endfor %}
+    </ol>
+  </div>
+</dialog>
+{% endif %}

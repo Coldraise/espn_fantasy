@@ -30,6 +30,12 @@
   --amber:      #d8a95a;
   --amber-soft: rgba(216,169,90,.15);
 
+  /* A player currently on the field. Brighter than --green, which is the
+     furniture colour here and reads as dim next to a live number. */
+  --live:  #7fe3a8;
+  /* 25 points and climbing. */
+  --ember: #ffb02e;
+
   --shadow: 0 1px 2px rgba(0,0,0,.35);
   /* what makes a panel read as hovering over the field */
   --lift: 0 16px 38px rgba(0,0,0,.5), 0 1px 0 rgba(255,255,255,.04) inset;
@@ -518,6 +524,90 @@ mark { background: var(--amber-soft); color: inherit; border-radius: 3px; paddin
   line-height: 1; padding: 2px 4px; border-radius: 3px;
   background: var(--red); color: #fff; vertical-align: middle;
 }
+
+/* ---------- who is hurt, who is playing, who is on fire ---------- */
+
+/* Same shape as the rookie badge, different alphabet: O is out, Q questionable.
+   Outlined rather than filled so a lineup with six questionable players does
+   not read as six alarms. */
+.inj {
+  display: inline-block; margin-left: 4px; font-size: 8.5px; font-weight: 800;
+  line-height: 1; padding: 2px 3px; border-radius: 3px; vertical-align: middle;
+  letter-spacing: .02em;
+}
+.inj-o, .inj-ir { color: #ff8b85; background: var(--red-soft); }
+.inj-q, .inj-d  { color: var(--amber); background: var(--amber-soft); }
+.inj-s          { color: var(--muted); background: var(--line-soft); }
+
+/* Kickoff before the game, quarter and clock during it. */
+.lineup .gtime {
+  font-family: var(--display); font-size: 9.5px; font-weight: 700;
+  letter-spacing: .03em; color: var(--muted); flex: 0 0 auto;
+  white-space: nowrap; font-variant-numeric: tabular-nums;
+}
+.lineup .gtime.live { color: var(--live); }
+.lineup .gtime.done { color: var(--muted); opacity: .6; }
+
+/* The number carries the state of the player's game. A projection is a guess,
+   so it is faded; a live score is the only thing on the page still moving, so
+   it is the one green thing in the row; a final score has stopped being news
+   and goes plain white. */
+.lineup .ppts.pre  { opacity: .42; font-weight: 550; }
+.lineup .ppts.live { color: var(--live); }
+.lineup .ppts.done { color: #fff; font-weight: 750; }
+.lineup .ppts.bye  { color: var(--muted); opacity: .4; font-weight: 500; }
+
+/* 25 points is a week worth looking up from your phone for. */
+.lineup .ppts.fire {
+  color: var(--ember); font-weight: 800; opacity: 1;
+  text-shadow: 0 0 6px rgba(255,120,20,.5), 0 0 14px rgba(255,60,0,.26);
+}
+@keyframes ember {
+  0%, 100% { color: var(--ember);
+             text-shadow: 0 0 5px rgba(255,120,20,.42), 0 0 12px rgba(255,60,0,.2); }
+  50%      { color: #ffd777;
+             text-shadow: 0 0 10px rgba(255,155,45,.75), 0 0 24px rgba(255,70,0,.4); }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .lineup .ppts.fire { animation: ember 1.6s ease-in-out infinite; }
+}
+
+/* ---------- the matchup, on its own ---------- */
+
+.game[data-dialog] { cursor: pointer; }
+.mdl {
+  padding: 0; border: 1px solid var(--line); border-radius: var(--radius);
+  background: var(--surface); color: var(--ink); box-shadow: var(--lift);
+  width: min(780px, calc(100vw - 28px)); max-height: min(88vh, 940px);
+  overflow: hidden;
+}
+.mdl::backdrop { background: rgba(3,14,10,.66); backdrop-filter: blur(2px); }
+.mdl-in { position: relative; padding: 16px 18px 20px; overflow-y: auto;
+          max-height: inherit; }
+.mdl-x {
+  position: absolute; top: 10px; right: 10px; z-index: 1;
+  width: 28px; height: 28px; padding: 0; line-height: 1;
+  font-size: 19px; color: var(--muted); cursor: pointer;
+  background: var(--raised); border: 1px solid var(--line); border-radius: 6px;
+}
+.mdl-x:hover { color: var(--ink); }
+/* The modal is rendered inside .games, so the compact card's tighter row sizing
+   would otherwise follow it in. This is the full view; it gets full spacing. */
+.games .mdl .lineup li {
+  grid-template-columns: minmax(0, 1fr) 46px 52px 46px minmax(0, 1fr);
+  column-gap: 5px; padding: 3px 5px; font-size: 12.5px;
+}
+.games .mdl .lineup .slot { font-size: 9.5px; }
+.games .mdl .lineup .pro  { font-size: 10px; }
+/* Bench and IR are on the roster, not in the game: present but stood down. */
+.mdl .lineup li.benched { opacity: .72; }
+.mdl .lineup li.benched .slot { color: var(--muted); background: var(--line-soft); }
+.mdl .lineup li.lsep {
+  display: block; margin: 9px 0 3px; padding: 0;
+  font-family: var(--display); font-size: 9.5px; font-weight: 700;
+  letter-spacing: .12em; text-transform: uppercase; color: var(--muted);
+  border-top: 1px solid var(--line-soft); padding-top: 7px;
+}
 .mmid { display: flex; flex-direction: column; align-items: center; gap: 3px;
         padding-top: 6px; min-width: 0; }
 .mmid .vs { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; }
@@ -560,11 +650,9 @@ mark { background: var(--amber-soft); color: inherit; border-radius: 3px; paddin
   outline: 2px solid var(--red); outline-offset: 2px;
 }
 .resthint { margin: 8px 0 8px; text-align: center; }
-.games.compact .game.open { cursor: default; }
-/* Collapsed shows a top three; open shows the lineup. The rows are always in
-   the page, so opening costs no request. */
-.games.compact .game:not(.open) .lineup li:nth-child(n+4) { display: none; }
-.games.compact .game.open { grid-row-gap: 4px; }
+/* A card shows a top three; the modal it opens shows everything. The rows are
+   always in the page, so opening costs no request. */
+.games.compact .game .lineup li:nth-child(n+4) { display: none; }
 
 /* ---------- draft scoreboard (the hub's focal point) ---------- */
 .scoreboard {
@@ -995,12 +1083,6 @@ td .slot {
   column-gap: 3px; padding: 2px 3px; font-size: 11.5px;
 }
 
-/* An opened card takes the whole row, so the rows get desktop spacing. */
-.games.compact .game.open { grid-column: 1 / -1; }
-.games.compact .game.open .lineup li {
-  grid-template-columns: minmax(0, 1fr) 42px 48px 42px minmax(0, 1fr);
-  font-size: 12.5px;
-}
 .games.compact .lineup .slot { font-size: 9px; padding: 1px 3px; letter-spacing: .04em; }
 .games.compact .lineup .pro { font-size: 9px; letter-spacing: .02em; }
 .games.compact .lineup .rookie { margin-left: 3px; font-size: 8px; padding: 1px 3px; }
@@ -1048,9 +1130,6 @@ td .slot {
       animation-name: rise-blur;
       animation-range: entry 0% entry 620px;
     }
-    /* An opened card must not still be arriving, or it reads as out of focus
-       exactly when you have asked to look at it closely. */
-    .games.compact .game.open { animation: none; filter: none; }
     /* The wrapper already animates, and .matrix .rowhead is position:sticky --
        transforming the table too compounds the scale for no gain. */
     .scroll table { animation: none; }
@@ -1138,10 +1217,29 @@ td .slot {
 
   /* Names take whatever is left; the scores tuck against the slot. */
   .lineup li,
-  .games.compact .lineup li,
-  .games.compact .game.open .lineup li {
+  .games.compact .lineup li {
     grid-template-columns: minmax(0, 1fr) 36px 40px 36px minmax(0, 1fr);
     column-gap: 2px;
   }
   .games.feature .lineup li { font-size: 12px; }
+
+  /* A phone row has no width for a kickoff beside a name -- the NFL team
+     abbreviation has already been dropped above for the same reason. The modal
+     keeps it: that is the view you open when you want the detail. */
+  .game .lineup .gtime { display: none; }
+  .mdl .lineup .gtime { display: inline; }
+
+  /* Full screen: a matchup is 30-odd rows, and a centred card would spend half
+     the phone on the backdrop behind it. */
+  .mdl {
+    width: 100vw; max-width: 100vw; height: 100dvh; max-height: 100dvh;
+    border: 0; border-radius: 0;
+  }
+  .mdl-in { padding: 14px 12px 24px; }
+  .games .mdl .lineup li {
+    grid-template-columns: minmax(0, 1fr) 40px 44px 40px minmax(0, 1fr);
+    column-gap: 3px; font-size: 12px;
+  }
+  .games .mdl .lineup .nm-full { display: none; }
+  .games .mdl .lineup .nm-abbr { display: inline; }
 }

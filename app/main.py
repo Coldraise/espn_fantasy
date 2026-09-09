@@ -22,7 +22,7 @@ from fastapi.templating import Jinja2Templates
 
 from . import (analytics, auth, db, espn_client, nflstats, nflweeks, players,
                poller, rules)
-from .config import ConfigError, get_config
+from .config import LEAGUE_TZ, ConfigError, get_config
 
 logging.basicConfig(
     level=logging.INFO,
@@ -37,6 +37,33 @@ templates.env.filters["short_name"] = players.short_name
 # The card prints a lineup slot once down its middle, which needs both
 # franchises' starters aligned on that slot rather than each sorted alone.
 templates.env.globals["pair_lineups"] = players.pair_lineups
+
+_DAY_ABBR = ("Mo", "Tu", "We", "Th", "Fr", "Sa", "Su")
+
+
+def _kickoff_label(value: str | None) -> str:
+    """Kickoff as e.g. "Th 2:35".
+
+    The day and the time deliberately read off two different clocks, which is
+    the same split `config.display_tz` and `nflweeks` already draw: the day is
+    the NFL's own, in LEAGUE_TZ, because Thursday Night Football is a Thursday
+    game to everyone who talks about it -- while the time is whatever the
+    reader's clock says, in display_tz, because 02:35 is when they would have
+    to be awake for it.
+    """
+    if not value:
+        return ""
+    try:
+        moment = datetime.fromisoformat(value)
+    except (ValueError, TypeError):
+        return ""
+    day = _DAY_ABBR[moment.astimezone(LEAGUE_TZ).weekday()]
+    local = moment.astimezone(get_config().display_tz)
+    return f"{day} {local.hour}:{local.minute:02d}"
+
+
+# Kickoff time in the reader's own clock, day-labelled off the NFL's clock.
+templates.env.filters["kickoff"] = _kickoff_label
 
 
 def _asset_version() -> str:
@@ -345,12 +372,29 @@ def _card_context(conn, season: int, week: int | None) -> dict:
             "tip": f"{row['wins']}-{row['losses']} all-time"
                    + (f" · {titles} title{'s' if titles != 1 else ''}" if titles else ""),
         }
+    # One query for the whole roster, starters derived from it in Python --
+    # the modal needs the bench too, and a second query for the same rows
+    # would be pointless.
+    rosters = db.fetch_team_week_players(conn, season, week, starters_only=False) if week else {}
+    lineups = {tid: [p for p in ps if p.get("is_starter")] for tid, ps in rosters.items()}
+
+    # Keyed on both sides of each game so a player's pro_team looks it up
+    # directly -- the join has no other id in common.
+    games: dict[str, dict] = {}
+    if week:
+        for row in db.fetch_nfl_games(conn, season, week):
+            for team in (row.get("home_team"), row.get("away_team")):
+                if team:
+                    games[team] = row
+
     return {
-        "lineups": db.fetch_team_week_players(conn, season, week) if week else {},
+        "lineups": lineups,
+        "rosters": rosters,
         "managers": {t["team_id"]: t.get("owner")
                      for t in db.fetch_teams(conn, cfg.current_season)},
         "records": records,
         "team_colors": players.PRO_TEAM_COLORS,
+        "games": games,
     }
 
 

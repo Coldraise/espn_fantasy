@@ -341,6 +341,64 @@ def nfl_experience() -> dict[int, dict]:
     return out
 
 
+NFL_SCOREBOARD_URL = "https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard"
+
+
+def _parse_scoreboard(payload: dict) -> list[dict]:
+    """Turn one scoreboard payload into game rows.
+
+    Kept separate from nfl_games so the parsing can be exercised with a fixture
+    payload rather than a mocked request. One malformed event -- missing id,
+    date or competitors -- is skipped rather than raising, so it does not cost
+    the other fifteen.
+    """
+    rows: list[dict] = []
+    for event in payload.get("events") or []:
+        try:
+            game_id = int(event["id"])
+            kickoff = datetime.fromisoformat(event["date"].replace("Z", "+00:00"))
+            competitors = event["competitions"][0]["competitors"]
+            home = next(c for c in competitors if c.get("homeAway") == "home")
+            away = next(c for c in competitors if c.get("homeAway") == "away")
+            home_team = home["team"]["abbreviation"]
+            away_team = away["team"]["abbreviation"]
+        except (KeyError, IndexError, TypeError, ValueError, StopIteration):
+            continue
+        status = event.get("status") or {}
+        status_type = status.get("type") or {}
+        rows.append({
+            "game_id": game_id,
+            "home_team": home_team,
+            "away_team": away_team,
+            "kickoff_utc": kickoff.isoformat(timespec="seconds"),
+            "state": status_type.get("state"),
+            "period": status.get("period"),
+            "clock": status.get("displayClock"),
+        })
+    return rows
+
+
+def nfl_games(season: int, week: int) -> list[dict]:
+    """Kickoff time and live state for every NFL game in one week.
+
+    This endpoint is public: it is fetched WITHOUT the ESPN session cookies,
+    same as nfl_experience above. A failure here must never cost the scores, so
+    the whole request is wrapped and degrades to an empty list.
+    """
+    try:
+        response = requests.get(
+            NFL_SCOREBOARD_URL,
+            params={"week": week, "seasontype": 2, "dates": season},
+            timeout=25,
+        )
+        response.raise_for_status()
+        payload = response.json()
+    except Exception as exc:  # noqa: BLE001 - a failure here must never cost the scores
+        log.warning("NFL scoreboard for %s week %s unavailable: %s", season, week, exc)
+        return []
+    return _parse_scoreboard(payload)
+
+
 def _pro_team(pro_team_map: dict, player: dict) -> str | None:
     """NFL team abbreviation for a player, or None if they are unsigned.
 
@@ -447,9 +505,15 @@ def matchup_rosters(season: int, week: int) -> dict[int, list[dict]]:
                     "pro_team": _pro_team(PRO_TEAM_MAP, player),
                     # Both already ride along on every entry; ESPN's own site
                     # shows them and we were dropping them on the floor.
-                    # injuryStatus is the report ("QUESTIONABLE", "OUT"),
-                    # player.injured the blunter boolean behind it.
-                    "injury_status": entry.get("injuryStatus"),
+                    #
+                    # It has to be the PLAYER's injuryStatus, not the entry's.
+                    # Both keys exist and only one is the injury report: the
+                    # entry's describes the roster slot and reads "NORMAL" for
+                    # all 224 players including the four who are out, while the
+                    # player's carries ACTIVE / QUESTIONABLE / OUT. Reading the
+                    # entry's is silent -- it stores a real-looking value that
+                    # is simply never the one anybody wants.
+                    "injury_status": player.get("injuryStatus") or entry.get("injuryStatus"),
                     "injured": bool(player.get("injured")),
                     "projected": round(projected, 1) if projected is not None else None,
                     "actual": round(actual, 1) if actual is not None else None,

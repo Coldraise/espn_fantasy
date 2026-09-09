@@ -115,6 +115,23 @@ CREATE TABLE IF NOT EXISTS team_week_players (
 
 CREATE INDEX IF NOT EXISTS idx_twp_season_week ON team_week_players (season, week);
 
+-- Kickoff time and live state for each NFL game, from the public scoreboard.
+-- The join onto a fantasy roster is by team abbreviation -- team_week_players
+-- and player_projections carry no other id shared with the NFL side.
+CREATE TABLE IF NOT EXISTS nfl_games (
+    season      INTEGER NOT NULL,
+    week        INTEGER NOT NULL,
+    game_id     INTEGER NOT NULL,
+    home_team   TEXT,
+    away_team   TEXT,
+    kickoff_utc TEXT,
+    state       TEXT,
+    period      INTEGER,
+    clock       TEXT,
+    updated_at  TEXT NOT NULL,
+    PRIMARY KEY (season, week, game_id)
+);
+
 -- Weekly player projections. Keyed on player_id, never name: ESPN's universe
 -- contains distinct players who share a name (a linebacker named Justin
 -- Jefferson, a cornerback named Lamar Jackson), and a name key merges them.
@@ -609,6 +626,35 @@ def week_actuals(conn, season: int, week: int) -> dict[int, float]:
 def projection_weeks(conn, season: int) -> list[int]:
     return [int(r[0]) for r in conn.execute(
         "SELECT DISTINCT week FROM player_projections WHERE season=? ORDER BY week", (season,)
+    )]
+
+
+def replace_nfl_games(conn, season: int, week: int, rows: list[dict]) -> int:
+    """Replace one week's NFL games wholesale.
+
+    Kickoff time and live state are both current state, not a record worth
+    revising in place -- same reasoning as replace_team_week_players, minus the
+    scoring-events diff, since a game carries no touchdown count of its own.
+    """
+    with conn:
+        conn.execute("DELETE FROM nfl_games WHERE season=? AND week=?", (season, week))
+        conn.executemany(
+            """
+            INSERT INTO nfl_games
+                (season, week, game_id, home_team, away_team, kickoff_utc,
+                 state, period, clock, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            [(season, week, r["game_id"], r.get("home_team"), r.get("away_team"),
+              r.get("kickoff_utc"), r.get("state"), r.get("period"), r.get("clock"),
+              _now()) for r in rows],
+        )
+    return len(rows)
+
+
+def fetch_nfl_games(conn, season: int, week: int) -> list[dict]:
+    return [dict(r) for r in conn.execute(
+        "SELECT * FROM nfl_games WHERE season=? AND week=?", (season, week),
     )]
 
 

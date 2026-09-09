@@ -437,6 +437,21 @@ def sync_matchup_players(conn, season: int, week: int, per_team: int | None = No
     return db.replace_team_week_players(conn, season, week, keep)
 
 
+def sync_nfl_games(conn, season: int, week: int) -> int:
+    """Store kickoff time and live state for one week's NFL games.
+
+    Public endpoint, fetched without the fantasy cookies -- same as the news
+    sync and the NFL roster sync -- so kickoff times and live game state keep
+    working even when the ESPN cookies expire. Deliberately not throttled: it
+    is one small request, and during a live window being current is the entire
+    point.
+    """
+    rows = espn_client.nfl_games(season, week)
+    if not rows:
+        return 0
+    return db.replace_nfl_games(conn, season, week, rows)
+
+
 def sync_activity(conn, season: int, size: int = 100) -> int:
     """Store the league's transaction feed. Returns only genuinely new rows.
 
@@ -635,6 +650,7 @@ def tick() -> None:
             ("transactions", False, lambda: sync_activity(conn, cfg.current_season)),
             ("projections", True, lambda: sync_projections(conn, cfg.current_season, upcoming)),
             ("matchup lineups", True, lambda: sync_matchup_players(conn, cfg.current_season, upcoming)),
+            ("nfl games", True, lambda: sync_nfl_games(conn, cfg.current_season, upcoming)),
         ):
             try:
                 work_fn()

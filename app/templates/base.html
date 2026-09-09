@@ -163,46 +163,56 @@
 })();
 </script>
 <script>
-/* Opening one of the "rest of the week" cards. The full lineups are already in
-   the page -- the card only hides the rows past the third until it is open --
-   so this toggles a class and nothing is fetched.
+/* Opening a matchup. Every card carries its own <dialog> holding the whole
+   roster -- starters, bench, IR -- already rendered into the page, so this
+   fetches nothing. showModal() is what darkens the page: the backdrop, the
+   Escape key and the focus trap all come from the browser.
 
-   The ids matter: htmx replaces the whole scoreboard every 30 seconds while
-   games are live, which would silently close whatever you had open. Open cards
-   are remembered by id across the swap and reopened afterwards. */
+   The id matters: htmx replaces the whole scoreboard every 30 seconds while
+   games are live, which destroys an open dialog along with everything else.
+   The open one is remembered by id across the swap and reopened afterwards. */
 (function () {
-  var open = new Set();
+  var openId = null;
 
-  function setOpen(card, want) {
-    card.classList.toggle('open', want);
-    card.setAttribute('aria-expanded', String(want));
-    if (want) { open.add(card.id); } else { open.delete(card.id); }
+  function dialogFor(target) {
+    if (!target.closest) return null;
+    var card = target.closest('.game[data-dialog]');
+    /* Team names inside the card are real links to their history, and a click
+       inside the open dialog must not reopen the card behind it. */
+    if (!card || target.closest('a') || target.closest('dialog')) return null;
+    return document.getElementById(card.getAttribute('data-dialog'));
   }
 
-  function cardFrom(target) {
-    var card = target.closest && target.closest('.games.compact .game');
-    /* Team names inside the card are real links to their history. */
-    return (card && !target.closest('a')) ? card : null;
+  function show(dlg) {
+    if (!dlg || dlg.open) return;
+    dlg.showModal();
+    openId = dlg.id;
   }
 
   document.addEventListener('click', function (e) {
-    var card = cardFrom(e.target);
-    if (card) { setOpen(card, !card.classList.contains('open')); }
+    /* A click that lands on the dialog itself rather than on its contents is a
+       click on the darkened background. */
+    if (e.target.tagName === 'DIALOG') { e.target.close(); return; }
+    show(dialogFor(e.target));
   });
 
   document.addEventListener('keydown', function (e) {
     if (e.key !== 'Enter' && e.key !== ' ') return;
-    var card = cardFrom(e.target);
-    if (!card) return;
+    var dlg = dialogFor(e.target);
+    if (!dlg) return;
     e.preventDefault();               /* space would scroll the page */
-    setOpen(card, !card.classList.contains('open'));
+    show(dlg);
   });
 
+  /* 'close' does not bubble, so it is caught on the way down instead. */
+  document.addEventListener('close', function (e) {
+    if (e.target.id === openId) openId = null;
+  }, true);
+
   document.body.addEventListener('htmx:afterSwap', function () {
-    open.forEach(function (id) {
-      var card = document.getElementById(id);
-      if (card) { card.classList.add('open'); card.setAttribute('aria-expanded', 'true'); }
-    });
+    if (!openId) return;
+    var dlg = document.getElementById(openId);
+    if (dlg) { show(dlg); } else { openId = null; }
   });
 })();
 </script>
