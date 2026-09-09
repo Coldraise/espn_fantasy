@@ -455,8 +455,24 @@ mark { background: var(--amber-soft); color: inherit; border-radius: 3px; paddin
   display: grid; grid-template-columns: 1fr auto 1fr;
   align-items: start; gap: 5px;
 }
-.mside { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.mside.right { text-align: right; align-items: flex-end; }
+/* Name and total on one line, with the total on the inside edge of the side --
+   so the two scores meet either side of the margin in the middle of the card
+   rather than sitting out at the corners. That is also what closes the gap a
+   wide card used to open up: the slack now falls outside the numbers instead
+   of between a name and the centre. `row-reverse` mirrors the right-hand side
+   without a second set of rules. */
+.mside { display: flex; flex-direction: row; align-items: baseline;
+         justify-content: flex-end; gap: 14px; min-width: 0; }
+.mside.right { flex-direction: row-reverse; text-align: right; }
+/* The identity block hugs the centre too: a manager line wider than the team
+   name would otherwise push the name away from the score it belongs to. */
+.mid { display: flex; flex-direction: column; gap: 2px; min-width: 0;
+       align-items: flex-end; }
+.mside.right .mid { align-items: flex-start; }
+/* The numbers never shrink -- a long franchise name ellipsises instead. */
+.mnum { display: flex; flex-direction: column; flex: none; align-items: flex-end;
+        text-align: right; }
+.mside.right .mnum { align-items: flex-start; text-align: left; }
 .mteam { display: flex; align-items: center; gap: 6px; text-decoration: none;
          color: inherit; border-radius: 6px; }
 .mside.right .mteam { flex-direction: row-reverse; }
@@ -467,9 +483,9 @@ mark { background: var(--amber-soft); color: inherit; border-radius: 3px; paddin
 .tcount { font-size: 10px; font-weight: 700; color: var(--red); letter-spacing: 0; margin-left: 3px; }
 
 .mmanager { position: relative; font-size: 12px; color: var(--muted);
-            cursor: help; border-bottom: 1px dotted var(--line); align-self: flex-start;
+            cursor: help; border-bottom: 1px dotted var(--line); align-self: flex-end;
             width: fit-content; outline: none; }
-.mside.right .mmanager { align-self: flex-end; }
+.mside.right .mid .mmanager { align-self: flex-start; }
 .hovercard {
   position: absolute; left: 0; top: calc(100% + 6px); z-index: 30; min-width: 190px;
   background: var(--surface); border: 1px solid var(--line); border-top: 2px solid var(--red);
@@ -488,7 +504,7 @@ mark { background: var(--amber-soft); color: inherit; border-radius: 3px; paddin
 .hc-row span { color: var(--muted); }
 
 .mscore { font-size: 27px; font-weight: 700; font-variant-numeric: tabular-nums;
-          line-height: 1.1; margin-top: 4px; }
+          line-height: 1.1; }
 .mproj { font-size: 11px; color: var(--muted); }
 
 /* One lineup down the middle of the card. The slot is a property of the row,

@@ -32,6 +32,12 @@
     so that is what the modal header gets. #}
 {% macro side(team, manager, rec, align, compact, me_id, totals, nested=false) %}
 <div class="mside {{ align }} {{ 'me' if me_id and team.id == me_id }}">
+  {# Two blocks, not four loose children: the name and the score sit on one
+     line with the score on the inside edge, so the two totals meet either
+     side of the margin in the middle of the card. The manager rides under the
+     name and the projection under its own score, which is what keeps each
+     number under the thing it belongs to. #}
+  <div class="mid">
   {% if rosters.get(team.id) and not nested %}
   {# A roster to show: the name opens it instead of navigating away. Same
      inner markup and title as the link below, so the two only differ in the
@@ -79,7 +85,9 @@
     {% endif %}
   </div>
   {% endif %}
+  </div>
 
+  <div class="mnum">
   {% if totals %}
     {# Summed from the stored starter rows, not ESPN's own figure -- the two
        can legitimately disagree, so ESPN's number rides along in the title
@@ -90,6 +98,7 @@
     <div class="mscore">{{ '%.1f'|format(team.points or 0) }}</div>
     {% if team.projected %}<div class="mproj">proj {{ '%.0f'|format(team.projected) }}</div>{% endif %}
   {% endif %}
+  </div>
 </div>
 {% endmacro %}
 
