@@ -61,7 +61,7 @@
   /* One width for both the featured matchup and every compact card below it,
      so the two are tied together and cannot drift apart the next time either
      changes. */
-  --card-w: 1040px;
+  --card-w: 1260px;
 }
 
 * { box-sizing: border-box; }
@@ -649,11 +649,12 @@ mark { background: var(--amber-soft); color: inherit; border-radius: 3px; paddin
 }
 
 /* ---------- rest of the week ---------- */
-.restbox {
-  background: var(--surface); border: 1px solid var(--line);
-  border-radius: var(--radius); box-shadow: var(--lift);
-  padding: 12px 12px 4px; margin-bottom: 4px;
-}
+/* No frame of its own. It used to be a panel -- surface, border, shadow, 12px
+   of padding a side -- which cost the cards inside 26px of width and drew a
+   second box around things that are already boxes. What is left is a bare
+   wrapper: it still groups the rest of the week under one heading and one
+   hint, and the cards inside are free to use the full column. */
+.restbox { margin-bottom: 4px; }
 /* One card per row. Three across left about 33px for a name -- four
    characters -- which is not a name at all. Full width buys the whole name and
    the NFL team, and makes opening one a change of depth rather than of shape.
@@ -667,11 +668,11 @@ mark { background: var(--amber-soft); color: inherit; border-radius: 3px; paddin
    drift apart the next time one of them changes without the other. */
 .restbox .games.compact { grid-template-columns: 1fr; gap: 8px; }
 .restbox .games.compact .game { max-width: var(--card-w); margin-inline: auto; width: 100%; }
-/* The cards inside carry the panel, so they must not each look like one too. */
-.restbox .games.compact .game {
-  box-shadow: none; background: var(--raised); border-color: var(--line-soft);
-  cursor: pointer;
-}
+/* With the panel gone there is nothing left carrying these, so they go back to
+   looking like the cards they are -- flat --raised blocks on the page ground
+   read as unfinished rather than as deliberate. Only the pointer survives from
+   the flattened version. */
+.restbox .games.compact .game { cursor: pointer; }
 .restbox .games.compact .game:hover { border-color: var(--red); }
 .restbox .games.compact .game:focus-visible {
   outline: 2px solid var(--red); outline-offset: 2px;
