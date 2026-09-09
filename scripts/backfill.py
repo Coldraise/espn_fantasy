@@ -15,9 +15,9 @@ Two different grains, because ESPN serves two:
 An empty head-to-head matrix before the season starts is therefore correct
 behaviour, not a failed backfill.
 
-`--nflverse` loads NFL player-week data instead, from nflverse's GitHub
-releases. It shares nothing with the ESPN path: no cookies, no league id, and
-seasons going back as far as nflverse publishes them.
+`--nflverse` loads NFL player-week stats and play-by-play per-down counts
+instead, from nflverse's GitHub releases. It shares nothing with the ESPN path:
+no cookies, no league id, and seasons going back as far as nflverse publishes them.
 """
 
 from __future__ import annotations

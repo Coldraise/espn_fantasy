@@ -34,10 +34,13 @@ durable local history, and the rivalry math ESPN never shows you.
   round.pick and auction bid displayed per cell.
 - **NFL usage** — per-player real NFL usage for every rostered player: snap
   share, target share, air-yards share, WOPR, touches, IDP columns (tackles,
-  sacks, INT+PD), and boom/bust/floor/ceiling from the weekly points
-  distribution. A **roster strength** table per franchise, filtered to the
-  signed-in team by default. Falls back to the last completed season when the
-  current one has no games.
+  sacks, INT+PD), boom/bust/floor/ceiling from the weekly points distribution,
+  and targets and carries broken out by down (1st/2nd/3rd/4th). Organised per
+  franchise with a section each (yours first and highlighted); a **roster
+  strength** table summarises the league below. A range selector shows one week,
+  the last four weeks, or the full season. The franchise name in the top corner
+  links to your own roster section. Falls back to the last completed season when
+  the current one has no games.
 - **Activity** — league transactions (adds, waiver claims, drops, trades) with a
   churn table per franchise (moves, FAAB spent).
 - **News** — reporter-attributed NFL news from ESPN's public feed, with roster
@@ -310,6 +313,36 @@ app uses, wrapped in `app/espn_client.py` so breakage stays in one place.
   bytes and tells us whether the release has been rebuilt, so an unchanged
   release costs no download. That is what makes it safe to hang this off the
   ordinary poll loop.
+- **Play-by-play is streamed, not read whole.** `fetch_csv` deliberately reads
+  whole files (its docstring says why: the others are ≤2.5MB and a truncated
+  parse would look like missing weeks). Play-by-play is the exception: 48,771
+  rows × 372 columns, 18MB gzipped, 93MB decompressed. `gzip.decompress()` plus
+  `list(csv.DictReader(...))` would hold millions of live strings to keep eight
+  counters; streaming through `GzipFile` → `TextIOWrapper` → `DictReader`
+  measures 1.7s and 13MB peak RSS for a season.
+- **Per-down counters live in their own table.** `nfl_player_weeks` is replaced
+  wholesale from a different nflverse file by `sync_nflverse`; merging two
+  independently published sources into one wholesale replace creates a sync order
+  somebody has to remember. The asymmetry is deliberate too:
+  `nfl_player_down_weeks` has no `season_type` column, because the aggregation
+  has already dropped every non-REG play -- which is what makes it agree with
+  `fetch_nfl_player_weeks`, whose reads are REG-only for the same reason.
+- **A down is counted off the play, so kickoffs and extra points are skipped.**
+  `down` is blank on them — and a sack counts for nobody, since there is no
+  `receiver_player_id`.
+- **The range selector is row filtering, not new maths.** `player_summary`
+  computes over whatever rows it is given, so one week, four weeks and a season
+  are the same code path; `weeks_in_range` takes the weeks actually stored rather
+  than a season length, because "the last four weeks" in September is however many
+  have been played. Note that the trend column is shown only for the full-season
+  range, since last-4-vs-season form says nothing when the page is already showing
+  four weeks or one.
+- **2026 play-by-play does not exist until Week 1 is played** — `NotPublished`,
+  the same normal-not-an-error path as the weekly stats file.
+- **The per-down counts reconcile with the weekly totals.** On 2025 data the
+  four per-down target counters sum exactly to `nfl_player_weeks.targets` for
+  the same player-week. Two independently parsed nflverse files agreeing to the
+  target is the check that the down filter is not quietly dropping plays.
 - **Bench players are stored now, flagged rather than filtered.** You cannot
   know the lineup someone should have started without knowing who was available,
   so "points left on the bench" needs the whole roster. Every read defaults to
