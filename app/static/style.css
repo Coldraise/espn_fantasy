@@ -1311,3 +1311,35 @@ td .slot {
   .roster.mine { margin-left: 0; padding-left: 10px; }
   .pagefoot { justify-content: center; padding-bottom: 28px; }
 }
+
+/* ---------- wide tables with the name column pinned ---------- */
+
+/* The all-time table is sixteen columns wide. Unwrapped it had nowhere to go
+   but down: names broke over two lines, the numbers ragged along beside them,
+   and the columns that matter sat off the right of a phone with no way to
+   reach them. Scrolling it sideways only helps if the name stays put, so the
+   first cell is a row head that sticks -- the same mechanic the season matrix
+   uses, which works only because .scroll (not the table) is the scroll box. */
+.stick th, .stick td { white-space: nowrap; }
+.stick .rowhead {
+  position: sticky; left: 0; z-index: 2;
+  text-align: left; font-weight: 600;
+  background: var(--surface); box-shadow: 1px 0 0 var(--line);
+}
+/* Opaque stacking, or the rows travelling underneath show through the one
+   cell that is meant to hold still. */
+.stick thead .rowhead {
+  background: linear-gradient(var(--green-tint), var(--green-tint)), var(--surface);
+  z-index: 3;
+}
+.stick tbody tr:hover .rowhead {
+  background: linear-gradient(var(--red-tint), var(--red-tint)), var(--surface);
+}
+.stick tbody tr.me > td { background: var(--green-soft); }
+.stick .rowhead.me {
+  background: linear-gradient(var(--green-soft), var(--green-soft)), var(--surface);
+  font-weight: 700;
+  box-shadow: inset 2px 0 0 var(--red), 1px 0 0 var(--line);
+}
+/* A former name is context for the name, not a second line of it. */
+.stick .was { margin-left: 6px; font-weight: 400; }
