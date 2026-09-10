@@ -40,6 +40,50 @@ except ImportError:  # pragma: no cover
     class ESPNUnknownError(Exception): ...
 
 
+# Every request this module makes itself passes an explicit timeout. espn-api
+# does not: it calls the module-level `requests.get` with no timeout at all, so
+# a connection that opens and then stalls hangs the calling thread forever.
+# That is not a hypothetical -- the poller is a single APScheduler job with
+# max_instances=1, so one hung fetch silently skips every later tick while
+# uvicorn keeps answering /health with 200, and the scoreboard sits unchanged
+# for hours looking merely idle. The library exposes no timeout setting, so its
+# module-level `requests` reference is swapped for a shim that fills one in.
+ESPN_TIMEOUT_SECONDS = 25
+
+
+class _TimeoutRequests:
+    """Proxy for the `requests` module that supplies a default timeout."""
+
+    def __init__(self, inner, timeout: float):
+        self._inner = inner
+        self._timeout = timeout
+
+    def get(self, *args, **kwargs):
+        kwargs.setdefault("timeout", self._timeout)
+        return self._inner.get(*args, **kwargs)
+
+    def post(self, *args, **kwargs):
+        kwargs.setdefault("timeout", self._timeout)
+        return self._inner.post(*args, **kwargs)
+
+    def __getattr__(self, name):
+        return getattr(self._inner, name)
+
+
+def _patch_espn_api_timeouts() -> None:
+    """Give espn-api's unbounded requests a deadline. Idempotent."""
+    try:  # pragma: no cover - depends on installed version
+        from espn_api.requests import espn_requests as _module
+    except ImportError:  # pragma: no cover
+        return
+    if isinstance(getattr(_module, "requests", None), _TimeoutRequests):
+        return
+    _module.requests = _TimeoutRequests(_module.requests, ESPN_TIMEOUT_SECONDS)
+
+
+_patch_espn_api_timeouts()
+
+
 class AuthInvalid(RuntimeError):
     """Cookies are expired or rejected. Needs human action, not a retry."""
 

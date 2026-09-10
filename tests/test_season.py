@@ -37,6 +37,23 @@ def test_undrafted_beats_every_other_signal():
     assert poller.season_state(9, 17, drafted=False, has_scores=True) == poller.PRE_DRAFT
 
 
+def test_state_in_season_once_games_kick_off():
+    # the week-1 case: every stored point is still 0.0 because scoreboard does
+    # not settle a matchup period's totals until it closes
+    assert poller.season_state(1, 17, drafted=True, has_scores=False,
+                               games_started=True) == poller.IN_SEASON
+
+
+def test_state_drafted_before_kickoff():
+    assert poller.season_state(1, 17, drafted=True, has_scores=False,
+                               games_started=False) == poller.DRAFTED
+
+
+def test_undrafted_beats_kickoff():
+    assert poller.season_state(1, 17, drafted=False, has_scores=True,
+                               games_started=True) == poller.PRE_DRAFT
+
+
 # --- storage guards -------------------------------------------------------
 
 def _conn(tmp="/tmp/_season_test.db"):

@@ -250,7 +250,7 @@ def _base_context(request: Request, conn) -> dict:
         "history_seasons": db.history_seasons(conn),
         "stale_minutes": stale_minutes,
         "poll_error": poll_error,
-        "live": poller.is_live_window(),
+        "live": poller.is_live_window(conn=conn),
         "meta": meta,
         "state": meta.get("state") or poller.current_state(),
         "preseason": (meta.get("state") or poller.current_state()) in (poller.PRE_DRAFT, poller.DRAFTED),
@@ -296,11 +296,42 @@ def _schedule_grid(conn, season: int, names: dict) -> dict:
             "markers": nflweeks.season_markers(season, weeks, deadline)}
 
 
-def _scoreboard(conn, season: int) -> tuple[int | None, list[dict]]:
+def _display_week(conn, season: int) -> int | None:
+    """The week the scoreboard should show.
+
+    Not MAX(week): the pre-season sync writes every matchup period in the
+    schedule up front, so the maximum is the last playoff week from the day the
+    season is created. The league's own current matchup period is the answer for
+    the live season; a past season falls back to the last week that was played.
+    """
+    if season == get_config().current_season:
+        week = (db.get_meta(conn, "status") or {}).get("current_matchup_period")
+        if week:
+            return int(week)
+    row = conn.execute(
+        "SELECT MAX(week) AS week FROM team_weeks WHERE season=? AND points > 0",
+        (season,),
+    ).fetchone()
+    if row and row["week"]:
+        return int(row["week"])
+    if season == get_config().current_season:
+        # Nothing played and no league status yet -- a fresh deployment, or an
+        # ESPN outage that has kept the first poll of the season from landing.
+        # MAX(week) is the wrong answer here for the same reason it is above:
+        # the whole schedule is already written, so it would name the last
+        # playoff week. The opening week is the only honest guess.
+        row = conn.execute(
+            "SELECT MIN(week) AS week FROM team_weeks WHERE season=?", (season,)
+        ).fetchone()
+        return row["week"] if row else None
     row = conn.execute(
         "SELECT MAX(week) AS week FROM team_weeks WHERE season=?", (season,)
     ).fetchone()
-    week = row["week"] if row else None
+    return row["week"] if row else None
+
+
+def _scoreboard(conn, season: int) -> tuple[int | None, list[dict]]:
+    week = _display_week(conn, season)
     if week is None:
         return None, []
 
@@ -560,12 +591,12 @@ def dashboard(request: Request):
 
         if context["preseason"]:
             season = cfg.current_season
-            _, games = _scoreboard(conn, season)
+            week, games = _scoreboard(conn, season)
             my_game, other_games = _split_games(games, context["me_id"])
-            context |= _card_context(conn, season, 1) | {
+            context |= _card_context(conn, season, week or 1) | {
                 "season": season,
                 "names": names,
-                "week": 1,
+                "week": week or 1,
                 "my_game": my_game,
                 "other_games": other_games,
                 "grid": _schedule_grid(conn, season, names),

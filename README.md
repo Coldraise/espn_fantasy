@@ -167,7 +167,13 @@ healthcheck would only cause pointless restarts.
 ## Configuration
 
 `config/config.yml` — league id, seasons (`auto` recommended), poll cadence,
-live windows, `display_timezone`, and an optional `news:` block.
+live windows (a fallback), `display_timezone`, and an optional `news:` block.
+
+Real kickoffs decide the fast cadence — the poller reads stored kickoff times
+from the NFL scoreboard and polls at 45s from 15 minutes before to 4 hours past,
+letting it pick up Wednesday, Friday, or Saturday games and flexed kickoffs
+without any config change. The configured `live_windows` apply only when the
+public NFL scoreboard has given us no game rows yet.
 
 Two timezones, deliberately separate: **live-window polling is always
 America/New_York**, because that is when NFL games are played, while
@@ -238,14 +244,31 @@ app uses, wrapped in `app/espn_client.py` so breakage stays in one place.
   Storage is snapshot-and-revise: re-polling identical data is a no-op, and a
   changed score bumps `revision`. Revised weeks are listed on the dashboard.
 - **Polling only**, no push, and the cadence follows the season state: every 6h
-  before the draft, every 5 min around draft time, 45s during game windows, plus
-  a daily sweep of recent weeks to catch corrections.
+  before the draft, every 5 min around draft time, 45s from 15 minutes before
+  any real kickoff until the game ends (or 4h past kickoff if the state goes
+  stale), plus the daily correction sweep. The decision reads stored kickoff times
+  from the `nfl_games` table rather than the live `state` field — kickoff times
+  are schedule facts known days ahead, whereas state rows go stale between polls
+  at the idle cadence.
 - **Fetching uses `scoreboard()`, not `box_scores()`.** box_scores reads rosters
   unguarded, so it raises `KeyError` for the entire pre-draft period, and it
   honours its `week` argument only when `week <= current_week` — past that it
   silently returns the *current* week's data, which would write today's scores
-  under future week numbers. box_scores is used only to add projected scores to
-  the live week.
+  under future week numbers. `scoreboard()` remains the source for settled weeks,
+  but it reports 0.0 for every team until the whole matchup period closes — not
+  until each game finishes — so for the entire Wed-to-Mon span of a live week the
+  running score exists only in box_scores. box_scores therefore supplies both the
+  live points and the projections for the current week, and its result is
+  preferred over the scoreboard value only while the week is not yet final. This
+  is worth stating plainly because it was a real bug: the stored score sat at 0.0
+  all week while ESPN had the points.
+- **espn-api's own requests are given a timeout we supply.** The library calls
+  `requests.get` with none at all, so a connection that opens and then stalls
+  hangs the calling thread forever. The poller is a single APScheduler job with
+  `max_instances=1`, so one hung fetch silently skips every later tick while
+  uvicorn keeps answering `/health` with 200 — the scoreboard freezes and the
+  container still reports healthy. `app/espn_client.py` swaps the library's
+  module-level `requests` for a shim that fills in a 25s default.
 - **All-play and luck ignore weeks still in progress**, so standings don't swing
   mid-Sunday and then settle.
 - **Franchises are keyed by team id, not name.** Ids are stable across seasons

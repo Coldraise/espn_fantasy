@@ -679,6 +679,18 @@ def fetch_nfl_games(conn, season: int, week: int) -> list[dict]:
     )]
 
 
+def fetch_nfl_games_season(conn, season: int) -> list[dict]:
+    """Every stored NFL game for one season, newest weeks included.
+
+    The live-cadence check reads all of them rather than one week: it must not
+    need to know which week is current, and a past week's rows cannot produce a
+    false positive because their kickoffs are long gone.
+    """
+    return [dict(r) for r in conn.execute(
+        "SELECT * FROM nfl_games WHERE season=?", (season,),
+    )]
+
+
 def replace_players(conn, rows: dict[int, dict]) -> int:
     """Upsert NFL player reference data. Returns rows written."""
     with conn:

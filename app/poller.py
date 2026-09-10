@@ -40,12 +40,25 @@ _drafted: bool = False          # latches true; a completed draft never un-compl
 _state: str = PRE_DRAFT
 _draft_date: datetime | None = None
 
+# A game counts as live from shortly before kickoff until well after it would
+# normally have ended. Both bounds are deliberately generous: being wrong costs
+# one extra 45s poll, while being wrong the other way leaves the scoreboard
+# frozen while people are watching it.
+GAME_LEAD_MINUTES = 15
+GAME_TRAIL_HOURS = 4
+
 
 # --- season state ---------------------------------------------------------
 
 
-def season_state(scoring_period: int, final_period: int, drafted: bool, has_scores: bool) -> str:
+def season_state(scoring_period: int, final_period: int, drafted: bool,
+                 has_scores: bool, games_started: bool = False) -> str:
     """Where the season is, from the cheapest signals available.
+
+    `games_started` exists because points cannot carry this on their own: ESPN
+    reports 0.0 for every team until a matchup period closes, so waiting for a
+    positive score would hold the poller in its pre-season cadence for the whole
+    of week 1 -- and that slow cadence is what stops the scores arriving.
 
     Pure so it can be tested without a league object.
     """
@@ -53,7 +66,7 @@ def season_state(scoring_period: int, final_period: int, drafted: bool, has_scor
         return PRE_DRAFT
     if scoring_period > final_period:
         return COMPLETE
-    if not has_scores:
+    if not (has_scores or games_started):
         return DRAFTED
     return IN_SEASON
 
@@ -66,10 +79,88 @@ def draft_datetime() -> datetime | None:
     return _draft_date
 
 
-def is_live_window(moment: datetime | None = None) -> bool:
+def _parse_kickoff(value) -> datetime | None:
+    """Stored kickoff as an aware UTC datetime, or None if unparseable."""
+    if not value:
+        return None
+    try:
+        moment = datetime.fromisoformat(str(value))
+    except (TypeError, ValueError):
+        return None
+    return moment if moment.tzinfo else moment.replace(tzinfo=timezone.utc)
+
+
+def games_are_live(games: list[dict], moment: datetime) -> bool:
+    """Whether any NFL game is in progress, or close enough to count.
+
+    Decided from stored kickoff times rather than the fetched `state`, because
+    the gate has to be right when the rows are stale: at the idle cadence they
+    are refreshed once every six hours, so a state of 'pre' proves nothing about
+    right now. Kickoff times are a schedule fact known days ahead, so they stay
+    true between polls. A live `state` only ever widens the window, keeping the
+    fast cadence for a game that runs long.
+    """
+    for game in games:
+        kickoff = _parse_kickoff(game.get("kickoff_utc"))
+        if kickoff is None:
+            continue
+        state = (game.get("state") or "").lower()
+        if state == "post":
+            continue  # finished, whatever the clock says
+        if moment > kickoff + timedelta(hours=GAME_TRAIL_HOURS):
+            continue  # stale 'in' for a game that must have ended by now
+        if state == "in" or moment >= kickoff - timedelta(minutes=GAME_LEAD_MINUTES):
+            return True
+    return False
+
+
+def _season_games(conn, cfg) -> list[dict]:
+    """Stored games for the current season, opening a connection if needed."""
+    if conn is not None:
+        return db.fetch_nfl_games_season(conn, cfg.current_season)
+    try:
+        with db.session(cfg.db_path) as own:
+            return db.fetch_nfl_games_season(own, cfg.current_season)
+    except Exception as exc:  # noqa: BLE001 - the cadence check must never raise
+        log.debug("game rows unavailable: %s", exc)
+        return []
+
+
+def is_live_window(moment: datetime | None = None, conn=None) -> bool:
+    """Whether the fast cadence applies right now.
+
+    Real kickoffs first, the configured windows only as a fallback. The static
+    windows were written for a Thu/Sun/Mon season and silently miss anything
+    else -- a Wednesday opener, a Friday or Saturday game, a flexed kickoff --
+    which is exactly when the scoreboard is being watched. They stay as the
+    backstop for when the public NFL scoreboard is unavailable and no game rows
+    have been stored.
+    """
     cfg = get_config()
-    moment = (moment or datetime.now(timezone.utc)).astimezone(LEAGUE_TZ)
-    return any(window.contains(moment) for window in cfg.live_windows)
+    moment = (moment or datetime.now(timezone.utc))
+    if moment.tzinfo is None:
+        moment = moment.replace(tzinfo=timezone.utc)
+    if games_are_live(_season_games(conn, cfg), moment):
+        return True
+    local = moment.astimezone(LEAGUE_TZ)
+    return any(window.contains(local) for window in cfg.live_windows)
+
+
+def _games_started(conn, season: int) -> bool:
+    """Has any NFL game this season actually kicked off?
+
+    Tolerates stale rows on purpose: a row written before kickoff still carries
+    a kickoff time that is now in the past, so the answer is right even when the
+    state field is not.
+    """
+    now = datetime.now(timezone.utc)
+    for game in db.fetch_nfl_games_season(conn, season):
+        if (game.get("state") or "").lower() in ("in", "post"):
+            return True
+        kickoff = _parse_kickoff(game.get("kickoff_utc"))
+        if kickoff and kickoff <= now:
+            return True
+    return False
 
 
 def _near_draft(now: datetime, hours: int = 6) -> bool:
@@ -87,6 +178,12 @@ def _should_poll(now: datetime) -> str | None:
     """
     cfg = get_config()
     if _state in (PRE_DRAFT, DRAFTED):
+        # A drafted league whose first game has kicked off is in season in every
+        # sense that matters to the cadence, even before any points land. The
+        # state flip only happens on a poll, so without this the very first game
+        # would be watched at the six-hour idle rate.
+        if _state == DRAFTED and is_live_window(now):
+            return "live"
         if _near_draft(now):
             if _last_poll_at is None or (now - _last_poll_at).total_seconds() >= 300:
                 return "draft_watch"
@@ -159,11 +256,18 @@ def sync_teams(conn, league, season: int) -> None:
         )
 
 
-def poll_week(conn, league, season: int, week: int, projected: dict | None = None) -> int:
-    """Store one matchup period. Returns the number of rows that changed."""
+def poll_week(conn, league, season: int, week: int, projected: dict | None = None,
+              live_points: dict | None = None) -> int:
+    """Store one matchup period. Returns the number of rows that changed.
+
+    A non-final week takes its points from `live_points` when present, because
+    scoreboard reports 0.0 for every team while the matchup period is still
+    running.
+    """
     matchups = espn_client.call(league.scoreboard, week)
     final = week <= _completed_through(league, season)
     projected = projected or {}
+    live_points = live_points or {}
     changed = 0
 
     for matchup in matchups or []:
@@ -181,6 +285,10 @@ def poll_week(conn, league, season: int, week: int, projected: dict | None = Non
         ):
             if team_id is None:
                 continue
+            if not final:
+                # scoreboard reports 0.0 until the period closes; the box-score
+                # total is the only running figure ESPN will give us.
+                mine = live_points.get(team_id, mine)
             result = None
             if final and opp_id is not None and mine is not None and theirs is not None:
                 result = "W" if mine > theirs else "L" if mine < theirs else "T"
@@ -192,23 +300,36 @@ def poll_week(conn, league, season: int, week: int, projected: dict | None = Non
     return changed
 
 
-def _live_projections(league, week: int) -> dict[int, float]:
-    """Projected scores for the live week only.
+def _live_scores(league, week: int) -> tuple[dict[int, float], dict[int, float]]:
+    """Live actual and projected totals for the live week, by team id.
 
-    box_scores is the only source for these and it needs rosters, so this is
-    best-effort: any failure simply means no projections this tick.
+    `scoreboard` reports 0.0 for every team while the matchup period is still
+    running -- ESPN settles those totals only once the period closes -- so the
+    running score has to come from box_scores, which reads the current scoring
+    period's rosters. box_scores needs rosters and is the call that breaks
+    before a draft, so this stays best-effort: any failure just means this tick
+    keeps whatever was stored last.
     """
-    out: dict[int, float] = {}
+    actual: dict[int, float] = {}
+    projected: dict[int, float] = {}
     try:
         for box in espn_client.call(league.box_scores, week, attempts=1) or []:
-            for team, value in ((box.home_team, getattr(box, "home_projected", None)),
-                                (box.away_team, getattr(box, "away_projected", None))):
+            for team, score, value in (
+                (box.home_team, getattr(box, "home_score", None),
+                 getattr(box, "home_projected", None)),
+                (box.away_team, getattr(box, "away_score", None),
+                 getattr(box, "away_projected", None)),
+            ):
                 team_id = _team_id(team)
-                if team_id is not None and value and value > 0:
-                    out[team_id] = value
+                if team_id is None:
+                    continue
+                if score is not None:
+                    actual[team_id] = score
+                if value and value > 0:
+                    projected[team_id] = value
     except Exception as exc:  # noqa: BLE001
-        log.debug("no projections for week %s: %s", week, exc)
-    return out
+        log.debug("no live scores for week %s: %s", week, exc)
+    return actual, projected
 
 
 def poll_season(conn, season: int, weeks: list[int] | None = None, refresh: bool = False) -> int:
@@ -601,7 +722,8 @@ def refresh_season_state(conn, league=None) -> str:
         league = espn_client.get_league(cfg.current_season)
     scoring = int(getattr(league, "scoringPeriodId", 0) or 0)
     final = int(getattr(league, "finalScoringPeriod", 17) or 17)
-    _state = season_state(scoring, final, _drafted, db.has_week_data(conn))
+    _state = season_state(scoring, final, _drafted, db.has_week_data(conn),
+                          _games_started(conn, cfg.current_season))
 
     # Snapshot for the web layer, which never calls ESPN itself.
     try:
@@ -698,8 +820,8 @@ def tick() -> None:
             return changed
 
         week = int(getattr(league, "currentMatchupPeriod", None) or 1)
-        projected = _live_projections(league, week) if state == IN_SEASON else {}
-        changed += poll_week(conn, league, cfg.current_season, week, projected)
+        live_points, projected = _live_scores(league, week) if state == IN_SEASON else ({}, {})
+        changed += poll_week(conn, league, cfg.current_season, week, projected, live_points)
         return changed
 
     _run(kind, work)
