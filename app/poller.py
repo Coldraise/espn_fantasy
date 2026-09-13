@@ -14,7 +14,8 @@ pre-draft period, and it honours its `week` argument only when
 `week <= current_week` -- past that it silently returns the *current* week's
 data, which would write today's scores under future week numbers. scoreboard
 reads the schedule directly: no rosters needed, any week, one request instead of
-three. box_scores is used only to enrich the live week with projected scores.
+three. The live week's score and projection both come from the matchup-roster
+payload instead -- see `_live_scores`.
 """
 
 from __future__ import annotations
@@ -300,33 +301,29 @@ def poll_week(conn, league, season: int, week: int, projected: dict | None = Non
     return changed
 
 
-def _live_scores(league, week: int) -> tuple[dict[int, float], dict[int, float]]:
+def _live_scores(season: int, week: int) -> tuple[dict[int, float], dict[int, float]]:
     """Live actual and projected totals for the live week, by team id.
 
     `scoreboard` reports 0.0 for every team while the matchup period is still
-    running -- ESPN settles those totals only once the period closes -- so the
-    running score has to come from box_scores, which reads the current scoring
-    period's rosters. box_scores needs rosters and is the call that breaks
-    before a draft, so this stays best-effort: any failure just means this tick
-    keeps whatever was stored last.
+    running -- ESPN settles those totals only once the period closes -- so both
+    the running score and the running projection come from `matchup_rosters`,
+    which reads `totalPointsLive` / `totalProjectedPointsLive` off the same
+    matchup payload `scoreboard` already fetches. `league.box_scores()` reads
+    those same figures but took 11-19s against a 25s timeout with attempts=1 in
+    testing, so it intermittently timed out and left the week stored at 0.0
+    through a live Sunday; this payload answers in under a second. This stays
+    best-effort regardless: any failure just means this tick keeps whatever was
+    stored last.
     """
     actual: dict[int, float] = {}
     projected: dict[int, float] = {}
     try:
-        for box in espn_client.call(league.box_scores, week, attempts=1) or []:
-            for team, score, value in (
-                (box.home_team, getattr(box, "home_score", None),
-                 getattr(box, "home_projected", None)),
-                (box.away_team, getattr(box, "away_score", None),
-                 getattr(box, "away_projected", None)),
-            ):
-                team_id = _team_id(team)
-                if team_id is None:
-                    continue
-                if score is not None:
-                    actual[team_id] = score
-                if value and value > 0:
-                    projected[team_id] = value
+        _, totals = espn_client.matchup_rosters(season, week)
+        for team_id, entry in totals.items():
+            if entry["live"] and entry["points"] is not None:
+                actual[team_id] = entry["points"]
+            if entry["projected"]:
+                projected[team_id] = entry["projected"]
     except Exception as exc:  # noqa: BLE001
         log.debug("no live scores for week %s: %s", week, exc)
     return actual, projected
@@ -564,7 +561,7 @@ def sync_matchup_players(conn, season: int, week: int, per_team: int | None = No
     re-fetching rosters at render time would put ESPN back on the page path.
     `per_team` caps the starters for callers that want less.
     """
-    rosters = espn_client.matchup_rosters(season, week)
+    rosters, _ = espn_client.matchup_rosters(season, week)
     if not rosters:
         return 0
 
@@ -820,7 +817,8 @@ def tick() -> None:
             return changed
 
         week = int(getattr(league, "currentMatchupPeriod", None) or 1)
-        live_points, projected = _live_scores(league, week) if state == IN_SEASON else ({}, {})
+        live_points, projected = (_live_scores(cfg.current_season, week)
+                                   if state == IN_SEASON else ({}, {}))
         changed += poll_week(conn, league, cfg.current_season, week, projected, live_points)
         return changed
 

@@ -489,12 +489,22 @@ def _touchdowns(stat: dict) -> int:
     return total
 
 
-def matchup_rosters(season: int, week: int) -> dict[int, list[dict]]:
-    """Each team's roster for one week, keyed by team id.
+def matchup_rosters(season: int, week: int) -> tuple[dict[int, list[dict]], dict[int, dict]]:
+    """Each team's roster for one week, keyed by team id, plus each team's totals.
 
     Clamped to week >= 1 deliberately: at scoringPeriodId 0 the payload has no
     `rosterForCurrentScoringPeriod` key at all, which is the exact KeyError that
     made box_scores unusable before the draft.
+
+    The same payload carries each side's `totalPointsLive` and
+    `totalProjectedPointsLive` -- the team's live score and, crucially, the only
+    live TEAM projection ESPN publishes anywhere. The per-player projection
+    read into `people` below is a static pre-game forecast: it is set once and
+    never moves once a game kicks off, so summing it gives a "projection" that
+    is identical from Sunday morning to Sunday night. The Live keys are
+    preferred over the plain `totalPoints` / `totalProjectedPoints` because
+    `totalPoints` reads 0.0 for the whole span of a live week -- ESPN settles
+    it only once the period closes -- while the Live figure is the running one.
     """
     from .players import position_for
 
@@ -510,6 +520,7 @@ def matchup_rosters(season: int, week: int) -> dict[int, list[dict]]:
     )
 
     out: dict[int, list[dict]] = {}
+    totals: dict[int, dict] = {}
     for matchup in payload.get("schedule") or []:
         if matchup.get("matchupPeriodId") != week:
             continue
@@ -518,6 +529,15 @@ def matchup_rosters(season: int, week: int) -> dict[int, list[dict]]:
             team_id = entry_side.get("teamId")
             if not team_id:
                 continue
+            live_points = entry_side.get("totalPointsLive")
+            live_projected = entry_side.get("totalProjectedPointsLive")
+            points = live_points if live_points is not None else entry_side.get("totalPoints")
+            proj = live_projected if live_projected is not None else entry_side.get("totalProjectedPoints")
+            totals[int(team_id)] = {
+                "points": round(points, 1) if points is not None else None,
+                "projected": round(proj, 1) if proj is not None else None,
+                "live": live_points is not None,
+            }
             roster = (entry_side.get("rosterForCurrentScoringPeriod") or {}).get("entries") or []
             people = []
             for entry in roster:
@@ -564,7 +584,7 @@ def matchup_rosters(season: int, week: int) -> dict[int, list[dict]]:
                     "tds": tds,
                 })
             out[int(team_id)] = people
-    return out
+    return out, totals
 
 
 # ESPN message-type ids for the transaction feed. Note 179/181/239 all mean

@@ -480,9 +480,17 @@ def upsert_team_week(
 ) -> bool:
     """Insert or revise one team-week. Returns True if anything actually changed.
 
-    The WHERE clause on the upsert is what keeps `revision` honest: re-polling
-    identical data touches nothing, so a bumped revision always means ESPN
-    changed its mind (a stat correction).
+    The WHERE clause on the upsert is what keeps this from writing at all on a
+    re-poll of identical data: nothing touches, nothing changes.
+
+    `revision` only bumps for points, result or opponent_id -- a live
+    projection moves on every poll, and if it bumped revision too, the card's
+    "rev N" badge and the dashboard's revised-weeks list would climb every 45
+    seconds for no reason. A bumped revision still always means ESPN changed
+    its mind about the RECORD (a stat correction); a moving projected value
+    still gets written by the WHERE clause above, it just does not count as a
+    revision, because it is a forecast being refined rather than a score being
+    corrected.
     """
     with conn:
         cur = conn.execute(
@@ -497,7 +505,11 @@ def upsert_team_week(
                 opponent_id = excluded.opponent_id,
                 is_playoff  = excluded.is_playoff,
                 result      = excluded.result,
-                revision    = team_weeks.revision + 1,
+                revision    = team_weeks.revision + (CASE
+                                  WHEN team_weeks.points      IS NOT excluded.points
+                                    OR team_weeks.result      IS NOT excluded.result
+                                    OR team_weeks.opponent_id IS NOT excluded.opponent_id
+                                  THEN 1 ELSE 0 END),
                 updated_at  = excluded.updated_at
             WHERE team_weeks.points      IS NOT excluded.points
                OR team_weeks.result      IS NOT excluded.result

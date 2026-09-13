@@ -155,3 +155,227 @@ def test_ticker_ranks_on_the_result_once_played():
 def test_ticker_drops_positions_the_league_does_not_start():
     named = [p["name"] for g in players.leaders(ROWS) for p in g["players"]]
     assert "Snapper" not in named
+
+
+# --- matchup_rosters totals parsing ------------------------------------------
+
+def test_matchup_rosters_parses_live_side_totals(monkeypatch):
+    """The Live keys win because totalPoints reads 0.0 for the whole span of a
+    live week -- trusting it would store a zero all Sunday, which is a bug that
+    actually happened. The live projection converges as games play out."""
+    payload = {
+        "schedule": [
+            {
+                "matchupPeriodId": 1,
+                "home": {
+                    "teamId": 1,
+                    "totalPointsLive": 72.5,
+                    "totalProjectedPointsLive": 200.783,
+                    "totalPoints": 0.0,
+                    "totalProjectedPoints": 190.0,
+                    "rosterForCurrentScoringPeriod": {"entries": []},
+                },
+                "away": {
+                    "teamId": 2,
+                    "rosterForCurrentScoringPeriod": {"entries": []},
+                },
+            }
+        ]
+    }
+
+    monkeypatch.setattr(espn_client, "_get", lambda url, params: payload)
+    monkeypatch.setattr(espn_client, "_current_url", lambda: "http://test")
+    rosters, totals = espn_client.matchup_rosters(2026, 1)
+
+    assert totals[1]["points"] == 72.5, "totalPointsLive is preferred"
+    assert totals[1]["projected"] == 200.8, "totalProjectedPointsLive rounded to 1 decimal"
+    assert totals[1]["live"] is True
+
+
+def test_matchup_rosters_parses_settled_side_totals(monkeypatch):
+    """A settled week has no Live keys. The plain totalPoints and
+    totalProjectedPoints are the real values."""
+    payload = {
+        "schedule": [
+            {
+                "matchupPeriodId": 1,
+                "home": {
+                    "teamId": 1,
+                    "totalPoints": 143.2,
+                    "totalProjectedPoints": 151.0,
+                    "rosterForCurrentScoringPeriod": {"entries": []},
+                },
+                "away": {
+                    "teamId": 2,
+                    "rosterForCurrentScoringPeriod": {"entries": []},
+                },
+            }
+        ]
+    }
+
+    monkeypatch.setattr(espn_client, "_get", lambda url, params: payload)
+    monkeypatch.setattr(espn_client, "_current_url", lambda: "http://test")
+    rosters, totals = espn_client.matchup_rosters(2026, 1)
+
+    assert totals[1]["points"] == 143.2
+    assert totals[1]["projected"] == 151.0
+    assert totals[1]["live"] is False
+
+
+def test_matchup_rosters_handles_missing_totals(monkeypatch):
+    """Absent keys stay None, not zero."""
+    payload = {
+        "schedule": [
+            {
+                "matchupPeriodId": 1,
+                "home": {
+                    "teamId": 1,
+                    "totalPoints": 100.0,
+                    # totalProjectedPoints absent
+                    "rosterForCurrentScoringPeriod": {"entries": []},
+                },
+                "away": {
+                    "teamId": 2,
+                    "rosterForCurrentScoringPeriod": {"entries": []},
+                },
+            }
+        ]
+    }
+
+    monkeypatch.setattr(espn_client, "_get", lambda url, params: payload)
+    monkeypatch.setattr(espn_client, "_current_url", lambda: "http://test")
+    rosters, totals = espn_client.matchup_rosters(2026, 1)
+
+    assert totals[1]["points"] == 100.0
+    assert totals[1]["projected"] is None
+
+
+# --- upsert_team_week revision semantics ------------------------------------
+
+def test_upsert_team_week_bumps_revision_on_points_change(conn):
+    """A revision bump means ESPN corrected the RECORD. Projection changes
+    are forecasts being refined, not corrections."""
+    # First insert
+    changed = db.upsert_team_week(conn, 2026, 1, 1, 98.5, 120.0, 2, False, "W")
+    assert changed is True
+    row = conn.execute(
+        "SELECT points, projected, revision FROM team_weeks WHERE season=? AND week=? AND team_id=?",
+        (2026, 1, 1)
+    ).fetchone()
+    assert row["points"] == 98.5
+    assert row["projected"] == 120.0
+    assert row["revision"] == 1
+
+    # Change only projected
+    changed = db.upsert_team_week(conn, 2026, 1, 1, 98.5, 125.0, 2, False, "W")
+    assert changed is True, "change was written"
+    row = conn.execute(
+        "SELECT points, projected, revision FROM team_weeks WHERE season=? AND week=? AND team_id=?",
+        (2026, 1, 1)
+    ).fetchone()
+    assert row["projected"] == 125.0
+    assert row["revision"] == 1, "revision unchanged for projection-only change"
+
+    # Change points
+    changed = db.upsert_team_week(conn, 2026, 1, 1, 99.5, 125.0, 2, False, "W")
+    assert changed is True
+    row = conn.execute(
+        "SELECT points, projected, revision FROM team_weeks WHERE season=? AND week=? AND team_id=?",
+        (2026, 1, 1)
+    ).fetchone()
+    assert row["points"] == 99.5
+    assert row["revision"] == 2, "revision bumped for points change"
+
+
+def test_upsert_team_week_identical_data_returns_false(conn):
+    """A re-poll of fully identical data writes nothing."""
+    changed = db.upsert_team_week(conn, 2026, 1, 1, 98.5, 120.0, 2, False, "W")
+    assert changed is True
+
+    # Identical re-insert
+    changed = db.upsert_team_week(conn, 2026, 1, 1, 98.5, 120.0, 2, False, "W")
+    assert changed is False, "identical data produces no change"
+
+
+def test_upsert_team_week_bumps_revision_on_result_change(conn):
+    """Result changes (win/loss/tie) count as a record change."""
+    db.upsert_team_week(conn, 2026, 1, 1, 98.5, 120.0, 2, False, "W")
+    changed = db.upsert_team_week(conn, 2026, 1, 1, 98.5, 120.0, 2, False, "L")
+    assert changed is True
+    row = conn.execute(
+        "SELECT result, revision FROM team_weeks WHERE season=? AND week=? AND team_id=?",
+        (2026, 1, 1)
+    ).fetchone()
+    assert row["result"] == "L"
+    assert row["revision"] == 2, "revision bumped for result change"
+
+
+# --- poller._live_scores behavior -------------------------------------------
+
+def test_live_scores_includes_teams_with_live_flag_and_points():
+    """Only teams with live=True contribute to actual scores during a live week."""
+    from app import poller
+    from unittest.mock import patch
+
+    totals = {
+        1: {"points": 72.5, "projected": 200.8, "live": True},
+        2: {"points": 65.0, "projected": 180.0, "live": False},
+        3: {"points": 0.0, "projected": 150.0, "live": True},
+    }
+
+    with patch("app.espn_client.matchup_rosters", return_value=({}, totals)):
+        actual, projected = poller._live_scores(2026, 1)
+
+    assert actual == {1: 72.5, 3: 0.0}, "only live teams with points included"
+    assert projected == {1: 200.8, 2: 180.0, 3: 150.0}, "all truthy projected values included"
+
+
+def test_live_scores_omits_settled_weeks_from_actual():
+    """Before kickoff ESPN reports 0.0. Writing that would overwrite the
+    scoreboard's own value with a zero; leaving it out lets poll_week keep what
+    it had."""
+    from app import poller
+    from unittest.mock import patch
+
+    totals = {
+        1: {"points": 143.2, "projected": 151.0, "live": False},
+        2: {"points": None, "projected": 145.0, "live": False},
+    }
+
+    with patch("app.espn_client.matchup_rosters", return_value=({}, totals)):
+        actual, projected = poller._live_scores(2026, 1)
+
+    assert actual == {}, "no live=False teams in actual"
+    assert projected == {1: 151.0, 2: 145.0}, "projected still included"
+
+
+def test_live_scores_omits_falsy_projected():
+    """Zero or None projected means no live projection available."""
+    from app import poller
+    from unittest.mock import patch
+
+    totals = {
+        1: {"points": 72.5, "projected": 0.0, "live": True},
+        2: {"points": 65.0, "projected": None, "live": False},
+        3: {"points": 85.0, "projected": 195.5, "live": True},
+    }
+
+    with patch("app.espn_client.matchup_rosters", return_value=({}, totals)):
+        actual, projected = poller._live_scores(2026, 1)
+
+    assert projected == {3: 195.5}, "only truthy projected values included"
+
+
+def test_live_scores_returns_empty_dicts_on_exception():
+    """Failures are best-effort. Never propagate -- it is a non-critical fetch."""
+    from app import poller
+    from unittest.mock import patch
+
+    def broken(*args, **kwargs):
+        raise ValueError("Network error")
+
+    with patch("app.espn_client.matchup_rosters", side_effect=broken):
+        actual, projected = poller._live_scores(2026, 1)
+
+    assert actual == {}
+    assert projected == {}

@@ -256,12 +256,33 @@ app uses, wrapped in `app/espn_client.py` so breakage stays in one place.
   silently returns the *current* week's data, which would write today's scores
   under future week numbers. `scoreboard()` remains the source for settled weeks,
   but it reports 0.0 for every team until the whole matchup period closes — not
-  until each game finishes — so for the entire Wed-to-Mon span of a live week the
-  running score exists only in box_scores. box_scores therefore supplies both the
-  live points and the projections for the current week, and its result is
-  preferred over the scoreboard value only while the week is not yet final. This
-  is worth stating plainly because it was a real bug: the stored score sat at 0.0
-  all week while ESPN had the points.
+  until each game finishes. For the entire Wed-to-Mon span of a live week the
+  running score comes from the `mMatchupScore` matchup-roster payload
+  (`matchup_rosters`), which carries `totalPointsLive` on each side. That payload
+  was already fetched every tick for the lineups and its team totals were parsed
+  and thrown away. box_scores reads the same figure, but took 11s, 18s and 19.3s
+  in three timed calls against a 25s timeout with `attempts=1`, so it
+  intermittently returned nothing and left the live week stored at 0.0 through a
+  live Sunday; the matchup payload answers in 0.3–0.6s. box_scores is no longer
+  in the live path at all.
+- **The projection on a live card is ESPN's, and the score is ours.** ESPN's
+  per-player projection is a static pre-game forecast — set once, never moved
+  after a game kicks off — so summing it across a lineup gives a figure that
+  reads identically from Sunday morning to Sunday night, which is what the
+  scoreboard used to show. `totalProjectedPointsLive`, on the same matchup
+  payload, is the only live team projection ESPN publishes anywhere, and it does
+  converge: 198.4 → 198.2 → 197.8 over forty seconds. The card prefers it and
+  falls back to the summed-from-starters figure wherever there is none — the
+  pre-season hub, a settled past week, or a tick where ESPN published nothing.
+  The headline `actual` beside it is deliberately *not* ESPN's: it stays summed
+  from the stored starter rows so it can enforce its own rule that a player who
+  has not kicked off contributes nothing.
+- **A revised forecast is not a revision.** `projected` moves on every poll once
+  it is live, so it no longer bumps a team-week's `revision` — the new value is
+  still written, it just does not count. A revision means ESPN corrected the
+  record, whereas a projection is a forecast being refined, and without the
+  distinction the card's "rev N" badge and the dashboard's revised-weeks list
+  would climb every 45 seconds all season.
 - **espn-api's own requests are given a timeout we supply.** The library calls
   `requests.get` with none at all, so a connection that opens and then stalls
   hangs the calling thread forever. The poller is a single APScheduler job with

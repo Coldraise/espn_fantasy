@@ -187,7 +187,7 @@ def test_sync_matchup_players_keeps_the_whole_starting_lineup():
                    "lineup_slot": "BE" if n > 15 else "RB",
                    "projected": float(n), "actual": None} for n in range(1, 21)]}
     original = espn_client.matchup_rosters
-    espn_client.matchup_rosters = lambda season, week: roster
+    espn_client.matchup_rosters = lambda season, week: (roster, {})
     try:
         c = _fresh()
         poller.sync_matchup_players(c, 2026, 1)
@@ -217,7 +217,7 @@ def test_sync_matchup_players_excludes_bench_and_ir(monkeypatch=None):
         ]
     }
     original = espn_client.matchup_rosters
-    espn_client.matchup_rosters = lambda season, week: roster
+    espn_client.matchup_rosters = lambda season, week: (roster, {})
     try:
         c = _fresh()
         poller.sync_matchup_players(c, 2026, 1)
@@ -516,6 +516,73 @@ def test_live_totals_rounds_to_one_decimal():
     games = {"DET": {"state": "in"}}
     totals = players.live_totals(lineup, games)
     assert totals["actual"] == 1.1 and totals["projected"] == 2.2
+
+
+def test_live_totals_uses_espn_live_projection_when_provided():
+    """ESPN's live team projection is the only one that converges as games play
+    out. The per-player projection is a static pre-game forecast that reads the
+    same all week, so a card showing it never moves."""
+    lineup = [
+        {"pro_team": "DET", "actual": 10.0, "projected": 15.0},
+        {"pro_team": "KC", "actual": 8.0, "projected": 20.0},
+        {"pro_team": "BUF", "actual": None, "projected": 19.0},
+    ]
+    games = {"DET": {"state": "in"}, "KC": {"state": "in"}, "BUF": {"state": "pre"}}
+    # Sum of per-player projections: 15.0 + 20.0 + 19.0 = 54.0
+    # ESPN's live projection: 181.3 (overrides the sum)
+    totals = players.live_totals(lineup, games, projected=181.3)
+    assert totals["projected"] == 181.3, "ESPN's live projection overrides the summed per-player forecast"
+
+
+def test_live_totals_falls_back_to_sum_when_projected_is_none():
+    """When no live projection is available (pre-season hub, settled past weeks),
+    the sum of per-player projections is used."""
+    lineup = [
+        {"pro_team": "DET", "actual": 10.0, "projected": 15.0},
+        {"pro_team": "KC", "actual": 8.0, "projected": 20.0},
+    ]
+    games = {"DET": {"state": "in"}, "KC": {"state": "in"}}
+    totals = players.live_totals(lineup, games, projected=None)
+    assert totals["projected"] == 35.0, "sum of per-player projections"
+
+
+def test_live_totals_uses_sum_when_projected_is_zero():
+    """Zero means ESPN published nothing, not a genuine projection of zero."""
+    lineup = [
+        {"pro_team": "DET", "actual": 10.0, "projected": 15.0},
+        {"pro_team": "KC", "actual": 8.0, "projected": 20.0},
+    ]
+    games = {"DET": {"state": "in"}, "KC": {"state": "in"}}
+    totals = players.live_totals(lineup, games, projected=0)
+    assert totals["projected"] == 35.0, "zero means no live projection available"
+    totals_zero_float = players.live_totals(lineup, games, projected=0.0)
+    assert totals_zero_float["projected"] == 35.0, "zero as float also means no live projection"
+
+
+def test_live_totals_actual_counted_pending_unaffected_by_projected():
+    """The kicked-off rule (which players' actual counts) is deliberate and
+    separate from projection source. Changing from a summed to a live projection
+    must not change actual, counted, or pending."""
+    lineup = [
+        {"pro_team": "DET", "actual": 24.5, "projected": 18.0},
+        {"pro_team": "KC", "actual": 10.2, "projected": 15.0},
+        {"pro_team": "BUF", "actual": 5.0, "projected": 12.0},
+        {"pro_team": None, "actual": None, "projected": 9.0},
+    ]
+    games = {"DET": {"state": "post"}, "KC": {"state": "in"}, "BUF": {"state": "pre"}}
+
+    # Get totals without live projection
+    without_live = players.live_totals(lineup, games, projected=None)
+    # Get totals with live projection
+    with_live = players.live_totals(lineup, games, projected=200.5)
+
+    # All three core values must be identical
+    assert without_live["actual"] == with_live["actual"] == 34.7
+    assert without_live["counted"] == with_live["counted"] == 2
+    assert without_live["pending"] == with_live["pending"] == 2
+    # Only projected differs
+    assert without_live["projected"] == 54.0
+    assert with_live["projected"] == 200.5
 
 
 # --- one franchise's roster, ordered for the modal a team name opens -------

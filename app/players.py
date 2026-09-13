@@ -195,7 +195,8 @@ def _slot_rank(slot: str) -> tuple[int, str]:
         return (len(SLOT_ORDER), slot)
 
 
-def live_totals(lineup: list[dict], games: dict[str, dict]) -> dict:
+def live_totals(lineup: list[dict], games: dict[str, dict],
+                 projected: float | None = None) -> dict:
     """A team's headline score pair: what's on the board now, and where the
     week is expected to land.
 
@@ -207,18 +208,28 @@ def live_totals(lineup: list[dict], games: dict[str, dict]) -> dict:
     has not kicked off yet is the whole failure mode this exists to avoid.
     `projected` has no such filter: it sums every starter, because it stands
     for the full expected final total, the number `actual` is climbing toward.
+
+    That summed-from-starters projection is itself a pre-game forecast: each
+    player's `projected` figure is static, set once by ESPN and never moved
+    once their game kicks off, so the sum reads the same all week. The
+    `projected` argument is ESPN's own live team projection -- the one figure
+    that does converge as games play out -- and it wins whenever we have it.
+    The sum remains the fallback for anywhere we do not: the pre-season hub, a
+    settled past week, or a tick where ESPN published no live figure.
     """
-    actual = projected = 0.0
+    actual = summed_projected = 0.0
     counted = pending = 0
     for p in lineup:
-        projected += p.get("projected") or 0
+        summed_projected += p.get("projected") or 0
         game = games.get(p.get("pro_team")) if p.get("pro_team") else None
         if game and game.get("state") in ("in", "post"):
             actual += p.get("actual") or 0
             counted += 1
         else:
             pending += 1
-    return {"actual": round(actual, 1), "projected": round(projected, 1),
+    if projected is not None and projected > 0:
+        summed_projected = projected
+    return {"actual": round(actual, 1), "projected": round(summed_projected, 1),
             "counted": counted, "pending": pending}
 
 

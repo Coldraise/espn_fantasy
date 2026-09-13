@@ -412,6 +412,13 @@ def _card_context(conn, season: int, week: int | None) -> dict:
     rosters = db.fetch_team_week_players(conn, season, week, starters_only=False) if week else {}
     lineups = {tid: [p for p in ps if p.get("is_starter")] for tid, ps in rosters.items()}
 
+    # ESPN's own live team projection, stored by the poller. The per-player
+    # projections these rows are summed from are static pre-game forecasts, so
+    # the sum stands still all week; this one converges. See live_totals.
+    projections = {r["team_id"]: r["projected"] for r in conn.execute(
+        "SELECT team_id, projected FROM team_weeks WHERE season=? AND week=?",
+        (season, week))} if week else {}
+
     # Keyed on both sides of each game so a player's pro_team looks it up
     # directly -- the join has no other id in common.
     games: dict[str, dict] = {}
@@ -427,7 +434,8 @@ def _card_context(conn, season: int, week: int | None) -> dict:
         # Summed from the same starter rows the card already has, rather than
         # trusted from ESPN, so the headline number can enforce its own rule
         # about who has actually kicked off -- see live_totals.
-        "totals": {tid: players.live_totals(ps, games) for tid, ps in lineups.items()},
+        "totals": {tid: players.live_totals(ps, games, projections.get(tid))
+                   for tid, ps in lineups.items()},
         "managers": {t["team_id"]: t.get("owner")
                      for t in db.fetch_teams(conn, cfg.current_season)},
         "records": records,
