@@ -425,19 +425,10 @@ tbody tr:target { background: var(--red-soft); box-shadow: inset 2px 0 0 var(--r
 mark { background: var(--amber-soft); color: inherit; border-radius: 3px; padding: 0 2px; }
 
 /* ---------- players ---------- */
-.posgrid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(min(var(--cardmin, 290px), 100%), 1fr)); }
-/* One position picked: a single readable column, rather than one narrow card
-   stranded at the left of a grid sized for nine. Widened by --cardmin once a
-   season's worth of W columns no longer fits the plain 620px. */
-.posgrid.one { grid-template-columns: minmax(0, max(620px, var(--cardmin, 0px))); }
-/* A card carrying matchup columns needs the extra width those columns take,
-   so it gets its own cap rather than fighting .one for the same track. */
-.posgrid.one.wide { grid-template-columns: minmax(0, max(880px, calc(var(--cardmin, 0px) + 260px))); }
+.posgrid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(min(290px, 100%), 1fr)); }
 /* The position row is the secondary choice, so it tucks under the availability
    toggle above it. */
 .posscope { margin-top: -10px; }
-/* The label reads as a caption for the links beside it, not another link. */
-.sortscope .muted { margin-right: 4px; }
 .poscard { background: var(--surface); border: 1px solid var(--line);
            border-radius: var(--radius); padding: 12px 14px; box-shadow: var(--lift); }
 .poscard h3 { color: var(--red); border-bottom: 1px solid var(--line-soft); padding-bottom: 7px; }
@@ -795,72 +786,8 @@ thead th { font-family: var(--display); letter-spacing: .1em; font-size: 12px; }
   .scoreboard { padding: 20px 12px 18px; }
 }
 
-/* players list gains one column per already-played week, a season total, and
-   the next week's projection. The track count is not fixed -- week 2 needs one
-   W column, week 12 needs eleven -- so it comes from --ptracks/--mtracks,
-   computed once in the template and handed down as custom properties. */
-.plhead {
-  display: grid; grid-template-columns: var(--ptracks, 20px 1fr 44px); gap: 8px;
-  padding: 0 0 5px; border-bottom: 1px solid var(--line-soft);
-  font-family: var(--display); font-size: 10px; text-transform: uppercase;
-  letter-spacing: .1em; color: var(--muted); text-align: right;
-}
-.plist li { grid-template-columns: var(--ptracks, 20px 1fr 44px); }
 .poscard { padding-bottom: 6px; }
 .plist { max-height: 620px; overflow-y: auto; }
-
-/* A card carrying matchup columns needs five more tracks than the plain
-   shape above -- scoped to `.matchups` so the nine-card unfiltered grid,
-   which never carries a `p.matchup`, is untouched. */
-.poscard.matchups .plhead,
-.poscard.matchups .plist li {
-  grid-template-columns: var(--mtracks);
-}
-/* The head is outside .plist's scroll box, so it only lines up with the rows
-   if it repeats their 6px horizontal inset -- the same trap the phone rules
-   further down call out. Two columns could sit visibly out of step without
-   anyone noticing; seven cannot. */
-.poscard.matchups .plhead { padding-left: 6px; padding-right: 6px; }
-
-/* .pscroll wraps a card's head and list so the two scroll sideways together --
-   .plist is a vertical scroll box on its own, and nested inside a page that
-   also scrolls it would otherwise scroll horizontally independent of its head,
-   leaving the columns unlabelled the moment you drag it. */
-.pscroll { overflow-x: auto; }
-.pscroll > .plhead, .pscroll > .plist { min-width: var(--rowmin); }
-.poscard.matchups .pscroll > .plhead, .poscard.matchups .pscroll > .plist { min-width: var(--mrowmin); }
-
-/* A week or a total is points already scored -- white and heavy, the same
-   treatment the scoreboard gives a final score (.lineup .ppts.done): it
-   happened, and it is not moving. */
-.plist .pw { font-variant-numeric: tabular-nums; color: #fff; text-align: right; font-size: 12.5px; font-weight: 600; }
-.plist .pt { font-variant-numeric: tabular-nums; text-align: right; color: #fff; font-weight: 750; }
-.plist .pp { text-align: right; }
-/* Proj is a forecast, never a score, so it stays faded even when it is the
-   active sort -- the same distinction the scoreboard draws between a final
-   score and its pre-kickoff number (.lineup .ppts.pre). It must never reach
-   the white that pw/pt use, or a glance could mistake a projection for a
-   result. */
-.pview .plist .pp { color: var(--muted); font-weight: 400; }
-.pview .plist .pp.on { color: var(--ink); font-weight: 650; }
-/* The value a phone shows beside the name -- whichever column is currently
-   sorted -- is redundant on a wide screen, where that same value already sits
-   in its own W/Tot/Proj column. It carries the same scored/projected split as
-   the columns it stands in for. */
-.plist .ps { display: none; }
-.plist .ps.score { color: #fff; font-weight: 750; }
-.plist .ps.proj { color: var(--muted); font-weight: 400; }
-
-/* The active sort reads as such wherever it appears: the header link that
-   requested it, and every row's value for it. Scored columns (pw/pt) are
-   already white, so recolouring them to ink on top of `.on` would dim them --
-   they mark the sorted column with a background instead, the same "this one
-   governs" treatment .mr.gov gives a matchup card's governing rank. */
-.plist .on { color: var(--ink); font-weight: 700; }
-.plist .pw.on, .plist .pt.on { color: #fff; background: var(--raised); border-radius: 3px; }
-.plhead a { color: inherit; text-decoration: none; }
-.plhead a:hover { color: var(--ink); }
-.plhead a.on { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
 
 .mr { font-variant-numeric: tabular-nums; text-align: right; font-size: 12.5px; color: var(--muted); }
 .mr.soft { color: var(--green); }
@@ -870,15 +797,84 @@ thead th { font-family: var(--display); letter-spacing: .1em; font-size: 12px; }
 .mr.gov { font-weight: 700; background: var(--raised); border-radius: 3px; }
 .opp { font-family: var(--display); font-size: 11.5px; letter-spacing: .04em;
        color: var(--muted); text-align: right; }
-/* history | opposition | next week. Everything left of this line is the
-   season so far, everything right of it is what comes next -- a hairline says
-   so without spending a header row on it. The negative margin pulls the
-   border half way into the 8px column gap so it sits between the two groups
-   rather than crowding the value beside it; the cells are right-aligned, so
-   widening one leftwards moves no text. */
-.divide, .poscard.matchups .plist .opp, .poscard:not(.matchups) .plist .pp {
-  border-left: 1px solid var(--line-soft);
-  margin-left: -4px; padding-left: 4px;
+
+/* ---------- players table ---------- */
+/* The box scrolls both ways so the header can stick to its top and the player
+   column to its left -- a sticky header cannot stick to the page from inside a
+   horizontal scroller, only to whichever box actually scrolls. */
+.ptab-scroll {
+  overflow: auto; max-height: calc(100dvh - var(--topbar-h) - 24px); min-height: 360px;
+  border: 1px solid var(--line-soft); border-radius: var(--radius);
+  animation: none;
+}
+/* The base `table` rule draws its own border, radius and shadow -- .ptab-scroll
+   already does that job, so the inner table resets them rather than nesting a
+   box inside a box. */
+.ptab {
+  border-collapse: separate; border-spacing: 0; width: max-content; min-width: 100%;
+  font-size: 12.5px; margin-top: 0; background: none; border: 0; border-radius: 0;
+  overflow: visible; box-shadow: none;
+}
+.ptab th {
+  position: sticky; top: 0; z-index: 2; background: var(--surface);
+  font-family: var(--display); font-size: 10px; text-transform: uppercase;
+  letter-spacing: .1em; color: var(--muted); text-align: right; white-space: nowrap;
+  padding: 6px 8px;
+}
+.ptab th a { color: inherit; text-decoration: none; }
+.ptab th a:hover { color: var(--ink); }
+.ptab th.on a { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
+.ptab th .arrow { font-size: 8px; margin-left: 2px; }
+.ptab td {
+  padding: 4px 8px; text-align: right; font-variant-numeric: tabular-nums;
+  white-space: nowrap; border-bottom: 1px solid var(--line-soft);
+}
+.ptab .c-rank, .ptab .c-player {
+  position: sticky; background: var(--surface);
+}
+.ptab .c-rank { left: 0; width: 28px; min-width: 28px; color: var(--muted); }
+/* The rank cell is 28px wide including its own padding, so the player column
+   picks up right where it ends -- any gap would show scrolled cells passing
+   under a strip of nothing. */
+.ptab .c-player {
+  left: 28px; text-align: left; max-width: 240px; overflow: hidden;
+  text-overflow: ellipsis; border-right: 1px solid var(--line-soft);
+}
+.ptab th.c-rank, .ptab th.c-player { z-index: 3; }
+/* Layered over the opaque surface rather than swapped for it, the same
+   strength .plist li.tinted uses -- a sticky cell still has to stay opaque as
+   the columns behind it scroll under it. */
+.ptab td.c-player.tinted {
+  background: linear-gradient(color-mix(in srgb, var(--tc) 26%, transparent),
+              color-mix(in srgb, var(--tc) 26%, transparent)), var(--surface);
+}
+.ptab .c-text { text-align: left; color: var(--muted); }
+.ptab .c-pts { color: #fff; font-weight: 600; }
+.ptab .c-total { color: #fff; font-weight: 750; }
+/* Proj is a forecast, never a score, so it stays faded even when it is the
+   active sort -- the same distinction the scoreboard draws between a final
+   score and its pre-kickoff number (.lineup .ppts.pre). It must never reach
+   the white that c-pts/c-total use, or a glance could mistake a projection
+   for a result. */
+.ptab .c-proj { color: var(--muted); font-weight: 400; }
+.ptab .c-own, .ptab .c-int, .ptab .c-pct { color: var(--ink); font-weight: 400; }
+.ptab td.on { background: var(--raised); }
+.ptab td.c-proj.on { color: var(--ink); font-weight: 650; }
+.ptab .blk { border-left: 1px solid var(--line-soft); }
+.ptab tbody tr:hover td { background: var(--raised); }
+.ptab tbody tr:hover td.c-player.tinted {
+  background: linear-gradient(color-mix(in srgb, var(--tc) 26%, transparent),
+              color-mix(in srgb, var(--tc) 26%, transparent)), var(--raised);
+}
+
+@media (max-width: 640px) {
+  /* .c-rank and .c-player are fixed-width sticky boxes (border-box), so a
+     smaller td/th padding does not move where .c-player's left offset has to
+     land -- the 28px from the base rule already accounts for it. */
+  .ptab .c-player { max-width: 132px; }
+  .ptab .c-player .pn > .muted.small { display: none; }
+  .ptab { font-size: 12px; }
+  .ptab td, .ptab th { padding: 4px 6px; }
 }
 
 /* ---------- signed-in franchise ---------- */
@@ -1264,94 +1260,11 @@ td .slot {
       animation-range: entry 0% entry 620px;
     }
     /* The wrapper already animates, and .matrix .rowhead is position:sticky --
-       transforming the table too compounds the scale for no gain. */
-    .scroll table { animation: none; }
-  }
-}
-
-/* ---------- players on a phone ----------
-
-   A wide screen gets the nine position cards side by side. A phone gets one
-   list, ranked across every position, because nine cards stacked is nine
-   scrolls to reach the ninth. Both are in the page; only one is ever shown.
-
-   Everything sticks as one block: both filter rows and the column header, so
-   choosing a position never means scrolling back up through five hundred rows,
-   and the two numbers on a row are always labelled. The page is the only thing
-   that scrolls -- .plist's scroll box is a desktop device, and nested inside
-   the page scroll on a phone it just gives you two things to flick. */
-.flatlist { display: none; }
-.flatlist .fpos {
-  font-family: var(--display); font-size: 9.5px; font-weight: 700;
-  letter-spacing: .05em; color: var(--green); background: var(--green-soft);
-  border-radius: 3px; padding: 1px 5px; text-align: center;
-}
-/* The wrapper is inert on a wide screen, where each card prints its own head. */
-.pfilters .plhead.sticky { display: none; }
-.plhead .hp { text-align: left; }
-
-@media (max-width: 640px) {
-  .posgrid { display: none; }
-  /* A chosen position still uses the card, minus the chrome that made it a
-     card: on a phone it is simply the list. */
-  .posgrid.one { display: block; }
-  .posgrid.one .poscard {
-    background: none; border: 0; box-shadow: none; padding: 0;
-  }
-
-  /* One scroll on the page, rather than a scroll box inside a scroll. */
-  .plist { max-height: none; overflow: visible; }
-  /* .pscroll's sideways scroll is a desktop-width device, for a season's worth
-     of W columns beside a wide matchup card -- the reduced phone grid below
-     already fits without it. The matchups selector has to be repeated: it
-     matches the desktop `--mrowmin` rule's specificity, and the plain
-     `.pscroll > .plist` rule above alone loses to it and leaves a matchup
-     card's rows 656px wide in a phone-width viewport. overflow-x: visible
-     drops the nested sideways scroller now that nothing needs it. */
-  .pscroll { overflow-x: visible; }
-  .pscroll > .plhead, .pscroll > .plist,
-  .poscard.matchups .pscroll > .plhead, .poscard.matchups .pscroll > .plist { min-width: 0; }
-
-  .flatlist { display: block; }
-  /* A phone has room for one number beside the name, not one per played week
-     plus a total -- that single number is `.ps`, and follows whichever column
-     is currently sorted. */
-  .plist .pw, .plist .pt, .plhead .pwh { display: none; }
-  .plist .ps { display: block; text-align: right; font-variant-numeric: tabular-nums; }
-
-  .pfilters {
-    position: sticky; top: calc(var(--topbar-h) - 1px); z-index: 5;
-    margin: -10px -20px 10px; padding: 8px 20px 0;
-    background: rgba(8,21,15,.93);
-    backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
-    border-bottom: 1px solid var(--line);
-  }
-  .pfilters .scope { margin: 0 0 6px; }
-  .pfilters .plhead.sticky { display: grid; border-bottom: 0; }
-  /* The sticky head replaces the card's own, which would scroll away. */
-  .posgrid.one .plhead { display: none; }
-
-  /* A header and its rows are separate grids, so they line up only if the
-     tracks AND the horizontal padding match -- .plist li insets its tracks by
-     6px, and a head padded to 0 would sit that far out of step. */
-  .pfilters .plhead.sticky { padding: 4px 6px 6px; }
-  .flatlist li,
-  .pfilters .plhead.flat {
-    grid-template-columns: 26px minmax(0, 1fr) 40px 44px 44px; column-gap: 7px;
-  }
-  .posgrid.one .plist li,
-  .pfilters .plhead.pos {
-    grid-template-columns: 20px minmax(0, 1fr) 44px 44px; column-gap: 8px;
-  }
-
-  /* A phone has room for one rank column, not four, so the other three are
-     dropped rather than shown. The tracks below carry it and the higher
-     specificity is deliberate -- it has to win over the plain 4-track rule
-     just above, which still applies to a card with no matchup data. */
-  .posgrid.one .mr:not(.gov) { display: none; }
-  .posgrid.one .poscard.matchups .plist li,
-  .pfilters .plhead.pos.matchups {
-    grid-template-columns: 20px minmax(0, 1fr) 46px 34px 44px 44px; column-gap: 8px;
+       transforming the table too compounds the scale for no gain. .ptab has
+       no animating wrapper at all -- its sticky header and player column
+       would break under a transform with nothing above it to carry the
+       motion instead. */
+    .scroll table, .ptab { animation: none; }
   }
 }
 

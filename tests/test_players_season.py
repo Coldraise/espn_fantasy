@@ -1,8 +1,8 @@
 """Season projection and actual scoring tables.
 
 Tests for players.group_by_position with by parameter, ranked, storage_rows,
-played_weeks, next_projection_week, season_rows, sort_field, and related db
-functions for season-grain tables and filtering.
+played_weeks, next_projection_week, season_rows, and related db functions for
+season-grain tables and filtering.
 """
 
 import sys, os
@@ -474,70 +474,6 @@ class TestSeasonRows:
         rows = players.season_rows(by_week, played=[1], next_week=2)
         assert rows[0]["name"] == "Injured Return"
         assert rows[0]["pro_team"] == "LAR"
-
-
-class TestSortField:
-    """Resolve sort query param to (param, field) tuple."""
-
-    def test_sort_field_total_when_played_and_requested(self):
-        """'total' with played non-empty → ('total', 'total')."""
-        param, field = players.sort_field("total", played=[1, 2], has_next=False)
-        assert param == "total"
-        assert field == "total"
-
-    def test_sort_field_proj_when_next_and_requested(self):
-        """'proj' with has_next → ('proj', 'projected')."""
-        param, field = players.sort_field("proj", played=[], has_next=True)
-        assert param == "proj"
-        assert field == "projected"
-
-    def test_sort_field_w_week_when_played_and_valid(self):
-        """'w2' with 2 in played → ('w2', 'w2')."""
-        param, field = players.sort_field("w2", played=[1, 2], has_next=False)
-        assert param == "w2"
-        assert field == "w2"
-
-    def test_sort_field_invalid_defaults_to_total_if_played(self):
-        """Invalid/unknown sort with played → default to total."""
-        param, field = players.sort_field("zzz", played=[1], has_next=True)
-        assert param == "total"
-        assert field == "total"
-
-    def test_sort_field_invalid_defaults_to_proj_if_no_played(self):
-        """Invalid/unknown sort with no played → default to proj."""
-        param, field = players.sort_field("zzz", played=[], has_next=True)
-        assert param == "proj"
-        assert field == "projected"
-
-    def test_sort_field_w_not_played_defaults(self):
-        """'w9' not in played → defaults."""
-        param, field = players.sort_field("w9", played=[1, 2], has_next=True)
-        assert (param, field) == ("total", "total")
-
-    def test_sort_field_none_sort_defaults(self):
-        """sort=None → defaults."""
-        param, field = players.sort_field(None, played=[1], has_next=False)
-        assert (param, field) == ("total", "total")
-
-    def test_sort_field_total_without_played_defaults_to_proj(self):
-        """'total' with no played → default to proj."""
-        param, field = players.sort_field("total", played=[], has_next=True)
-        assert (param, field) == ("proj", "projected")
-
-    def test_sort_field_proj_without_next_defaults_to_total(self):
-        """'proj' with no next_week → default to total if played."""
-        param, field = players.sort_field("proj", played=[1], has_next=False)
-        assert (param, field) == ("total", "total")
-
-    def test_sort_field_proj_without_next_or_played_defaults(self):
-        """'proj' with no next and no played → hard default."""
-        param, field = players.sort_field("proj", played=[], has_next=False)
-        assert (param, field) == ("proj", "projected")
-
-    def test_sort_field_empty_string_defaults(self):
-        """'' (empty string) defaults."""
-        param, field = players.sort_field("", played=[1], has_next=False)
-        assert (param, field) == ("total", "total")
 
 
 class TestFetchPlayerProjectionsSeason:

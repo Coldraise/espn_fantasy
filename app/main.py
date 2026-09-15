@@ -12,7 +12,7 @@ import logging
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from pathlib import Path
-from urllib.parse import quote
+from urllib.parse import quote, urlencode
 
 from fastapi import FastAPI, Form, Request
 from fastapi.responses import JSONResponse, RedirectResponse
@@ -752,8 +752,8 @@ def history(request: Request):
 
 @app.get("/players")
 def player_rankings(request: Request):
-    """Every player's season so far, plus their projection for the next
-    unplayed week.
+    """Every player in one sortable table, mixed across positions: season
+    points to date, NFL usage, and this week's matchup.
 
     The `week` query param that used to pick a single week's projections is
     gone -- an old bookmark still loads, it just lands on the season view --
@@ -769,33 +769,41 @@ def player_rankings(request: Request):
                                       int(current) if current else None)
         next_week = players.next_projection_week(sorted(by_week), played)
         rows = players.season_rows(by_week, played, next_week)
-        sort, field = players.sort_field(request.query_params.get("sort"), played,
-                                         next_week is not None)
-        available_only = request.query_params.get("available") == "1"
-        pos = request.query_params.get("pos") or ""
         rookies = db.rookie_ids(conn)
         for row in rows:
             row["rookie"] = row["player_id"] in rookies
-        # One pass: group_by_position always returns every group that has
-        # players, so the tab list and the shown group come out of the same
-        # call. A single position gets a deeper list -- there is only one card
-        # to fill, so 50 would cut a ranking short for no reason.
-        # No cap: "show all the players" means all of them. It is one render
-        # and scrolling costs nothing, where a cap hides the deep end of the
-        # pool, which is the part worth searching.
-        all_groups = players.group_by_position(
-            rows, per_group=None, available_only=available_only, by=field)
-        positions = [g["label"] for g in all_groups]
+
+        team_names = db.franchise_names(conn, cfg.franchise_since)
+        for row in rows:
+            on_team_id = row.get("on_team_id") or 0
+            row["owner"] = (team_names.get(on_team_id, {}).get("name") or "rostered") \
+                if on_team_id else None
+
+        # Tags every row with its lineup group and drops the positions this
+        # league does not start; row order is irrelevant from here, sort_rows
+        # does that once the columns are known below.
+        rows = players.ranked(rows)
+        available_only = request.query_params.get("available") == "1"
+        if available_only:
+            rows = [r for r in rows if not (r.get("on_team_id") or 0)]
+
+        present = {r["group"] for r in rows}
+        positions = [label for label, _ in players.POSITION_GROUPS if label in present]
+        pos = request.query_params.get("pos") or ""
         if pos not in positions:
             pos = ""
-        # A phone shows one list ranked across every position rather than nine
-        # stacked cards. It cannot be built by concatenating the groups, whose
-        # order is per-group, so it is ranked here and rendered alongside them.
-        flat = [] if pos else players.ranked(
-            [r for r in rows
-             if not (available_only and (r.get("on_team_id") or 0))],
-            by=field)
-        shown = [g for g in all_groups if g["label"] == pos] if pos else all_groups
+        if pos:
+            rows = [r for r in rows if r["group"] == pos]
+
+        # NFL season stats, narrowed to the gsis ids actually on the page --
+        # an unfiltered load must not pay for every player in the league.
+        id_map = db.nfl_id_map(conn)
+        gsis_ids = [id_map[r["player_id"]]["gsis_id"] for r in rows
+                    if r["player_id"] in id_map and id_map[r["player_id"]].get("gsis_id")]
+        player_weeks = db.fetch_nfl_player_weeks(conn, season, gsis_ids=gsis_ids)
+        nflstats.attach_season_stats(rows, id_map, player_weeks,
+                                     db.fetch_nfl_team_weeks(conn, season))
+        stats_week = max((w["week"] for w in player_weeks), default=None)
 
         # Matchup columns are a per-position feature only: rating a defence
         # against every position at once means scanning a full season of
@@ -812,33 +820,50 @@ def player_rankings(request: Request):
                 db.fetch_nfl_games(conn, season, next_week))
             # Both a stored season and a stored schedule are required: with no
             # schedule synced for this week there is nothing to rate a player's
-            # opponent against, and the page falls back to its plain four
-            # columns rather than a card full of dashes.
+            # opponent against, and the page falls back to its plain columns
+            # rather than a table full of dashes.
             if matchup_season and opponents:
                 ratings = nflstats.defense_ratings(
                     db.fetch_nfl_team_weeks(conn, matchup_season),
                     db.fetch_nfl_player_weeks(conn, matchup_season))
-                for group in shown:
-                    nflstats.attach_matchups(group["players"], ratings, opponents, axis)
+                nflstats.attach_matchups(rows, ratings, opponents, axis)
                 matchups = True
+
+        cols = players.columns(played, next_week, pos, matchups)
+        sort, desc = players.resolve_sort(request.query_params.get("sort"),
+                                          request.query_params.get("dir"),
+                                          cols, played, next_week is not None)
+        rows = players.sort_rows(rows, sort, desc)
+
+        def url(**over):
+            params = {"available": "1" if available_only else "", "pos": pos,
+                      "sort": sort, "dir": "desc" if desc else "asc"} | over
+            return "/players?" + urlencode({k: v for k, v in params.items() if v})
+
+        for col in cols:
+            if col["key"] == sort:
+                direction = "asc" if desc else "desc"
+            else:
+                direction = "desc" if col["desc"] else "asc"
+            col["href"] = url(sort=col["key"], dir=direction)
 
         context = _base_context(request, conn) | {
             "played": played,
             "next_week": next_week,
             "sort": sort,
-            "sort_field": field,
+            "desc": desc,
             "available_only": available_only,
             "pos": pos,
             "positions": positions,
-            "flat": flat,
-            "groups": shown,
-            "team_names": db.franchise_names(conn, cfg.franchise_since),
+            "rows": rows,
+            "columns": cols,
+            "url": url,
             "team_colors": players.PRO_TEAM_COLORS,
-            "total": len(rows),
             "matchups": matchups,
             "matchup_season": matchup_season,
             "matchup_axis": axis,
             "matchup_stale": bool(matchup_season and matchup_season != cfg.current_season),
+            "stats_week": stats_week,
         }
     return templates.TemplateResponse("players.html", context)
 

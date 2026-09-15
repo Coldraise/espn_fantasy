@@ -30,32 +30,31 @@ durable local history, and the rivalry math ESPN never shows you.
   projection bias, and a **lineup calls** table showing points left on the bench
   for each team. Best and worst week per franchise.
 - **Head-to-head** — W-L matrix between every pair of teams.
-- **Players** — every player per lineup position, viewed across the season: one
-  column per already-played week (W1, W2, …) showing actual fantasy points, then
-  a **Total** — the sum of points already scored, never including a projection —
-  and **Proj** — ESPN's projection for the next week — as the last column. When
-  a single position with matchup data is chosen, the next week's
-  opponent-matchup columns sit between Total and Proj: the NFL team faced, then
-  four league ranks — **Run**, **Pass**, **Kick** and **Def**, where 1 is
-  softest and 32 is toughest, with the governing rank highlighted. A week counts
-  as played only when every stored NFL game for it is final, so a week still
-  being played shows as its projection rather than as partial points. Every
-  column header is a sort link, and a Sort row of chips does the same; sorting
-  is per position card and across all positions in the phone list, defaulting to
-  Total once any week is played, otherwise Proj. Players with no score for the
-  sorted week sort last, not as zero; scored points are bright white, like a
-  final score on the scoreboard, and the projection is faded. Run, Pass and Kick
-  rank a defence on what it concedes per game; **Def** rates the opponent's
-  *offence* on the fumbles, interceptions, sacks and tackles (which is what a
-  fantasy defence scores on). Hover a rank to see the per-game stats behind it.
-  Ranks come from the most recent season nflverse has published, which before
-  the current season's week 1 is played is last year's — the page says so when
-  that is the case. The available-only and position filters work and keep the
-  chosen sort. On a wide screen the cards sit side by side early and widen as
-  weeks accumulate, scrolling sideways within a card when the screen is too
-  narrow. A phone shows the active sort's value and Proj rather than every week
-  column, with only the governing rank. A middot means no score stored for that
-  player that week. Works before the draft.
+- **Players** — one table with every player across all positions, no
+  per-position cards. Filters: available-only toggle and position chips (All,
+  QB, RB, WR, TE, K, D/ST, LB, DL, DB). Columns: Player (NFL team · fantasy
+  team, rookie badge), Pos (hidden when a position is picked), Owner (fantasy
+  team or blank for free agents), Own% (ESPN percent owned), W1…Wn (actual
+  points per played week), **Total** (sum of played weeks, never including
+  projection), Avg (Total per week with a score), then **Proj Wn** (ESPN
+  projection for next unplayed week). When a single position is picked and
+  next week's schedule is synced: Opp and four matchup ranks — **Run**,
+  **Pass**, **Kick** and **Def**, where 1 is softest and 32 is toughest, with
+  the governing rank highlighted. Season stats: GP, Snap% (not for K or D/ST),
+  then per-position stat families — passing (PaYd, PaTD, Int), rushing (Car,
+  RuYd, RuTD), receiving (Tgt, Tgt%, Rec, ReYd, ReTD), kicking (FGM, FGA, XP),
+  defence (Tkl, Sck, DInt, PD, FF, DTD). All positions shows every stat family;
+  a position shows only its own. A stat outside a player's family is blank
+  rather than 0, for meaningful ascending sorts. Click any column header to
+  sort; click again to reverse. URL: `/players?sort=<column>&dir=asc|desc`,
+  combinable with `available=1` and `pos=`. Text columns default A→Z, numbers
+  high→low, ranks low→high. Default sort is **Total** once a week is played,
+  otherwise **Proj**. Blanks always sort last; old `sort=proj` links still
+  work. Header row and player column stay fixed while scrolling. Scored points
+  are bright white; projection faded. A week counts as played only when every
+  stored NFL game for it is final. Ranks come from the most recent nflverse
+  season, which before the current season's week 1 is played is last year's —
+  the page says so. Works before the draft.
 - **Draft** — the board once ESPN marks the draft complete, with **value
   analysis** (who drafted best, best and worst value picks, positional runs),
   round.pick and auction bid displayed per cell.

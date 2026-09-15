@@ -94,6 +94,141 @@ def player_summary(rows: list[dict], position: str | None = None,
     }
 
 
+# (key, header label, long title, family) -- the season stat columns the
+# players table can show. A row only ever fills the keys whose family matches
+# its position group (see season_stat_line); everything else stays None so an
+# empty cell reads as "does not apply" rather than "zero".
+STAT_COLUMNS = [
+    ("pass_yds", "PaYd", "Passing yards", "pass"),
+    ("pass_td",  "PaTD", "Passing touchdowns", "pass"),
+    ("pass_int", "Int",  "Interceptions thrown", "pass"),
+    ("carries",  "Car",  "Carries", "rush"),
+    ("rush_yds", "RuYd", "Rushing yards", "rush"),
+    ("rush_td",  "RuTD", "Rushing touchdowns", "rush"),
+    ("targets",  "Tgt",  "Targets", "rec"),
+    ("tgt_share","Tgt%", "Share of team targets, per game", "rec"),
+    ("receptions","Rec", "Receptions", "rec"),
+    ("rec_yds",  "ReYd", "Receiving yards", "rec"),
+    ("rec_td",   "ReTD", "Receiving touchdowns", "rec"),
+    ("fgm",      "FGM",  "Field goals made", "kick"),
+    ("fga",      "FGA",  "Field goals attempted", "kick"),
+    ("xpm",      "XP",   "Extra points made", "kick"),
+    ("tackles",  "Tkl",  "Tackles, solo plus assisted", "def"),
+    ("sacks",    "Sck",  "Sacks", "def"),
+    ("def_int",  "DInt", "Interceptions", "def"),
+    ("pd",       "PD",   "Passes defended", "def"),
+    ("ff",       "FF",   "Forced fumbles", "def"),
+    ("def_td",   "DTD",  "Defensive and special-teams touchdowns", "def"),
+]
+FAMILY_ORDER = ["pass", "rush", "rec", "kick", "def"]
+GROUP_FAMILIES = {"QB": ["pass", "rush"], "RB": ["rush", "rec"], "WR": ["rec", "rush"],
+                  "TE": ["rec"], "K": ["kick"], "D/ST": ["def"],
+                  "LB": ["def"], "DL": ["def"], "DB": ["def"]}
+# Groups with no meaningful snap share: a kicker's offense_pct is 0 and a D/ST is a team.
+NO_SNAP_GROUPS = {"K", "D/ST"}
+
+# How each STAT_COLUMNS key is totalled from a player's played weeks. Kept as
+# a lookup rather than a chain of ifs so season_stat_line only ever computes
+# the totals a group's families actually call for.
+_STAT_SOURCES = {
+    "pass_yds":  lambda ws: _total(ws, "passing_yards"),
+    "pass_td":   lambda ws: _total(ws, "passing_tds"),
+    "pass_int":  lambda ws: _total(ws, "passing_interceptions"),
+    "carries":   lambda ws: _total(ws, "carries"),
+    "rush_yds":  lambda ws: _total(ws, "rushing_yards"),
+    "rush_td":   lambda ws: _total(ws, "rushing_tds"),
+    "targets":   lambda ws: _total(ws, "targets"),
+    "tgt_share": lambda ws: _mean([r.get("target_share") for r in ws]),
+    "receptions":lambda ws: _total(ws, "receptions"),
+    "rec_yds":   lambda ws: _total(ws, "receiving_yards"),
+    "rec_td":    lambda ws: _total(ws, "receiving_tds"),
+    "fgm":       lambda ws: _total(ws, "fg_made"),
+    "fga":       lambda ws: _total(ws, "fg_att"),
+    "xpm":       lambda ws: _total(ws, "pat_made"),
+    "tackles":   lambda ws: _total(ws, "def_tackles_solo") + _total(ws, "def_tackle_assists"),
+    "sacks":     lambda ws: _total(ws, "def_sacks"),
+    "def_int":   lambda ws: _total(ws, "def_interceptions"),
+    "pd":        lambda ws: _total(ws, "def_pass_defended"),
+    "ff":        lambda ws: _total(ws, "def_fumbles_forced"),
+    "def_td":    lambda ws: _total(ws, "def_tds"),
+}
+
+
+def season_stat_line(weeks: list[dict], group: str) -> dict:
+    """One player's season stat line, filtered to the families their position plays.
+
+    Every STAT_COLUMNS key is present in the result, plus "gp" and "snap_pct",
+    so a caller never has to guard a missing key -- but only the families in
+    GROUP_FAMILIES[group] are ever filled. A quarterback's 0 tackles is not
+    data, and filling it would float every QB to the top of an ascending
+    tackles sort.
+    """
+    line = {key: None for key, *_ in STAT_COLUMNS}
+    line["gp"] = None
+    line["snap_pct"] = None
+    if not weeks:
+        return line
+
+    played = [r for r in weeks if (r.get("offense_snaps") or r.get("defense_snaps")
+                                   or r.get("fantasy_points_ppr"))]
+    line["gp"] = len(played)
+    if group not in NO_SNAP_GROUPS:
+        line["snap_pct"] = snap_share(played, "LB" if group in ("LB", "DL", "DB") else "QB")
+
+    families = set(GROUP_FAMILIES.get(group, []))
+    for key, _, _, family in STAT_COLUMNS:
+        if family in families:
+            line[key] = _STAT_SOURCES[key](played)
+    return line
+
+
+def team_stat_line(weeks: list[dict]) -> dict:
+    """One D/ST's season stat line, from nfl_team_weeks rows.
+
+    Deliberately reports no fantasy points, the same reason team_defence_summary
+    does not: the team-week file's fantasy figures belong to the offence, not
+    the defence. Every non-"def" key stays None -- a defence has no passing or
+    receiving line of its own to show, so there is nothing to fill there.
+    """
+    line = {key: None for key, *_ in STAT_COLUMNS}
+    line["gp"] = None
+    line["snap_pct"] = None
+    if not weeks:
+        return line
+    line["gp"] = len(weeks)
+    line["tackles"] = _total(weeks, "def_tackles_solo")
+    line["sacks"] = _total(weeks, "def_sacks")
+    line["def_int"] = _total(weeks, "def_interceptions")
+    line["pd"] = _total(weeks, "def_pass_defended")
+    line["ff"] = _total(weeks, "def_fumbles_forced")
+    line["def_td"] = _total(weeks, "def_tds") + _total(weeks, "special_teams_tds")
+    return line
+
+
+def attach_season_stats(rows: list[dict], id_map: dict[int, dict],
+                        player_weeks: list[dict], team_weeks: list[dict]) -> None:
+    """Mutate each page row in place with its season stat line.
+
+    Rows arrive carrying "player_id", "group" and "pro_team" -- the page's own
+    identity fields -- so this only has to join them to nflverse. A player with
+    no gsis mapping still gets a row, all-None: they still played this season
+    and belong on the page, just without a stat line to show for it.
+    """
+    by_gsis: dict[str, list[dict]] = defaultdict(list)
+    for row in player_weeks:
+        by_gsis[row["gsis_id"]].append(row)
+    by_team: dict[str, list[dict]] = defaultdict(list)
+    for row in team_weeks:
+        by_team[row["team"]].append(row)
+
+    for row in rows:
+        if row.get("group") == "D/ST":
+            row |= team_stat_line(by_team.get(row.get("pro_team"), []))
+            continue
+        gsis_id = id_map.get(row.get("player_id"), {}).get("gsis_id")
+        row |= season_stat_line(by_gsis.get(gsis_id, []), row.get("group"))
+
+
 def team_defence_summary(rows: list[dict]) -> dict:
     """Season shape for a fantasy D/ST.
 

@@ -17,6 +17,8 @@ from __future__ import annotations
 
 from collections import defaultdict
 
+from . import nflstats
+
 # ESPN defaultPositionId -> position. NOT interchangeable with POSITION_MAP.
 DEFAULT_POSITION_MAP = {
     1: "QB", 2: "RB", 3: "WR", 4: "TE", 5: "K",
@@ -242,6 +244,8 @@ def season_rows(by_week: dict[int, list[dict]], played: list[int],
     (name, position, ...) come from the next week's row where there is one,
     since that is the freshest data; a player with no next-week row (already
     on a bye, or dropped) falls back to their most recent played appearance.
+    `avg` divides by weeks actually scored, not weeks played -- a bye or a DNP
+    should not drag a per-game average down.
     """
     next_rows = {r["player_id"]: r for r in by_week.get(next_week, [])} if next_week else {}
     played_rows = {week: {r["player_id"]: r for r in by_week.get(week, [])} for week in played}
@@ -260,39 +264,148 @@ def season_rows(by_week: dict[int, list[dict]], played: list[int],
 
         total = 0.0
         has_total = False
+        scored_weeks = 0
         for week in played:
             actual = played_rows[week].get(player_id, {}).get("actual")
             row[f"w{week}"] = actual
             if actual is not None:
                 total += actual
                 has_total = True
+                scored_weeks += 1
         row["total"] = round(total, 1) if has_total else None
+        row["avg"] = round(total / scored_weeks, 1) if scored_weeks else None
         out.append(row)
     return out
 
 
-def sort_field(sort: str | None, played: list[int], has_next: bool) -> tuple[str, str]:
-    """The (query param, row field) pair a sort request resolves to.
+def columns(played: list[int], next_week: int | None, pos: str, matchups: bool) -> list[dict]:
+    """The table's column set, in display order, for the current filters.
 
-    An invalid or absent request -- an old bookmark for a week that has since
-    been played, say -- falls back to the season total once there is one, and
-    to the next projection before that, rather than erroring or sorting on
-    nothing.
+    Identity, then fantasy, then (if requested) matchups, then NFL season
+    stats -- the last narrowed to the families `pos` actually plays, or every
+    family when no position is picked. `desc` is the direction a first click
+    on that column sorts; `block` marks the first column of a new visual
+    group, for the divider style.css draws between them.
     """
-    if sort == "total" and played:
-        return "total", "total"
-    if sort == "proj" and has_next:
-        return "proj", "projected"
-    if sort and sort.startswith("w"):
-        try:
-            week = int(sort[1:])
-        except ValueError:
-            week = None
-        if week in played:
-            return sort, f"w{week}"
+    def col(key, label, kind, desc, title=None, block=False):
+        return {"key": key, "label": label, "title": title, "kind": kind,
+                "desc": desc, "block": block}
+
+    cols = [col("name", "Player", "player", False)]
+    if not pos:
+        cols.append(col("group", "Pos", "text", False))
+    cols += [
+        col("pro_team", "NFL", "text", False),
+        col("owner", "Owner", "text", False, title="Fantasy team; blank is a free agent"),
+        col("percent_owned", "Own%", "own", True),
+    ]
+
+    block = True
+    for week in played:
+        cols.append(col(f"w{week}", f"W{week}", "pts", True,
+                        title=f"Fantasy points, week {week}", block=block))
+        block = False
     if played:
-        return "total", "total"
-    return "proj", "projected"
+        cols.append(col("total", "Tot", "total", True, block=block))
+        block = False
+        cols.append(col("avg", "Avg", "pts", True, title="Points per scored week", block=block))
+        block = False
+    if next_week:
+        cols.append(col("projected", f"Proj W{next_week}", "proj", True, block=block))
+        block = False
+
+    if matchups:
+        cols.append(col("opp", "Opp", "opp", False, block=True))
+        for key, label in (("run_rank", "Run"), ("pass_rank", "Pass"),
+                           ("kick_rank", "Kick"), ("def_rank", "Def")):
+            cols.append(col(key, label, "rank", False))
+
+    cols.append(col("gp", "GP", "int", True, block=True))
+    if pos not in nflstats.NO_SNAP_GROUPS:
+        cols.append(col("snap_pct", "Snap%", "pct", True))
+
+    families = nflstats.FAMILY_ORDER if not pos else nflstats.GROUP_FAMILIES.get(pos, [])
+    for family in (f for f in nflstats.FAMILY_ORDER if f in families):
+        for key, label, title, fam in nflstats.STAT_COLUMNS:
+            if fam == family:
+                cols.append(col(key, label, "pct" if key == "tgt_share" else "int",
+                                True, title=title))
+    return cols
+
+
+def resolve_sort(sort: str | None, direction: str | None, cols: list[dict],
+                 played: list[int], has_next: bool) -> tuple[str, bool]:
+    """The (key, desc) pair a sort request resolves to.
+
+    An invalid or absent request -- an old bookmark for a column the current
+    filters no longer offer -- falls back to the season total once there is
+    one, and to the next projection before that, rather than erroring or
+    sorting on nothing.
+    """
+    if sort == "proj":
+        sort = "projected"
+    keys = {c["key"]: c for c in cols}
+    if sort not in keys:
+        sort = "total" if played else ("projected" if has_next else "name")
+    if direction == "desc":
+        desc = True
+    elif direction == "asc":
+        desc = False
+    else:
+        desc = keys[sort]["desc"]
+    return sort, desc
+
+
+# The four matchup ranks live inside row["matchup"], attached separately by
+# attach_matchups, rather than as plain row keys -- sort_rows has to know to
+# look there instead of on the row itself.
+_MATCHUP_KEYS = {"run_rank", "pass_rank", "kick_rank", "def_rank"}
+
+_GROUP_ORDER = {label: i for i, (label, _) in enumerate(POSITION_GROUPS)}
+
+
+def _sort_value(row: dict, key: str):
+    """The raw value `key` reads off `row` for sorting, missing as None."""
+    if key == "group":
+        return _GROUP_ORDER.get(row.get("group"))
+    if key == "opp":
+        matchup = row.get("matchup")
+        return matchup.get("opponent") if matchup else None
+    if key in _MATCHUP_KEYS:
+        matchup = row.get("matchup")
+        return matchup.get(key) if matchup else None
+    value = row.get(key)
+    return None if value == "" else value
+
+
+def _norm(value):
+    return value.casefold() if isinstance(value, str) else value
+
+
+def sort_rows(rows: list[dict], key: str, desc: bool) -> list[dict]:
+    """`rows`, ordered by `key`.
+
+    A player missing `key` -- no game that week, no NFL stat line synced, no
+    matchup this week -- sorts last regardless of direction: an ascending sort
+    putting every blank player ahead of every player who actually has a value
+    would be worse than useless. Ties break on projected points (highest
+    first, missing last), then name (A-Z); that pair is computed once as the
+    tiebreak key and used to order both the present rows (before the primary,
+    stable, sort) and the missing ones (which never reach a primary sort at
+    all).
+    """
+    def tiebreak(row):
+        return (row.get("projected") is None, -(row.get("projected") or 0),
+                (row.get("name") or "").casefold())
+
+    present, missing = [], []
+    for row in rows:
+        (missing if _sort_value(row, key) is None else present).append(row)
+
+    present.sort(key=tiebreak)
+    present.sort(key=lambda r: _norm(_sort_value(r, key)), reverse=desc)
+    missing.sort(key=tiebreak)
+    return present + missing
 
 
 # Lineup slots in the order a box score reads them. Anything ESPN sends that is
