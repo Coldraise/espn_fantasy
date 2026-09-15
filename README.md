@@ -138,6 +138,7 @@ their team.
 | Backfill history | `docker compose run --rm fantasy python scripts/backfill.py` |
 | Backfill one season's weeks | `... scripts/backfill.py 2026` |
 | Backfill NFL data | `... scripts/backfill.py --nflverse [season ...]` |
+| Refresh finished weeks' player stats | `... scripts/backfill.py --week-stats 1 [2 ...]` |
 | List logins and last-seen times | `docker compose exec fantasy python scripts/credentials.py list` |
 | Reset a password | `... scripts/credentials.py reset "<franchise>"` (or `--all`) |
 | Logs | `docker compose logs -f` |
@@ -249,7 +250,11 @@ app uses, wrapped in `app/espn_client.py` so breakage stays in one place.
   stale), plus the daily correction sweep. The decision reads stored kickoff times
   from the `nfl_games` table rather than the live `state` field — kickoff times
   are schedule facts known days ahead, whereas state rows go stale between polls
-  at the idle cadence.
+  at the idle cadence. The correction sweep (06:15 ET by default) re-syncs the
+  recent weeks' per-player rows as well as team totals — stat corrections land on
+  players — and checks nflverse, whose nightly rebuild lands around 00:30 ET, so
+  the previous day's tackles, snaps and usage are in by morning even when the idle
+  tick is hours away.
 - **Fetching uses `scoreboard()`, not `box_scores()`.** box_scores reads rosters
   unguarded, so it raises `KeyError` for the entire pre-draft period, and it
   honours its `week` argument only when `week <= current_week` — past that it
@@ -321,6 +326,17 @@ app uses, wrapped in `app/espn_client.py` so breakage stays in one place.
 - **Last week's actuals need a re-sync of that week.** The row written before
   kickoff has a null actual, so the poller refreshes the previous week as well
   as the current one — that back-fill is what fills the "Last" column.
+- **A finished game refreshes its week's player stats.** Per-player points and
+  lineups otherwise follow only the week ESPN calls current, so the moment the
+  league rolls over the previous week's rows would freeze with whatever the last
+  live poll saw. Each tick, any NFL game stored as `post` that has not been
+  handled yet triggers one re-sync of its week — lineups with per-player points,
+  that week's projections and actuals, and the game rows. It keys off stored game
+  state rather than clock times for the same reason the live cadence does: kickoffs
+  move. Handled game ids are kept in `league_meta` (`postgame_refreshed:<season>`),
+  so each game triggers exactly one refresh, a week that fails is retried next tick,
+  and the first deploy refreshes every game already played. Several games finishing
+  within minutes share one projection pull (a 5-minute floor).
 - **Matchup cards show starters only.** A benched player can hold the highest
   projection on a roster; billing them as the team's best player for a week they
   do not play would be wrong. The whole starting lineup is stored, not a top-N

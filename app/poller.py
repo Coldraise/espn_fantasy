@@ -367,8 +367,19 @@ def sync_history(conn) -> int:
 
 PROJECTION_MAX_AGE_MINUTES = 30
 
+# A Sunday slot finishes several games within minutes of each other, and each
+# one triggers a post-game refresh; a floor this short still collapses them into
+# one multi-MB projection pull instead of one per game.
+POSTGAME_PROJECTION_MIN_AGE_MINUTES = 5
 
-def _projections_are_fresh(conn, season: int, week: int) -> bool:
+
+def _projections_are_fresh(conn, season: int, week: int,
+                           max_age_minutes: int | None = None) -> bool:
+    # None rather than a bound default: PROJECTION_MAX_AGE_MINUTES is read live
+    # on every call, not captured once at import time, which is what lets tests
+    # (and, in principle, config) change it after the fact.
+    if max_age_minutes is None:
+        max_age_minutes = PROJECTION_MAX_AGE_MINUTES
     stamp = db.projections_synced_at(conn, season, week)
     if not stamp:
         return False
@@ -376,7 +387,17 @@ def _projections_are_fresh(conn, season: int, week: int) -> bool:
         age = datetime.now(timezone.utc) - datetime.fromisoformat(stamp)
     except ValueError:
         return False
-    return age.total_seconds() < PROJECTION_MAX_AGE_MINUTES * 60
+    return age.total_seconds() < max_age_minutes * 60
+
+
+def _sync_projection_week(conn, season: int, week: int, per_group: int = 60) -> int:
+    """Fetch and store one week's projections. Returns 0 when ESPN has none."""
+    rows = espn_client.player_projections(season, week)
+    if not rows:
+        return 0
+    keep = [p for group in players.group_by_position(rows, per_group=per_group)
+            for p in group["players"]]
+    return db.replace_player_projections(conn, season, week, keep)
 
 
 def sync_projections(conn, season: int, week: int, per_group: int = 60,
@@ -395,12 +416,7 @@ def sync_projections(conn, season: int, week: int, per_group: int = 60,
         # would otherwise pull ~12MB per tick.
         if not force and _projections_are_fresh(conn, season, target):
             continue
-        rows = espn_client.player_projections(season, target)
-        if not rows:
-            continue
-        keep = [p for group in players.group_by_position(rows, per_group=per_group)
-                for p in group["players"]]
-        written += db.replace_player_projections(conn, season, target, keep)
+        written += _sync_projection_week(conn, season, target, per_group)
     return written
 
 
@@ -596,6 +612,69 @@ def sync_nfl_games(conn, season: int, week: int) -> int:
     if not rows:
         return 0
     return db.replace_nfl_games(conn, season, week, rows)
+
+
+def refresh_week_stats(conn, season: int, week: int) -> int:
+    """Re-sync every per-player figure for one week, regardless of which week
+    ESPN considers current.
+
+    That is what lets a finished week pick up final numbers and stat
+    corrections after the league has moved on: `matchup_rosters` requests
+    `scoringPeriodId=week`, so a past week returns that week's lineups, not
+    today's.
+    """
+    written = sync_nfl_games(conn, season, week)
+    written += sync_matchup_players(conn, season, week)
+    if not _projections_are_fresh(conn, season, week, POSTGAME_PROJECTION_MIN_AGE_MINUTES):
+        written += _sync_projection_week(conn, season, week)
+    return written
+
+
+def finished_game_weeks(games: list[dict], done: set[str]) -> dict[int, list[str]]:
+    """Which stored games just finished and have not triggered a refresh yet.
+
+    Pure so it is testable; `state` is trusted here (unlike `games_are_live`)
+    because a stale row errs toward *not yet finished*, which only delays a
+    refresh by a tick.
+    """
+    pending: dict[int, list[str]] = {}
+    for game in games:
+        if (game.get("state") or "").lower() != "post":
+            continue
+        week, game_id = game.get("week"), game.get("game_id")
+        if week is None or game_id is None:
+            continue
+        game_id = str(game_id)
+        if game_id in done:
+            continue
+        pending.setdefault(int(week), []).append(game_id)
+    return pending
+
+
+def sync_finished_games(conn, season: int) -> int:
+    """The "refresh when the games finish" trigger.
+
+    Event-driven off stored game state instead of guessed clock times because
+    kickoffs move (TNF, Saturday games, flexes), the same reasoning
+    `is_live_window` documents. Marked per game id in `league_meta`, so each
+    finished game triggers exactly one refresh of its week; on first deploy
+    every already-finished game is unmarked, so the whole played season so far
+    is refreshed once.
+    """
+    key = f"postgame_refreshed:{season}"
+    done = set(db.get_meta(conn, key, []) or [])
+    pending = finished_game_weeks(db.fetch_nfl_games_season(conn, season), done)
+    written = 0
+    for week in sorted(pending):
+        try:
+            written += refresh_week_stats(conn, season, week)
+        except Exception as exc:  # noqa: BLE001 - one week must not block the others
+            log.warning("post-game refresh failed for week %s: %s", week, exc)
+            continue  # left unmarked, so the next tick retries it
+        done.update(pending[week])
+        db.set_meta(conn, key, sorted(done))
+        log.info("post-game refresh: week %s after %d finished game(s)", week, len(pending[week]))
+    return written
 
 
 def sync_activity(conn, season: int, size: int = 100) -> int:
@@ -799,6 +878,7 @@ def tick() -> None:
             ("projections", True, lambda: sync_projections(conn, cfg.current_season, upcoming)),
             ("matchup lineups", True, lambda: sync_matchup_players(conn, cfg.current_season, upcoming)),
             ("nfl games", True, lambda: sync_nfl_games(conn, cfg.current_season, upcoming)),
+            ("post-game refresh", False, lambda: sync_finished_games(conn, cfg.current_season)),
         ):
             try:
                 work_fn()
@@ -826,7 +906,14 @@ def tick() -> None:
 
 
 def correction_sweep() -> None:
-    """Re-poll recently completed weeks; this is where stat corrections land."""
+    """Re-poll recently completed weeks; this is where stat corrections land.
+
+    Runs at `correction_sweep_hour` (06:15 ET by default), which is after
+    nflverse's nightly rebuild (~00:30 ET), so tackles, snaps and usage from
+    the previous day's games land by then even when the idle tick is hours
+    away. Per-player ESPN rows are re-synced here too, because stat corrections
+    land on players, not just on team totals.
+    """
 
     def work(conn, cfg):
         if _state not in (IN_SEASON, COMPLETE):
@@ -835,6 +922,18 @@ def correction_sweep() -> None:
         current = int(getattr(league, "currentMatchupPeriod", None) or 1)
         weeks = [w for w in range(current - cfg.correction_weeks_back, current + 1) if w >= 1]
         changed = sum(poll_week(conn, league, cfg.current_season, w) for w in weeks)
+
+        for w in weeks:
+            try:
+                changed += refresh_week_stats(conn, cfg.current_season, w)
+            except Exception as exc:  # noqa: BLE001 - one week must not block the others
+                log.warning("correction sweep: player stats for week %s failed: %s", w, exc)
+
+        try:
+            changed += sync_nfl_seasons(conn, cfg.current_season)
+        except Exception as exc:  # noqa: BLE001 - a nflverse hiccup must not fail the sweep
+            log.warning("correction sweep: nflverse sync failed: %s", exc)
+
         if changed:
             log.info("correction sweep revised %d row(s)", changed)
         return changed

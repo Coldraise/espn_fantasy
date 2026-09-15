@@ -3,6 +3,10 @@
 
     docker compose run --rm fantasy python scripts/backfill.py [season ...]
     docker compose run --rm fantasy python scripts/backfill.py --nflverse [season ...]
+    docker compose run --rm fantasy python scripts/backfill.py --week-stats 1 [2 ...]
+
+`--week-stats` re-syncs team totals, per-player ESPN points and nflverse stats
+for those weeks of the current season, e.g. after a week's games have finished.
 
 Two different grains, because ESPN serves two:
 
@@ -61,6 +65,34 @@ def backfill_nflverse(cfg, seasons: list[int]) -> int:
     return 0
 
 
+def backfill_week_stats(cfg, weeks: list[int]) -> int:
+    """Re-sync team totals and per-player stats for specific weeks of the
+    current season -- for catching up after a week's games have finished."""
+    season = cfg.current_season
+    total = 0
+    with db.session(cfg.db_path) as conn:
+        db.init_db(conn)
+        run_id = db.start_poll_run(conn, "backfill")
+        try:
+            total += poller.poll_season(conn, season, weeks=weeks, refresh=True)
+            for week in weeks:
+                total += poller.refresh_week_stats(conn, season, week)
+            total += poller.sync_nfl_ids(conn, force=True)
+            total += poller.sync_nflverse(conn, season, force=True)
+            total += poller.sync_nfl_pbp(conn, season, force=True)
+            db.finish_poll_run(conn, run_id, "ok", total)
+        except espn_client.AuthInvalid as exc:
+            db.finish_poll_run(conn, run_id, "error", 0, str(exc))
+            log.error("auth rejected — refresh cookies in config/secrets.env. Stopping.")
+            return 2
+        except Exception as exc:  # noqa: BLE001
+            db.finish_poll_run(conn, run_id, "error", 0, str(exc))
+            log.error("week-stats backfill failed: %s", exc)
+            return 1
+        log.info("week-stats: %d row(s) written for %s weeks %s", total, season, weeks)
+    return 0
+
+
 def main(argv: list[str]) -> int:
     try:
         cfg = get_config()
@@ -72,6 +104,17 @@ def main(argv: list[str]) -> int:
         rest = [a for a in argv if a != "--nflverse"]
         seasons = [int(a) for a in rest] or [cfg.current_season, cfg.current_season - 1]
         return backfill_nflverse(cfg, seasons)
+
+    if "--week-stats" in argv:
+        rest = [a for a in argv if a != "--week-stats"]
+        weeks = [int(a) for a in rest]
+        if not weeks:
+            log.error("--week-stats needs at least one week number")
+            return 2
+        if not cfg.has_credentials:
+            log.error("ESPN_S2 / SWID are not set. Fill in config/secrets.env first.")
+            return 2
+        return backfill_week_stats(cfg, weeks)
 
     if not cfg.has_credentials:
         log.error("ESPN_S2 / SWID are not set. Fill in config/secrets.env first.")
