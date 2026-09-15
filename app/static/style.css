@@ -425,15 +425,19 @@ tbody tr:target { background: var(--red-soft); box-shadow: inset 2px 0 0 var(--r
 mark { background: var(--amber-soft); color: inherit; border-radius: 3px; padding: 0 2px; }
 
 /* ---------- players ---------- */
-.posgrid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); }
+.posgrid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(min(var(--cardmin, 290px), 100%), 1fr)); }
 /* One position picked: a single readable column, rather than one narrow card
-   stranded at the left of a grid sized for nine. */
-.posgrid.one { grid-template-columns: minmax(0, 620px); }
+   stranded at the left of a grid sized for nine. Widened by --cardmin once a
+   season's worth of W columns no longer fits the plain 620px. */
+.posgrid.one { grid-template-columns: minmax(0, max(620px, var(--cardmin, 0px))); }
 /* A card carrying matchup columns needs the extra width those columns take,
    so it gets its own cap rather than fighting .one for the same track. */
-.posgrid.one.wide { grid-template-columns: minmax(0, 880px); }
-/* The position row is the secondary choice, so it tucks under the week row. */
+.posgrid.one.wide { grid-template-columns: minmax(0, max(880px, calc(var(--cardmin, 0px) + 260px))); }
+/* The position row is the secondary choice, so it tucks under the availability
+   toggle above it. */
 .posscope { margin-top: -10px; }
+/* The label reads as a caption for the links beside it, not another link. */
+.sortscope .muted { margin-right: 4px; }
 .poscard { background: var(--surface); border: 1px solid var(--line);
            border-radius: var(--radius); padding: 12px 14px; box-shadow: var(--lift); }
 .poscard h3 { color: var(--red); border-bottom: 1px solid var(--line-soft); padding-bottom: 7px; }
@@ -443,8 +447,9 @@ mark { background: var(--amber-soft); color: inherit; border-radius: 3px; paddin
 .plist li:last-child { border-bottom: 0; }
 .plist .rank { color: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
 .plist .pn { font-size: 13.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.plist .pl { font-variant-numeric: tabular-nums; color: var(--muted); text-align: right; }
 .plist .pp { font-weight: 650; font-variant-numeric: tabular-nums; font-size: 13.5px; }
-.plist li:nth-child(-n+3) .pp { color: var(--red); }
+.plist li:nth-child(-n+3) .pp.on { color: var(--red); }
 
 /* ---------- matchup cards (bigger) ---------- */
 .games { grid-template-columns: repeat(auto-fill, minmax(430px, 1fr)); gap: 14px; }
@@ -790,31 +795,73 @@ thead th { font-family: var(--display); letter-spacing: .1em; font-size: 12px; }
   .scoreboard { padding: 20px 12px 18px; }
 }
 
-/* players list gains a "last week" column beside the projection */
+/* players list gains one column per already-played week, a season total, and
+   the next week's projection. The track count is not fixed -- week 2 needs one
+   W column, week 12 needs eleven -- so it comes from --ptracks/--mtracks,
+   computed once in the template and handed down as custom properties. */
 .plhead {
-  display: grid; grid-template-columns: 20px 1fr 44px 44px; gap: 8px;
+  display: grid; grid-template-columns: var(--ptracks, 20px 1fr 44px); gap: 8px;
   padding: 0 0 5px; border-bottom: 1px solid var(--line-soft);
   font-family: var(--display); font-size: 10px; text-transform: uppercase;
   letter-spacing: .1em; color: var(--muted); text-align: right;
 }
-.plist li { grid-template-columns: 20px 1fr 44px 44px; }
-.plist .pl { font-variant-numeric: tabular-nums; color: var(--muted); text-align: right; }
-.plist .pp { text-align: right; }
+.plist li { grid-template-columns: var(--ptracks, 20px 1fr 44px); }
 .poscard { padding-bottom: 6px; }
 .plist { max-height: 620px; overflow-y: auto; }
 
 /* A card carrying matchup columns needs five more tracks than the plain
-   Last/Proj shape above -- scoped to `.matchups` so the nine-card unfiltered
-   grid, which never carries a `p.matchup`, is untouched. */
+   shape above -- scoped to `.matchups` so the nine-card unfiltered grid,
+   which never carries a `p.matchup`, is untouched. */
 .poscard.matchups .plhead,
 .poscard.matchups .plist li {
-  grid-template-columns: 20px minmax(0,1fr) 52px 32px 34px 32px 32px 44px 44px;
+  grid-template-columns: var(--mtracks);
 }
 /* The head is outside .plist's scroll box, so it only lines up with the rows
    if it repeats their 6px horizontal inset -- the same trap the phone rules
    further down call out. Two columns could sit visibly out of step without
    anyone noticing; seven cannot. */
 .poscard.matchups .plhead { padding-left: 6px; padding-right: 6px; }
+
+/* .pscroll wraps a card's head and list so the two scroll sideways together --
+   .plist is a vertical scroll box on its own, and nested inside a page that
+   also scrolls it would otherwise scroll horizontally independent of its head,
+   leaving the columns unlabelled the moment you drag it. */
+.pscroll { overflow-x: auto; }
+.pscroll > .plhead, .pscroll > .plist { min-width: var(--rowmin); }
+.poscard.matchups .pscroll > .plhead, .poscard.matchups .pscroll > .plist { min-width: var(--mrowmin); }
+
+/* A week or a total is points already scored -- white and heavy, the same
+   treatment the scoreboard gives a final score (.lineup .ppts.done): it
+   happened, and it is not moving. */
+.plist .pw { font-variant-numeric: tabular-nums; color: #fff; text-align: right; font-size: 12.5px; font-weight: 600; }
+.plist .pt { font-variant-numeric: tabular-nums; text-align: right; color: #fff; font-weight: 750; }
+.plist .pp { text-align: right; }
+/* Proj is a forecast, never a score, so it stays faded even when it is the
+   active sort -- the same distinction the scoreboard draws between a final
+   score and its pre-kickoff number (.lineup .ppts.pre). It must never reach
+   the white that pw/pt use, or a glance could mistake a projection for a
+   result. */
+.pview .plist .pp { color: var(--muted); font-weight: 400; }
+.pview .plist .pp.on { color: var(--ink); font-weight: 650; }
+/* The value a phone shows beside the name -- whichever column is currently
+   sorted -- is redundant on a wide screen, where that same value already sits
+   in its own W/Tot/Proj column. It carries the same scored/projected split as
+   the columns it stands in for. */
+.plist .ps { display: none; }
+.plist .ps.score { color: #fff; font-weight: 750; }
+.plist .ps.proj { color: var(--muted); font-weight: 400; }
+
+/* The active sort reads as such wherever it appears: the header link that
+   requested it, and every row's value for it. Scored columns (pw/pt) are
+   already white, so recolouring them to ink on top of `.on` would dim them --
+   they mark the sorted column with a background instead, the same "this one
+   governs" treatment .mr.gov gives a matchup card's governing rank. */
+.plist .on { color: var(--ink); font-weight: 700; }
+.plist .pw.on, .plist .pt.on { color: #fff; background: var(--raised); border-radius: 3px; }
+.plhead a { color: inherit; text-decoration: none; }
+.plhead a:hover { color: var(--ink); }
+.plhead a.on { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
+
 .mr { font-variant-numeric: tabular-nums; text-align: right; font-size: 12.5px; color: var(--muted); }
 .mr.soft { color: var(--green); }
 .mr.tough { color: var(--red); }
@@ -823,12 +870,13 @@ thead th { font-family: var(--display); letter-spacing: .1em; font-size: 12px; }
 .mr.gov { font-weight: 700; background: var(--raised); border-radius: 3px; }
 .opp { font-family: var(--display); font-size: 11.5px; letter-spacing: .04em;
        color: var(--muted); text-align: right; }
-/* Everything left of this line describes the opposition, everything right of
-   it describes the player. A hairline in the gutter says so without spending a
-   second header row on it. The negative margin pulls the border half way into
-   the 8px column gap so it sits between the two groups rather than crowding
-   Last; the cells are right-aligned, so widening one leftwards moves no text. */
-.divide, .poscard.matchups .plist .pl {
+/* history | opposition | next week. Everything left of this line is the
+   season so far, everything right of it is what comes next -- a hairline says
+   so without spending a header row on it. The negative margin pulls the
+   border half way into the 8px column gap so it sits between the two groups
+   rather than crowding the value beside it; the cells are right-aligned, so
+   widening one leftwards moves no text. */
+.divide, .poscard.matchups .plist .opp, .poscard:not(.matchups) .plist .pp {
   border-left: 1px solid var(--line-soft);
   margin-left: -4px; padding-left: 4px;
 }
@@ -1253,8 +1301,23 @@ td .slot {
 
   /* One scroll on the page, rather than a scroll box inside a scroll. */
   .plist { max-height: none; overflow: visible; }
+  /* .pscroll's sideways scroll is a desktop-width device, for a season's worth
+     of W columns beside a wide matchup card -- the reduced phone grid below
+     already fits without it. The matchups selector has to be repeated: it
+     matches the desktop `--mrowmin` rule's specificity, and the plain
+     `.pscroll > .plist` rule above alone loses to it and leaves a matchup
+     card's rows 656px wide in a phone-width viewport. overflow-x: visible
+     drops the nested sideways scroller now that nothing needs it. */
+  .pscroll { overflow-x: visible; }
+  .pscroll > .plhead, .pscroll > .plist,
+  .poscard.matchups .pscroll > .plhead, .poscard.matchups .pscroll > .plist { min-width: 0; }
 
   .flatlist { display: block; }
+  /* A phone has room for one number beside the name, not one per played week
+     plus a total -- that single number is `.ps`, and follows whichever column
+     is currently sorted. */
+  .plist .pw, .plist .pt, .plhead .pwh { display: none; }
+  .plist .ps { display: block; text-align: right; font-variant-numeric: tabular-nums; }
 
   .pfilters {
     position: sticky; top: calc(var(--topbar-h) - 1px); z-index: 5;

@@ -70,9 +70,19 @@ def group_for(position: str | None) -> str | None:
     return GROUP_OF.get(position or "")
 
 
+def _best_first(by: str):
+    """Descending on `by`, players with no value last.
+
+    Not `-(value or 0)`: fantasy points go negative (a quarterback's fumble
+    week, a defence that gets shredded), and treating a missing score as 0 would
+    rank a player who did not play above one who played badly.
+    """
+    return lambda r: (r.get(by) is None, -(r.get(by) or 0), -(r.get("projected") or 0), r.get("name") or "")
+
+
 def group_by_position(rows: list[dict], per_group: int = 60,
-                      available_only: bool = False) -> list[dict]:
-    """Rank players into league lineup groups, best projection first.
+                      available_only: bool = False, by: str = "projected") -> list[dict]:
+    """Rank players into league lineup groups, best `by` first.
 
     Returns [{label, players: [...]}] in POSITION_GROUPS order, skipping groups
     with nobody in them.
@@ -91,10 +101,29 @@ def group_by_position(rows: list[dict], per_group: int = 60,
         players = buckets.get(label)
         if not players:
             continue
-        players = sorted(players, key=lambda r: -(r.get("projected") or 0))
+        players = sorted(players, key=_best_first(by))
         out.append({"label": label, "players": players[:per_group],
                     "total": len(players)})
     return out
+
+
+def storage_rows(rows: list[dict], per_group: int = 60) -> list[dict]:
+    """The players worth keeping for a stored week: this week's top projections,
+    plus this week's top actuals.
+
+    Keeping only the top N by projection drops exactly the players the season
+    columns exist to surface -- a low-projected player who has a big week -- so
+    a finished week also keeps its top scorers. Deduped by player_id in
+    first-seen order: a player who clears both cuts is stored once.
+    """
+    seen: dict[int, dict] = {}
+    for group in group_by_position(rows, per_group):
+        for row in group["players"]:
+            seen.setdefault(row["player_id"], row)
+    for group in group_by_position(rows, per_group, by="actual"):
+        for row in group["players"]:
+            seen.setdefault(row["player_id"], row)
+    return list(seen.values())
 
 
 def leaders(rows: list[dict], per: int = 3, by: str = "projected") -> list[dict]:
@@ -155,7 +184,7 @@ def short_name(name: str | None) -> str:
 
 
 def ranked(rows: list[dict], by: str = "projected") -> list[dict]:
-    """Every player in one list, best first, tagged with its lineup group.
+    """Every player in one list, best `by` first, tagged with its lineup group.
 
     The by-position grouping answers "who is the best tight end". This answers
     "who is the best player", which is a different question and not obtainable
@@ -168,8 +197,102 @@ def ranked(rows: list[dict], by: str = "projected") -> list[dict]:
         if label is None:
             continue
         out.append({**row, "group": label})
-    out.sort(key=lambda r: -(r.get(by) or 0))
+    out.sort(key=_best_first(by))
     return out
+
+
+def played_weeks(actual_weeks: list[int], games: list[dict], current: int | None) -> list[int]:
+    """Which of the stored projection weeks have actually been played.
+
+    A week whose games are still running has partial actuals; it is not
+    "already played", and its projection is still the useful number. Before
+    the season has a current week at all, every stored week counts as played --
+    there is nothing left to be mid-flight. A week behind the current one is
+    always played; the current week itself only counts once every one of its
+    games has reached a final state.
+    """
+    by_week: dict[int, list[dict]] = defaultdict(list)
+    for game in games:
+        by_week[game.get("week")].append(game)
+
+    out = []
+    for week in sorted(actual_weeks):
+        if current is None or week < current:
+            out.append(week)
+            continue
+        week_games = by_week.get(week)
+        if week_games and all((g.get("state") or "").lower() == "post" for g in week_games):
+            out.append(week)
+    return out
+
+
+def next_projection_week(projection_weeks: list[int], played: list[int]) -> int | None:
+    """The soonest stored week that has not yet been played, if any."""
+    remaining = sorted(w for w in projection_weeks if w not in played)
+    return remaining[0] if remaining else None
+
+
+def season_rows(by_week: dict[int, list[dict]], played: list[int],
+                next_week: int | None) -> list[dict]:
+    """One row per player, season points to date plus next week's projection.
+
+    A player who has not played any of the stored weeks but is projected for
+    next week still gets a row -- someone who missed the season so far to
+    injury and is projected to return belongs on the page. Identity fields
+    (name, position, ...) come from the next week's row where there is one,
+    since that is the freshest data; a player with no next-week row (already
+    on a bye, or dropped) falls back to their most recent played appearance.
+    """
+    next_rows = {r["player_id"]: r for r in by_week.get(next_week, [])} if next_week else {}
+    played_rows = {week: {r["player_id"]: r for r in by_week.get(week, [])} for week in played}
+    latest_by_player: dict[int, dict] = {}
+    for week in played:
+        for player_id, row in played_rows[week].items():
+            latest_by_player[player_id] = row
+
+    player_ids = set(next_rows) | set(latest_by_player)
+    out = []
+    for player_id in player_ids:
+        source = next_rows.get(player_id) or latest_by_player[player_id]
+        row = {k: source.get(k) for k in
+               ("player_id", "name", "position", "pro_team", "on_team_id", "percent_owned")}
+        row["projected"] = next_rows.get(player_id, {}).get("projected")
+
+        total = 0.0
+        has_total = False
+        for week in played:
+            actual = played_rows[week].get(player_id, {}).get("actual")
+            row[f"w{week}"] = actual
+            if actual is not None:
+                total += actual
+                has_total = True
+        row["total"] = round(total, 1) if has_total else None
+        out.append(row)
+    return out
+
+
+def sort_field(sort: str | None, played: list[int], has_next: bool) -> tuple[str, str]:
+    """The (query param, row field) pair a sort request resolves to.
+
+    An invalid or absent request -- an old bookmark for a week that has since
+    been played, say -- falls back to the season total once there is one, and
+    to the next projection before that, rather than erroring or sorting on
+    nothing.
+    """
+    if sort == "total" and played:
+        return "total", "total"
+    if sort == "proj" and has_next:
+        return "proj", "projected"
+    if sort and sort.startswith("w"):
+        try:
+            week = int(sort[1:])
+        except ValueError:
+            week = None
+        if week in played:
+            return sort, f"w{week}"
+    if played:
+        return "total", "total"
+    return "proj", "projected"
 
 
 # Lineup slots in the order a box score reads them. Anything ESPN sends that is

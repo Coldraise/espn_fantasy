@@ -656,6 +656,25 @@ def week_actuals(conn, season: int, week: int) -> dict[int, float]:
     }
 
 
+def fetch_player_projections_season(conn, season: int) -> dict[int, list[dict]]:
+    """Every stored week's projections for one season, keyed by week."""
+    out: dict[int, list[dict]] = {}
+    for row in conn.execute(
+        "SELECT * FROM player_projections WHERE season=? ORDER BY week", (season,),
+    ):
+        out.setdefault(int(row["week"]), []).append(dict(row))
+    return out
+
+
+def weeks_with_actuals(conn, season: int) -> list[int]:
+    """Weeks that have at least one player's actual score stored, ascending."""
+    return [int(r[0]) for r in conn.execute(
+        "SELECT DISTINCT week FROM player_projections "
+        "WHERE season=? AND actual IS NOT NULL ORDER BY week",
+        (season,),
+    )]
+
+
 def projection_weeks(conn, season: int) -> list[int]:
     return [int(r[0]) for r in conn.execute(
         "SELECT DISTINCT week FROM player_projections WHERE season=? ORDER BY week", (season,)

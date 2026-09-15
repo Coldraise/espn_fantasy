@@ -395,8 +395,7 @@ def _sync_projection_week(conn, season: int, week: int, per_group: int = 60) -> 
     rows = espn_client.player_projections(season, week)
     if not rows:
         return 0
-    keep = [p for group in players.group_by_position(rows, per_group=per_group)
-            for p in group["players"]]
+    keep = players.storage_rows(rows, per_group=per_group)
     return db.replace_player_projections(conn, season, week, keep)
 
 

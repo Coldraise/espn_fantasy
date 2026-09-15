@@ -752,26 +752,30 @@ def history(request: Request):
 
 @app.get("/players")
 def player_rankings(request: Request):
-    """Best projected players per lineup position for one week."""
+    """Every player's season so far, plus their projection for the next
+    unplayed week.
+
+    The `week` query param that used to pick a single week's projections is
+    gone -- an old bookmark still loads, it just lands on the season view --
+    because there is no longer a single week's rows to key the page on.
+    """
     cfg = get_config()
     with db.session(cfg.db_path) as conn:
-        weeks = db.projection_weeks(conn, cfg.current_season)
-        try:
-            week = int(request.query_params.get("week") or 0)
-        except ValueError:
-            week = 0
-        if week not in weeks:
-            week = weeks[0] if weeks else 1
+        season = cfg.current_season
+        by_week = db.fetch_player_projections_season(conn, season)
+        current = (db.get_meta(conn, "status") or {}).get("current_matchup_period")
+        played = players.played_weeks(db.weeks_with_actuals(conn, season),
+                                      db.fetch_nfl_games_season(conn, season),
+                                      int(current) if current else None)
+        next_week = players.next_projection_week(sorted(by_week), played)
+        rows = players.season_rows(by_week, played, next_week)
+        sort, field = players.sort_field(request.query_params.get("sort"), played,
+                                         next_week is not None)
         available_only = request.query_params.get("available") == "1"
         pos = request.query_params.get("pos") or ""
-        rows = db.fetch_player_projections(conn, cfg.current_season, week)
         rookies = db.rookie_ids(conn)
-        # Last week's actual result, shown beside this week's projection.
-        last_week = week - 1
-        last = db.week_actuals(conn, cfg.current_season, last_week)
         for row in rows:
             row["rookie"] = row["player_id"] in rookies
-            row["last"] = last.get(row["player_id"])
         # One pass: group_by_position always returns every group that has
         # players, so the tab list and the shown group come out of the same
         # call. A single position gets a deeper list -- there is only one card
@@ -780,7 +784,7 @@ def player_rankings(request: Request):
         # and scrolling costs nothing, where a cap hides the deep end of the
         # pool, which is the part worth searching.
         all_groups = players.group_by_position(
-            rows, per_group=None, available_only=available_only)
+            rows, per_group=None, available_only=available_only, by=field)
         positions = [g["label"] for g in all_groups]
         if pos not in positions:
             pos = ""
@@ -790,20 +794,22 @@ def player_rankings(request: Request):
         flat = [] if pos else players.ranked(
             [r for r in rows
              if not (available_only and (r.get("on_team_id") or 0))],
-            by="actual" if any((r.get("actual") or 0) for r in rows) else "projected")
+            by=field)
         shown = [g for g in all_groups if g["label"] == pos] if pos else all_groups
 
         # Matchup columns are a per-position feature only: rating a defence
         # against every position at once means scanning a full season of
         # nflverse rows, which an unfiltered page must not pay for on every load.
+        # They also depend on next week's schedule, so there is nothing to show
+        # once the season has caught up to the last stored projection.
         matchup_season = None
         matchups = False
         axis = nflstats.AXIS_FOR_GROUP.get(pos)
-        if pos:
+        if pos and next_week is not None:
             seasons = db.nfl_seasons(conn)
             matchup_season = seasons[0] if seasons else None
             opponents = nflstats.opponent_map(
-                db.fetch_nfl_games(conn, cfg.current_season, week))
+                db.fetch_nfl_games(conn, season, next_week))
             # Both a stored season and a stored schedule are required: with no
             # schedule synced for this week there is nothing to rate a player's
             # opponent against, and the page falls back to its plain four
@@ -817,15 +823,15 @@ def player_rankings(request: Request):
                 matchups = True
 
         context = _base_context(request, conn) | {
-            "week": week,
-            "weeks": weeks,
+            "played": played,
+            "next_week": next_week,
+            "sort": sort,
+            "sort_field": field,
             "available_only": available_only,
             "pos": pos,
             "positions": positions,
             "flat": flat,
             "groups": shown,
-            "last_week": last_week if last_week >= 1 else None,
-            "has_last": bool(last),
             "team_names": db.franchise_names(conn, cfg.franchise_since),
             "team_colors": players.PRO_TEAM_COLORS,
             "total": len(rows),

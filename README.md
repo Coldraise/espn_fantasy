@@ -30,19 +30,32 @@ durable local history, and the rivalry math ESPN never shows you.
   projection bias, and a **lineup calls** table showing points left on the bench
   for each team. Best and worst week per franchise.
 - **Head-to-head** — W-L matrix between every pair of teams.
-- **Players** — every player per lineup position for a given week, each showing
-  last week's actual score beside this week's projection, with an
-  "available only" filter and rookie badges. Choosing a single position adds
-  opponent-matchup columns to each row: the NFL team faced, then four league
-  ranks — **Run**, **Pass**, **Kick** and **Def**, where 1 is softest and 32
-  is toughest, with the governing rank highlighted. Run, Pass and Kick rank a
-  defence on what it concedes per game; **Def** rates the opponent's *offence*
-  on the fumbles, interceptions, sacks and tackles it gives up, which is what a
-  fantasy defence scores on. Hover a rank to see the per-game stats behind it.
+- **Players** — every player per lineup position, viewed across the season: one
+  column per already-played week (W1, W2, …) showing actual fantasy points, then
+  a **Total** — the sum of points already scored, never including a projection —
+  and **Proj** — ESPN's projection for the next week — as the last column. When
+  a single position with matchup data is chosen, the next week's
+  opponent-matchup columns sit between Total and Proj: the NFL team faced, then
+  four league ranks — **Run**, **Pass**, **Kick** and **Def**, where 1 is
+  softest and 32 is toughest, with the governing rank highlighted. A week counts
+  as played only when every stored NFL game for it is final, so a week still
+  being played shows as its projection rather than as partial points. Every
+  column header is a sort link, and a Sort row of chips does the same; sorting
+  is per position card and across all positions in the phone list, defaulting to
+  Total once any week is played, otherwise Proj. Players with no score for the
+  sorted week sort last, not as zero; scored points are bright white, like a
+  final score on the scoreboard, and the projection is faded. Run, Pass and Kick
+  rank a defence on what it concedes per game; **Def** rates the opponent's
+  *offence* on the fumbles, interceptions, sacks and tackles (which is what a
+  fantasy defence scores on). Hover a rank to see the per-game stats behind it.
   Ranks come from the most recent season nflverse has published, which before
   the current season's week 1 is played is last year's — the page says so when
-  that is the case. A phone shows only the governing column. Works before the
-  draft.
+  that is the case. The available-only and position filters work and keep the
+  chosen sort. On a wide screen the cards sit side by side early and widen as
+  weeks accumulate, scrolling sideways within a card when the screen is too
+  narrow. A phone shows the active sort's value and Proj rather than every week
+  column, with only the governing rank. A middot means no score stored for that
+  player that week. Works before the draft.
 - **Draft** — the board once ESPN marks the draft complete, with **value
   analysis** (who drafted best, best and worst value picks, positional runs),
   round.pick and auction bid displayed per cell.
@@ -323,9 +336,16 @@ app uses, wrapped in `app/espn_client.py` so breakage stays in one place.
 - **Projection syncs are throttled to 30 minutes.** Each pull is several MB and
   the poller ticks every 45s during games; without the throttle a live Sunday
   would fetch ~12MB a tick. Projections do not move minute to minute.
-- **Last week's actuals need a re-sync of that week.** The row written before
-  kickoff has a null actual, so the poller refreshes the previous week as well
-  as the current one — that back-fill is what fills the "Last" column.
+- **A week's player rows are back-filled before and after it is played.** A row
+  written before kickoff has null actuals, so when the current week starts, the
+  poller re-syncs the previous week as well — that back-fill fills the week
+  columns. When a game finishes, the poller re-syncs its week (see the
+  post-game refresh bullet) to capture final stats.
+- **A finished week keeps its top scorers, not just its top projections.** Each
+  week's projection sync used to keep only the top 60 players per position by
+  projection. It now keeps the union of the top 60 by projection and the top 60
+  by actual points, so a low-projected player who has a big week surfaces in the
+  season columns.
 - **A finished game refreshes its week's player stats.** Per-player points and
   lineups otherwise follow only the week ESPN calls current, so the moment the
   league rolls over the previous week's rows would freeze with whatever the last

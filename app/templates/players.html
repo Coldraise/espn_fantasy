@@ -9,69 +9,104 @@
 <span class="mr {{ 'gov' if axis == gov }} {{ 'soft' if value and value <= 8 else ('tough' if value and value >= 25 else '') }}"
       title="{{ title }}">{{ value or '·' }}</span>
 {% endmacro %}
-<h1>Players <span class="muted">· week {{ week }} projections</span></h1>
+<h1>Players <span class="muted">· season points{% if next_week %} · week {{ next_week }} projection{% endif %}</span></h1>
 
 {% if not groups %}
-  <p class="empty">No projections stored yet — they load on the next poll.</p>
+  <p class="empty">No player stats stored yet — they load on the next poll.</p>
 {% else %}
-{% set availq = '&available=1' if available_only else '' %}
-{% set posq = '&pos=' ~ pos|urlencode|replace('/', '%2F') if pos else '' %}
+{% set availp = 'available=1' if available_only else '' %}
+{% set posp = 'pos=' ~ pos|urlencode|replace('/', '%2F') if pos else '' %}
+{% set sortp = 'sort=' ~ sort %}
+{% set label = 'Tot' if sort == 'total' else ('Proj' if sort == 'proj' else 'W' ~ sort[1:]) %}
+{# A phone shows one value beside the name instead of a whole row of columns,
+   so it still has to say whether that value is a score or a forecast --
+   `.ps` carries the distinction as a class since W/Tot and Proj are styled
+   differently (see style.css). #}
+{% set ps_kind = 'proj' if sort == 'proj' else 'score' %}
+{# The column tracks depend on how many weeks are already played -- a card in
+   week 2 needs one W column, a card in week 12 needs eleven -- so they are
+   computed once here and handed to every card and header as custom
+   properties, rather than each one working it out from `played` on its own. #}
+{% set wk = played|length %}
+{% set tot = 1 if played else 0 %}
+{% set ptracks = '20px minmax(0,1fr) ' ~ ('38px ' * wk) ~ ('46px ' if tot else '') ~ '44px' %}
+{% set mtracks = '20px minmax(0,1fr) ' ~ ('38px ' * wk) ~ ('46px ' if tot else '') ~ '52px 32px 34px 32px 32px 44px' %}
+{% set rowmin = 190 + 46 * wk + 54 * tot + 52 %}
+{% set mrowmin = rowmin + 222 %}
+{% set cardmin = [290, 230 + 46 * wk + 54 * tot + 52]|max %}
+<div class="pview" style="--ptracks: {{ ptracks }}; --mtracks: {{ mtracks }}; --rowmin: {{ rowmin }}px; --mrowmin: {{ mrowmin }}px; --cardmin: {{ cardmin }}px">
 {# Both filter rows and the column header are one element so a phone can stick
    them as a single block. Sticky boxes do not stack, and the position row wraps
    to two or three lines on a narrow screen, so its height could never have been
    a `top` offset for a header sitting below it. #}
 <div class="pfilters">
   <p class="scope">
-    {% for w in weeks %}
-      <a href="/players?week={{ w }}{{ availq }}{{ posq }}"
-         class="{{ 'on' if w == week }}">Week {{ w }}</a>
-    {% endfor %}
-    <a href="/players?week={{ week }}{{ '' if available_only else '&available=1' }}{{ posq }}"
+    <a href="/players?{{ [('' if available_only else 'available=1'), posp, sortp] | select | join('&') }}"
        class="{{ 'on' if available_only }}">{{ 'All players' if available_only else 'Available only' }}</a>
   </p>
 
   <p class="scope posscope">
-    <a href="/players?week={{ week }}{{ availq }}"
+    <a href="/players?{{ [availp, sortp] | select | join('&') }}"
        class="{{ 'on' if not pos }}">All positions</a>
     {% for label in positions %}
-      <a href="/players?week={{ week }}{{ availq }}&pos={{ label|urlencode|replace('/', '%2F') }}"
+      <a href="/players?{{ [availp, 'pos=' ~ label|urlencode|replace('/', '%2F'), sortp] | select | join('&') }}"
          class="{{ 'on' if label == pos }}">{{ label }}</a>
     {% endfor %}
   </p>
 
+  <p class="scope sortscope">
+    <span class="muted small">Sort</span>
+    {% for w in played %}
+      <a href="/players?{{ [availp, posp, 'sort=w' ~ w] | select | join('&') }}"
+         class="{{ 'on' if sort == 'w' ~ w }}">W{{ w }}</a>
+    {% endfor %}
+    {% if played %}
+      <a href="/players?{{ [availp, posp, 'sort=total'] | select | join('&') }}"
+         class="{{ 'on' if sort == 'total' }}">Total</a>
+    {% endif %}
+    {% if next_week %}
+      <a href="/players?{{ [availp, posp, 'sort=proj'] | select | join('&') }}"
+         class="{{ 'on' if sort == 'proj' }}">Proj W{{ next_week }}</a>
+    {% endif %}
+  </p>
+
   {# The phone list carries no header of its own, so two bare numbers per row
-     say nothing about which week they belong to. Which shape it takes follows
+     say nothing about which column they belong to. Which shape it takes follows
      whichever list is actually on screen: `flat` is empty exactly when a
      position is picked, and then the single position card is the list. Hidden
      above 640px, where each card prints its own header. #}
   {% if flat %}
     <div class="plhead sticky flat">
-      <span></span><span class="hp">Player</span><span></span><span>Last</span><span>Proj</span>
+      <span></span><span class="hp">Player</span><span></span><span>{{ label }}</span><span>Proj</span>
     </div>
   {% elif matchups %}
     {# A phone only has room for one rank column, so it carries the axis that
        actually governs this position -- Run for a back, Pass for a receiver --
        and drops the other three, which the wide card still shows in full. #}
     <div class="plhead sticky pos matchups">
-      <span></span><span class="hp">Player</span><span>Opp</span><span>{{ matchup_axis|capitalize }}</span><span class="divide">Last</span><span>Proj</span>
+      <span></span><span class="hp">Player</span><span>Opp</span><span>{{ matchup_axis|capitalize }}</span><span class="divide">{{ label }}</span><span>Proj</span>
     </div>
   {% else %}
     <div class="plhead sticky pos">
-      <span></span><span class="hp">Player</span><span>Last</span><span>Proj</span>
+      <span></span><span class="hp">Player</span><span>{{ label }}</span><span>Proj</span>
     </div>
   {% endif %}
 </div>
 
 <p class="muted small">
-  ESPN's projected points for week {{ week }}, best first in each lineup slot
-  this league starts.
-  {% if last_week and has_last %}
-    <b>Last</b> is each player's actual score in week {{ last_week }}.
-  {% elif last_week %}
-    <b>Last</b> will show week {{ last_week }} actuals once those games are played.
-  {% else %}
-    <b>Last</b> fills in from week 2 — there is no week before this one.
+  {% if played %}
+    <b>W</b> columns are each player's actual points in weeks whose games are
+    all final. <b>Total</b> is the sum of points already scored in those
+    weeks — a projection is never added to it.
   {% endif %}
+  {% if next_week %}
+    <b>Proj</b> is ESPN's projection for week {{ next_week }}, shown
+    separately as the last column.
+  {% else %}
+    Next week's projections appear once ESPN opens it.
+  {% endif %}
+  Click any column, or a Sort link, to reorder. A middot means no score is
+  stored for that player that week.
   {%- if not drafted %} Nobody is drafted yet, so every player is available.{% endif %}
   {%- if matchups %} Run/Pass/Kick/Def rank the week's opponent from 1 (softest
     matchup) to 32 (toughest); Def rates the opponent's offence on fumbles,
@@ -98,8 +133,8 @@
           · {{ team_names.get(p.on_team_id, {}).get('name', 'rostered') }}{% endif %}</span>
       </span>
       <span class="fpos">{{ p.group }}</span>
-      <span class="pl">{{ '%.1f'|format(p.last) if p.last is not none else '·' }}</span>
-      <span class="pp">{{ '%.1f'|format(p.projected or 0) }}</span>
+      <span class="ps {{ ps_kind }}">{{ '%.1f'|format(p[sort_field]) if p[sort_field] is not none else '·' }}</span>
+      <span class="pp">{{ '%.1f'|format(p.projected) if p.projected is not none else '·' }}</span>
     </li>
   {% endfor %}
 </ol>
@@ -109,14 +144,27 @@
   {% for g in groups %}
   <section class="poscard{{ ' matchups' if matchups }}">
     <h3>{{ g.label }} <span class="muted small">{{ g.players|length }} of {{ g.total }}</span></h3>
-    {% if matchups %}
+    <div class="pscroll">
     <div class="plhead">
-      <span></span><span></span><span>Opp</span><span>Run</span><span>Pass</span>
-      <span>Kick</span><span>Def</span><span class="divide">Last</span><span>Proj</span>
+      <span></span><span></span>
+      {% for w in played %}
+        <a href="/players?{{ [availp, posp, 'sort=w' ~ w] | select | join('&') }}"
+           class="pwh {{ 'on' if sort == 'w' ~ w }}">W{{ w }}</a>
+      {% endfor %}
+      {% if played %}
+        <a href="/players?{{ [availp, posp, 'sort=total'] | select | join('&') }}"
+           class="{{ 'on' if sort == 'total' }}">Tot</a>
+      {% endif %}
+      {% if matchups %}
+        <span class="divide">Opp</span><span>Run</span><span>Pass</span><span>Kick</span><span>Def</span>
+      {% endif %}
+      {% if next_week %}
+        <a href="/players?{{ [availp, posp, 'sort=proj'] | select | join('&') }}"
+           class="{{ 'on' if sort == 'proj' }}{{ ' divide' if not matchups }}">Proj</a>
+      {% else %}
+        <span>Proj</span>
+      {% endif %}
     </div>
-    {% else %}
-    <div class="plhead"><span></span><span></span><span>Last</span><span>Proj</span></div>
-    {% endif %}
     <ol class="plist">
       {% for p in g.players %}
       {# Same tint as the matchup cards, so a player reads the same colour
@@ -130,6 +178,12 @@
           <span class="muted small">{{ p.pro_team }}{% if p.on_team_id %}
             · {{ team_names.get(p.on_team_id, {}).get('name', 'rostered') }}{% endif %}</span>
         </span>
+        {% for w in played %}
+          <span class="pw{{ ' on' if sort == 'w' ~ w }}">{{ '%.1f'|format(p['w' ~ w]) if p['w' ~ w] is not none else '·' }}</span>
+        {% endfor %}
+        {% if played %}
+          <span class="pt{{ ' on' if sort == 'total' }}">{{ '%.1f'|format(p.total) if p.total is not none else '·' }}</span>
+        {% endif %}
         {% if matchups %}
         {# A matched opponent with no ratings row (schedule synced, box scores
            not yet) still prints its abbreviation -- only the ranks go blank,
@@ -156,11 +210,12 @@
                   if p.matchup and p.matchup.get('sacks') is not none else '',
                 'def', matchup_axis) }}
         {% endif %}
-        <span class="pl">{{ '%.1f'|format(p.last) if p.last is not none else '·' }}</span>
-        <span class="pp">{{ '%.1f'|format(p.projected or 0) }}</span>
+        <span class="ps {{ ps_kind }}">{{ '%.1f'|format(p[sort_field]) if p[sort_field] is not none else '·' }}</span>
+        <span class="pp{{ ' on' if sort == 'proj' }}">{{ '%.1f'|format(p.projected) if p.projected is not none else '·' }}</span>
       </li>
       {% endfor %}
     </ol>
+    </div>
   </section>
   {% endfor %}
 </div>
@@ -177,5 +232,6 @@
   and extra points, which nflverse leaves at zero.
 </p>
 {% endif %}
+</div>
 {% endif %}
 {% endblock %}
