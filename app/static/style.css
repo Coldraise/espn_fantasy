@@ -788,6 +788,14 @@ thead th { font-family: var(--display); letter-spacing: .1em; font-size: 12px; }
 
 .poscard { padding-bottom: 6px; }
 .plist { max-height: 620px; overflow-y: auto; }
+/* The draft page's value cards used to borrow these from the players cards,
+   whose rules were removed with them: a fixed track for the value, set right,
+   behind a hairline that separates it from the points. */
+.plist li { grid-template-columns: 20px 1fr 44px; }
+.plist .pp {
+  text-align: right; border-left: 1px solid var(--line-soft);
+  margin-left: -4px; padding-left: 4px;
+}
 
 .mr { font-variant-numeric: tabular-nums; text-align: right; font-size: 12.5px; color: var(--muted); }
 .mr.soft { color: var(--green); }
