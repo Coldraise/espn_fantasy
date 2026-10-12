@@ -22,6 +22,9 @@ durable local history, and the rivalry math ESPN never shows you.
   schedule grid; team names are history links when rosters are not yet synced.
   Your franchise is highlighted wherever it appears in a table or grid — schedule,
   all-time, standings, head-to-head, draft board.
+  On wide screens a right-hand **rail** shows the top of the standings
+  (record and points for), this week's NFL games with kickoff or live status,
+  and an injury report for your matchup.
 - **All-time** — franchise records across every season ESPN has, with titles,
   average finish, best and worst finish, points for per season, season span and
   playoff seed — a season-by-season grid.
@@ -31,8 +34,17 @@ durable local history, and the rivalry math ESPN never shows you.
   for each team. Best and worst week per franchise.
 - **Head-to-head** — W-L matrix between every pair of teams.
 - **Players** — one table with every player across all positions, no
-  per-position cards. Filters: available-only toggle and position chips (All,
-  QB, RB, WR, TE, K, D/ST, LB, DL, DB). Columns: Player (NFL team · fantasy
+  per-position cards. Position chips (All, QB, RB, WR, TE, K, D/ST, LB, DL, DB)
+  sit above a **filter bar**: name search, NFL team and fantasy owner (including
+  free agents), availability (all / free agents / rostered), injury (Q, D, O, IR
+  or any), rookies only, starters only, has a game next week, minimums for Avg,
+  Proj and Snap%, and an Own% range. Filters apply live as you type or tick, and
+  each active one shows as a chip that removes just that filter; **Reset all**
+  clears them. `/` focuses the search box, `Esc` clears it. **Column groups**
+  (Weekly, Projection, Matchup, Usage, and each stat family) toggle on and off.
+  Everything also works without JavaScript through a plain GET form; the server
+  is authoritative, and the page shows how many players match out of the total.
+  Columns: Player (NFL team · fantasy
   team, rookie badge), Pos (hidden when a position is picked), Owner (fantasy
   team or blank for free agents), Own% (ESPN percent owned), W1…Wn (actual
   points per played week), **Total** (sum of played weeks, never including
@@ -46,8 +58,18 @@ durable local history, and the rivalry math ESPN never shows you.
   defence (Tkl, Sck, DInt, PD, FF, DTD). All positions shows every stat family;
   a position shows only its own. A stat outside a player's family is blank
   rather than 0, for meaningful ascending sorts. Click any column header to
-  sort; click again to reverse. URL: `/players?sort=<column>&dir=asc|desc`,
-  combinable with `available=1` and `pos=`. Text columns default A→Z, numbers
+  sort; click again to reverse. URL: `/players?sort=<column>&dir=asc|desc&pos=`
+  plus any of the filter params below, all optional and ANDed; unknown or
+  invalid values are ignored, never an error. `q` name substring (case-insensitive);
+  `team` NFL abbreviations, e.g. `KC,BUF`; `owner` fantasy team ids or `fa` for
+  free agents, e.g. `fa,6`; `avail=free|rostered|all` (legacy `available=1` is
+  `avail=free`); `avg_min`, `proj_min` numbers; `own_min`, `own_max`, `snap_min`
+  percents 0–100, clamped, with `snap_min` excluding players that have no snap
+  share; `rookie=1`, `starter=1`, `plays=1`; `inj` is a list of `q`, `d`, `o`,
+  `ir` or `any` (any status except active); `cols` is a list of column groups
+  to show (`weeks`, `proj`, `matchup`, `usage`, `pass`, `rush`, `rec`, `kick`,
+  `def`), default all. List params take commas (`team=KC,BUF`) or repeats
+  (`inj=q&inj=d`), or a mix. Text columns default A→Z, numbers
   high→low, ranks low→high. Default sort is **Total** once a week is played,
   otherwise **Proj**. Blanks always sort last; old `sort=proj` links still
   work. Header row and player column stay fixed while scrolling. Scored points
