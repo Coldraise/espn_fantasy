@@ -48,12 +48,17 @@
 
 <section class="rail-card" aria-labelledby="rc-nfl">
   <h3 id="rc-nfl">NFL games this week</h3>
-  {% set ns = namespace(day=none, n=0) %}
+  {# Phones show the first day only; the other days sit in a <details> that is
+     forced open (and its summary hidden) from 1024px up. #}
+  {% set ns = namespace(day=none, n=0, more=false) %}
   {% for g in rail_games or [] %}
     {% set ns.n = ns.n + 1 %}
     {% set k = (g.kickoff_utc|kickoff) if g.kickoff_utc else '' %}
     {% set day = k[:2] %}
-    {% if day != ns.day %}{% set ns.day = day %}<div class="day">{{ day or 'TBD' }}</div>{% endif %}
+    {% if day != ns.day %}
+      {% if ns.n > 1 and not ns.more %}{% set ns.more = true %}<details class="more"><summary>All games ({{ rail_games|length }})</summary>{% endif %}
+      {% set ns.day = day %}<div class="day">{{ day or 'TBD' }}</div>
+    {% endif %}
     <div class="rail-row g {{ 'final' if g.state == 'post' }}">
       <span class="rn">{{ g.away_team }} @ {{ g.home_team }}</span>
       {% if g.state == 'in' %}<span class="gt live">{{ ('Q%s %s'|format(g.period, g.clock)) if g.period else 'LIVE' }}</span>
@@ -61,6 +66,7 @@
       {% else %}<span class="gt">{{ k[3:] }}</span>{% endif %}
     </div>
   {% endfor %}
+  {% if ns.more %}</details>{% endif %}
   {% if not ns.n %}<p class="muted small">No games scheduled yet</p>{% endif %}
 </section>
 

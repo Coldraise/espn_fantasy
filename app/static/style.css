@@ -187,7 +187,7 @@ main, .banner { position: relative; z-index: 1; }
 /* A phone's bar is the burger and the status chip with nothing to spare -- a
    marquee between them has nowhere to run. The touchdown strip below stays:
    it only appears when a rostered player has just scored. */
-@media (max-width: 640px) { .ticker { display: none; } }
+
 .tk-group { display: inline-flex; align-items: center; gap: 12px; white-space: nowrap; }
 .tk-pos {
   font-family: var(--display); font-size: 11px; font-weight: 700;
@@ -366,7 +366,7 @@ code { background: var(--green-soft); color: var(--green); padding: 1.5px 5px;
 .cd-when { font-size: 12px; color: var(--muted); }
 
 /* ---------- games ---------- */
-.games { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); }
+.games { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(min(320px, 100%), 1fr)); }
 .game {
   background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
   padding: 13px 15px; display: block; position: relative; box-shadow: var(--lift);
@@ -440,7 +440,7 @@ tbody tr:target { background: var(--red-soft); box-shadow: inset 2px 0 0 var(--r
   font-size: 12px; color: var(--muted); }
 .rulecat { margin-bottom: 20px; }
 .rulecat h2 { margin: 0 0 8px; }
-.rules { display: grid; gap: 7px; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
+.rules { display: grid; gap: 7px; grid-template-columns: repeat(auto-fill, minmax(min(280px, 100%), 1fr)); }
 .rule { background: var(--surface); border: 1px solid var(--line); border-radius: 8px;
         padding: 9px 13px; box-shadow: var(--lift); }
 .rule .k { font-size: 11.5px; color: var(--muted); font-weight: 550; }
@@ -467,7 +467,7 @@ mark { background: var(--amber-soft); color: inherit; border-radius: 3px; paddin
 .plist li:nth-child(-n+3) .pp.on { color: var(--red); }
 
 /* ---------- matchup cards (bigger) ---------- */
-.games { grid-template-columns: repeat(auto-fill, minmax(430px, 1fr)); gap: 14px; }
+.games { grid-template-columns: repeat(auto-fill, minmax(min(430px, 100%), 1fr)); gap: 14px; }
 .game { padding: 16px 18px; }
 /* The scoreline. The lineup below it spans the whole card, so this is the only
    part still split three ways. */
@@ -501,6 +501,8 @@ mark { background: var(--amber-soft); color: inherit; border-radius: 3px; paddin
 .mteam:hover .mname { color: var(--green); text-decoration: underline; }
 .titles { font-size: 12px; letter-spacing: -2px; white-space: nowrap; }
 .tcount { font-size: 10px; font-weight: 700; color: var(--red); letter-spacing: 0; margin-left: 3px; }
+/* ×n beside a 2-3 trophy row is for phones only, where the extra trophies go. */
+.tcount.tc-xs { display: none; }
 
 .mmanager { position: relative; font-size: 12px; color: var(--muted);
             cursor: help; border-bottom: 1px dotted var(--line); align-self: flex-end;
@@ -678,11 +680,7 @@ mark { background: var(--amber-soft); color: inherit; border-radius: 3px; paddin
   letter-spacing: .05em; color: var(--amber); background: var(--amber-soft);
   border-radius: 4px; padding: 2px 7px; margin-left: 8px;
 }
-@media (max-width: 560px) {
-  .games { grid-template-columns: 1fr; }
-  .game { padding: 13px; gap: 2px; }
-  .mname { font-size: 14.5px; }
-}
+
 
 /* ---------- rest of the week ---------- */
 /* No frame of its own. It used to be a panel -- surface, border, shadow, 12px
@@ -802,13 +800,7 @@ mark { background: var(--amber-soft); color: inherit; border-radius: 3px; paddin
            font-size: 13px; }
 thead th { font-family: var(--display); letter-spacing: .1em; font-size: 12px; }
 
-@media (max-width: 560px) {
-  .sb-clock { gap: 4px; }
-  .sb-clock .seg { min-width: 58px; }
-  .sb-clock b { font-size: 38px; }
-  .sb-clock .seg + .seg { padding-left: 4px; }
-  .scoreboard { padding: 20px 12px 18px; }
-}
+
 
 .poscard { padding-bottom: 6px; }
 .plist { max-height: 620px; overflow-y: auto; }
@@ -899,15 +891,7 @@ thead th { font-family: var(--display); letter-spacing: .1em; font-size: 12px; }
               color-mix(in srgb, var(--tc) 26%, transparent)), var(--raised);
 }
 
-@media (max-width: 640px) {
-  /* .c-rank and .c-player are fixed-width sticky boxes (border-box), so a
-     smaller td/th padding does not move where .c-player's left offset has to
-     land -- the 28px from the base rule already accounts for it. */
-  .ptab .c-player { max-width: 132px; }
-  .ptab .c-player .pn > .muted.small { display: none; }
-  .ptab { font-size: 12px; }
-  .ptab td, .ptab th { padding: 4px 6px; }
-}
+
 
 /* ---------- signed-in franchise ---------- */
 .topbar .who {
@@ -1115,7 +1099,7 @@ a.who:hover { background: var(--nfl-red); }
 .games.feature .lineup li { font-size: 13.5px; }
 
 /* the rest of the week: no lineups, so the card is one line of name + score */
-.games.compact { grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 8px; }
+.games.compact { grid-template-columns: repeat(auto-fill, minmax(min(280px, 100%), 1fr)); gap: 8px; }
 .games.compact .game { padding: 10px 13px; gap: 2px; align-items: center; border-top-width: 2px; }
 .games.compact .mname { font-size: 15.5px; }
 .games.compact .mscore { font-size: 22px; margin-top: 1px; }
@@ -1141,12 +1125,7 @@ tbody tr.me > td:first-child { font-weight: 700; box-shadow: inset 2px 0 0 var(-
 .matrix th.rot.me { color: var(--red); font-weight: 700; }
 .matrix td.mecell { background: var(--green-soft); font-weight: 600; }
 
-@media (max-width: 560px) {
-  .topbar .who { display: none; }
-  .games.feature .mname { font-size: 19px; }
-  .games.feature .mscore { font-size: 34px; }
-  .games.feature .game { padding: 14px; }
-}
+
 
 /* ---------- full lineup rows, tinted by NFL team ---------- */
 
@@ -1230,7 +1209,7 @@ td .slot {
    sized for the full-width featured card. A compact card gives each side about
    a third of that, so the fixed columns tighten rather than the badge being
    dropped -- losing the team only on the small cards would be an odd exception. */
-.games.compact { grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); }
+.games.compact { grid-template-columns: repeat(auto-fill, minmax(min(320px, 100%), 1fr)); }
 .games.compact .mhead { align-items: start; }
 .games.compact .lineup { margin-top: 6px; padding-top: 6px; }
 .games.compact .lineup li {
@@ -1313,39 +1292,7 @@ td .slot {
    mirrored right-hand side. */
 .nm-abbr { display: none; }
 
-@media (max-width: 560px) {
-  .lineup .nm-full { display: none; }
-  .lineup .nm-abbr { display: inline; }
-  .lineup .pro { display: none; }
 
-  /* Names take whatever is left; the scores tuck against the slot. */
-  .lineup li,
-  .games.compact .lineup li {
-    grid-template-columns: minmax(0, 1fr) 36px 40px 36px minmax(0, 1fr);
-    column-gap: 2px;
-  }
-  .games.feature .lineup li { font-size: 12px; }
-
-  /* A phone row has no width for a kickoff beside a name -- the NFL team
-     abbreviation has already been dropped above for the same reason. The modal
-     keeps it: that is the view you open when you want the detail. */
-  .game .lineup .gtime { display: none; }
-  .mdl .lineup .gtime { display: inline; }
-
-  /* Full screen: a matchup is 30-odd rows, and a centred card would spend half
-     the phone on the backdrop behind it. */
-  .mdl {
-    width: 100vw; max-width: 100vw; height: 100dvh; max-height: 100dvh;
-    border: 0; border-radius: 0;
-  }
-  .mdl-in { padding: 14px 12px 24px; }
-  .games .mdl .lineup li {
-    grid-template-columns: minmax(0, 1fr) 40px 44px 40px minmax(0, 1fr);
-    column-gap: 3px; font-size: 12px;
-  }
-  .games .mdl .lineup .nm-full { display: none; }
-  .games .mdl .lineup .nm-abbr { display: inline; }
-}
 
 /* ---------- NFL usage, per roster ---------- */
 
@@ -1397,13 +1344,7 @@ td .slot {
 }
 .pagefoot .stamp b { color: var(--ink); font-weight: 650; }
 
-@media (max-width: 560px) {
-  /* Twenty columns will not fit a phone. The per-down counters are the reason
-     to open this page, so they stay and the derived columns go. */
-  .usage th.wide, .usage td.wide { display: none; }
-  .roster.mine { margin-left: 0; padding-left: 10px; }
-  .pagefoot { justify-content: center; padding-bottom: 28px; }
-}
+
 
 /* ---------- wide tables with the name column pinned ---------- */
 
@@ -1443,7 +1384,7 @@ main > p.muted, .notice { max-width: var(--prose-max); }
 
 /* Below 1440 the rail is just more content: its cards sit under the page. */
 .rail { margin-top: 28px; display: grid; gap: 12px;
-        grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); align-items: start; }
+        grid-template-columns: repeat(auto-fill, minmax(min(320px, 100%), 1fr)); align-items: start; }
 .main-col { min-width: 0; }
 
 @media (min-width: 1440px) {
@@ -1728,3 +1669,208 @@ table.data td.empty-row { text-align: center; padding: 26px 12px; }
   }
 }
 .pcount [tabindex="-1"]:focus { outline: 0; }
+
+/* NFL games card: days after the first sit in a <details>. From 1024px up it is
+   forced open and the summary is gone, so the card looks as it always did. */
+.rail-card .more > summary { display: none; }
+.rail-card .more > .day:first-of-type { margin-top: 8px; }
+@media (min-width: 1024px) {
+  .rail-card .more::details-content { content-visibility: visible; display: block; }
+}
+@media (max-width: 1023px) {
+  .rail-card .more > summary {
+    display: flex; align-items: center; min-height: var(--tap, 44px); cursor: pointer;
+    color: var(--muted); font-size: 12.5px; list-style: none;
+  }
+  .rail-card .more > summary::-webkit-details-marker { display: none; }
+  .rail-card .more > summary::after { content: "▾"; margin-left: 6px; }
+  .rail-card .more[open] > summary::after { content: "▴"; }
+}
+
+/* Schedule scroll cue and the generic full/short name swap: phone-only. */
+.swipe { display: none; }
+
+/* ---------- phones: one breakpoint ---------- */
+/* Everything at or below 640px lives in this single block, at the end of the
+   sheet so it wins over the base rules it overrides. Desktop is untouched. */
+@media (max-width: 640px) {
+  :root {
+    --gutter: 12px;          /* page side padding */
+    --card-pad: 10px 12px;   /* .game, .rail-card */
+    --tap: 44px;             /* minimum touch target */
+    --name-w: 132px;         /* sticky team/player column */
+    --score: clamp(26px, 7.5vw, 32px);
+  }
+  main { padding: 16px var(--gutter) 48px; }
+  .pagefoot { padding-inline: var(--gutter); }
+  .ticker { display: none; }
+  .games { grid-template-columns: 1fr; }
+  .game, .games.feature .game, .games.compact .game { padding: var(--card-pad); gap: 2px; }
+  .mname { font-size: 14.5px; }
+  .sb-clock { gap: 4px; }
+  .sb-clock .seg { min-width: 58px; }
+  .sb-clock b { font-size: 38px; }
+  .sb-clock .seg + .seg { padding-left: 4px; }
+  .scoreboard { padding: 20px 12px 18px; }
+  /* .c-rank and .c-player are fixed-width sticky boxes (border-box), so a
+     smaller td/th padding does not move where .c-player's left offset has to
+     land -- the 28px from the base rule already accounts for it. */
+  .ptab .c-player { max-width: 132px; }
+  .ptab .c-player .pn > .muted.small { display: none; }
+  .ptab { font-size: 12px; }
+  .ptab td, .ptab th { padding: 4px 6px; }
+  .topbar .who { display: none; }
+  .games.feature .mname { font-size: 19px; }
+  .games.feature .mscore { font-size: 34px; }
+  .lineup .nm-full { display: none; }
+  .lineup .nm-abbr { display: inline; }
+  .lineup .pro { display: none; }
+
+  /* Names take whatever is left; the scores tuck against the slot. */
+  .lineup li,
+  .games.compact .lineup li {
+    grid-template-columns: minmax(0, 1fr) 34px 34px 34px minmax(0, 1fr);
+    column-gap: 2px; font-size: 12px;
+  }
+  .games.feature .lineup li { font-size: 12px; }
+  .lineup .lp { padding: 1px 3px; }
+
+  /* A phone row has no width for a kickoff beside a name -- the NFL team
+     abbreviation has already been dropped above for the same reason. The modal
+     keeps it: that is the view you open when you want the detail. */
+  .game .lineup .gtime { display: none; }
+  .mdl .lineup .gtime { display: inline; }
+
+  /* Full screen: a matchup is 30-odd rows, and a centred card would spend half
+     the phone on the backdrop behind it. */
+  .mdl {
+    width: 100vw; max-width: 100vw; height: 100dvh; max-height: 100dvh;
+    border: 0; border-radius: 0;
+  }
+  .mdl-in { padding: 14px 12px 24px; }
+  .games .mdl .lineup li {
+    grid-template-columns: minmax(0, 1fr) 38px 40px 38px minmax(0, 1fr);
+    column-gap: 3px; font-size: 12px;
+  }
+  .games .mdl .lineup .nm-full { display: none; }
+  .games .mdl .lineup .nm-abbr { display: inline; }
+  /* Twenty columns will not fit a phone. The per-down counters are the reason
+     to open this page, so they stay and the derived columns go. */
+  .usage th.wide, .usage td.wide { display: none; }
+  .roster.mine { margin-left: 0; padding-left: 10px; }
+  .pagefoot { justify-content: center; padding-bottom: 28px; }
+
+  /* -- matchup header (spec 5): scores face each other across a 64px middle,
+        names sit under their own score and clamp to two lines -- */
+  .mhead { grid-template-columns: minmax(0, 1fr) 64px minmax(0, 1fr); column-gap: 6px; }
+  .mside, .mside.right { flex-direction: column; justify-content: flex-start; gap: 2px; }
+  .mside { align-items: flex-end; text-align: right; }
+  .mside.right { align-items: flex-start; text-align: left; }
+  .mnum { order: -1; }
+  .games .mnum .mscore { font-size: var(--score); }
+  .games.compact .mnum .mscore { font-size: 22px; }
+  .mproj, .games.compact .mproj { font-size: 11px; }
+  .mid, .mside.right .mid { width: 100%; }
+  .mteam { min-width: 0; max-width: 100%; align-items: flex-start;
+           padding-block: 16px; margin-block: -16px; }
+  .mname, .games .mside .mname {
+    font-size: 15px; line-height: 1.1; white-space: normal; overflow-wrap: anywhere;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+    overflow: hidden; min-width: 0;
+  }
+  .games.compact .mside .mname { font-size: 14px; }
+  .titles { flex: none; }
+  .tx { display: none; }
+  .tcount.tc-xs { display: inline; }
+  .mmanager { position: relative; z-index: 1; max-width: 100%; font-size: 11.5px; line-height: 1.3; align-self: auto; }
+  .mside.right .mid .mmanager { align-self: auto; }
+  .mm-t { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .hovercard { min-width: 0; width: min(220px, 70vw); }
+  .mside .hovercard { left: auto; right: 0; }
+  .mmid { width: 64px; }
+  .games .mmid .bar.share { width: 56px; }
+  .share-l { font-size: 9px; line-height: 1.1; text-align: center; }
+
+  /* -- tap targets, type floor, spacing (spec 10) -- */
+  body { font-size: 13px; }
+  h1 { font-size: 26px; }
+  h2 { font-size: 14px; margin: 24px 0 8px; }
+  .topbar { padding-block: 10px; }
+  .burger { width: var(--tap); height: var(--tap); flex-basis: var(--tap); }
+  .signout { min-height: var(--tap); padding-inline: 14px; }
+  .mdl-x { width: var(--tap); height: var(--tap); top: 6px; right: 6px; }
+  .scope a { min-height: var(--tap); display: inline-flex; align-items: center; padding-inline: 14px; }
+  .legend > summary { min-height: var(--tap); display: flex; align-items: center; }
+  :is(.burger, .signout, .mdl-x, .scope a, .legend > summary, .mteam):focus-visible {
+    outline: 2px solid var(--red); outline-offset: 2px;
+  }
+
+  /* -- home rail (spec 6): one column, injuries first when there are any -- */
+  .rail { display: flex; flex-direction: column; align-items: stretch; gap: 12px; margin-top: 24px; }
+  .rail-card { padding: var(--card-pad); }
+  .rail-card:has(.inj-row) { order: -1; }
+  .rail-card[aria-labelledby="rc-nfl"] { order: 1; }
+  .rail-card[aria-labelledby="rc-inj"]:not(:has(.inj-row)) { order: 2; }
+  .rail-row { font-size: 13px; height: 32px; }
+  .more > summary:focus-visible { outline: 2px solid var(--red); outline-offset: 2px; }
+  .games.compact .game { animation-name: rise; }
+  .scroll, table, .tscroll { animation: none; }
+
+  /* -- defects on home: the scroll-driven reveal left cards below the fold
+        dim (opacity .25, shifted 40px, so the hint sat on top of the last
+        one). Phones get plain cards. -- */
+  .games.compact .game { animation: none; }
+  .resthint { margin: 12px 0 8px; }
+
+  /* -- season schedule (spec 7) -- */
+  .nm-swap .nm-full { display: none; }
+  .nm-swap .nm-abbr { display: inline; }
+  .schedule .rowhead { width: 100px; min-width: 0; max-width: 100px; overflow: hidden; text-overflow: ellipsis; }
+  .schedule .rot { max-width: 56px; font-size: 10.5px; }
+  .schedule .cell { font-size: 11px; overflow: hidden; text-overflow: ellipsis; }
+  .schedule .cell, .schedule .rot { padding-inline: 4px; }
+  .sch-scroll:not(.at-end) {
+    -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 24px), transparent);
+            mask-image: linear-gradient(90deg, #000 calc(100% - 24px), transparent);
+  }
+  .swipe { display: block; margin: 6px 0 0; text-align: right; }
+  .wklegend { margin-top: 12px; flex-direction: column; gap: 4px; }
+
+  /* -- standings (spec 8): tables scroll sideways, team column pinned -- */
+  .tscroll { overflow-x: auto; border-radius: var(--radius); box-shadow: var(--lift); margin-top: 8px; }
+  .tscroll table { box-shadow: none; overflow: visible; width: max-content; min-width: 100%; margin-top: 0; }
+  .tscroll th, .tscroll td { white-space: nowrap; padding: 8px; }
+  table.data td.num, table.data th.num, table.data .wl { width: auto; }
+  .st-team { position: sticky; left: 0; z-index: 2; width: var(--name-w); max-width: var(--name-w);
+             overflow: hidden; text-overflow: ellipsis;
+             background: var(--surface); box-shadow: 1px 0 0 var(--line); }
+  thead .st-team { background: linear-gradient(var(--green-tint), var(--green-tint)), var(--surface); z-index: 3; }
+  tr.me > .st-team { background: linear-gradient(var(--green-soft), var(--green-soft)), var(--surface);
+                     box-shadow: inset 2px 0 0 var(--red), 1px 0 0 var(--line); }
+  .st-rank { position: sticky; left: 0; width: 28px; min-width: 28px; max-width: 28px; padding-inline: 4px;
+             background: var(--surface); z-index: 2; text-align: center; }
+  thead .st-rank { background: linear-gradient(var(--green-tint), var(--green-tint)), var(--surface); z-index: 3; }
+  tr.me > .st-rank { background: linear-gradient(var(--green-soft), var(--green-soft)), var(--surface); }
+  .st-rank + .st-team { left: 28px; }
+  td.empty-row { white-space: normal; position: sticky; left: 0; max-width: calc(100vw - 2 * var(--gutter)); }
+  .notice a { padding-block: 10px; }
+
+  /* -- players (spec 9): table kept, pinned # and player, sideways scroll -- */
+  .ptab-scroll { min-height: 60dvh; }
+  .ptab th { font-size: 11px; padding: 0; }
+  .ptab th a { display: flex; align-items: center; justify-content: flex-end;
+               min-height: var(--tap); min-width: 32px; padding: 0 6px; }
+  .ptab th.c-player a { justify-content: flex-start; }
+  .ptab th.c-rank { padding: 0; }
+  .ptab td { padding: 6px; font-size: 12px; }
+  .ptab .c-player { width: min(132px, 34vw); max-width: min(132px, 34vw); white-space: normal; }
+  .ptab .c-player .pn { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+                        overflow: hidden; font-size: 12.5px; line-height: 1.15; }
+  .ptab td.c-text { max-width: 104px; overflow: hidden; text-overflow: ellipsis; }
+  .pcount, .fchips {
+    -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 24px), transparent);
+            mask-image: linear-gradient(90deg, #000 calc(100% - 24px), transparent);
+  }
+  .quick { flex-wrap: wrap; overflow: visible; white-space: normal; gap: 0 18px; }
+  .quick a { min-height: var(--tap); display: inline-flex; align-items: center; padding: 0; }
+}

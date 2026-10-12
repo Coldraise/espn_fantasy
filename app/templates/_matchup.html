@@ -48,8 +48,8 @@
     <span class="mname">{{ team.name }}</span>
     {% if rec and rec.titles %}
       <span class="titles" title="{{ rec.titles }} championship{{ 's' if rec.titles != 1 }}">
-        {%- for _ in range(rec.titles if rec.titles <= 3 else 1) -%}🏆{%- endfor -%}
-        {%- if rec.titles > 3 %}<span class="tcount">×{{ rec.titles }}</span>{% endif -%}
+        {%- for i in range(rec.titles if rec.titles <= 3 else 1) -%}{%- if i == 0 -%}🏆{%- else -%}<span class="tx">🏆</span>{%- endif -%}{%- endfor -%}
+        {%- if rec.titles >= 2 %}<span class="tcount{{ ' tc-xs' if rec.titles <= 3 }}">×{{ rec.titles }}</span>{% endif -%}
       </span>
     {% endif %}
   </span>
@@ -61,18 +61,18 @@
     <span class="mname">{{ team.name }}</span>
     {% if rec and rec.titles %}
       <span class="titles" title="{{ rec.titles }} championship{{ 's' if rec.titles != 1 }}">
-        {%- for _ in range(rec.titles if rec.titles <= 3 else 1) -%}🏆{%- endfor -%}
-        {%- if rec.titles > 3 %}<span class="tcount">×{{ rec.titles }}</span>{% endif -%}
+        {%- for i in range(rec.titles if rec.titles <= 3 else 1) -%}{%- if i == 0 -%}🏆{%- else -%}<span class="tx">🏆</span>{%- endif -%}{%- endfor -%}
+        {%- if rec.titles >= 2 %}<span class="tcount{{ ' tc-xs' if rec.titles <= 3 }}">×{{ rec.titles }}</span>{% endif -%}
       </span>
     {% endif %}
   </a>
   {% endif %}
 
   {% if compact %}
-    <div class="mmanager plain">{{ manager or 'slot open' }}</div>
+    <div class="mmanager plain" title="{{ manager or 'slot open' }}"><span class="mm-t">{{ manager or 'slot open' }}</span></div>
   {% else %}
-  <div class="mmanager" tabindex="0">
-    {{ manager or 'slot open' }}
+  <div class="mmanager" tabindex="0" title="{{ manager or 'slot open' }}">
+    <span class="mm-t">{{ manager or 'slot open' }}</span>
     {% if rec %}
     <div class="hovercard">
       <div class="hc-name">{{ team.name }}</div>

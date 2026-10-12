@@ -612,6 +612,8 @@ def dashboard(request: Request):
             context |= _card_context(conn, season, week or 1) | {
                 "season": season,
                 "names": names,
+                "short_teams": players.short_team_names(
+                    n.get("name") for n in names.values()),
                 "week": week or 1,
                 "my_game": my_game,
                 "other_games": other_games,
@@ -622,16 +624,18 @@ def dashboard(request: Request):
         season = _season_param(request, conn)
         week, games = _scoreboard(conn, season)
         my_game, other_games = _split_games(games, context["me_id"])
+        team_map = db.team_name_map(conn)
         context |= _card_context(conn, season, week) | {
             "season": season, "week": week,
             "my_game": my_game, "other_games": other_games,
             "corrections": db.recent_corrections(conn, 8),
-            "names": db.team_name_map(conn),
+            "names": team_map,
+            "short_teams": players.short_team_names(team_map.values()),
             # The schedule used to vanish at the draft, which is exactly when a
             # trade-deadline marker starts being worth looking at.
             "grid": _schedule_grid(conn, season, names),
             "standings": analytics.standings_table(
-                db.fetch_team_weeks(conn, [season]), db.team_name_map(conn)),
+                db.fetch_team_weeks(conn, [season]), team_map),
         }
     return templates.TemplateResponse("dashboard.html", context)
 
@@ -904,6 +908,7 @@ def player_rankings(request: Request):
             "owners": sorted(({"id": tid, "name": n.get("name") or f"Team {tid}"}
                               for tid, n in team_names.items()), key=lambda o: o["name"].casefold()),
             "teams": teams,
+            "short_teams": players.short_team_names(n.get("name") for n in team_names.values()),
             "column_groups": players.column_groups(cols_raw),
         }
     return templates.TemplateResponse("players.html", context)

@@ -238,6 +238,8 @@ def test_routes_with_data(tmp_path, monkeypatch):
     assert (st[1]["wins"], st[1]["losses"], st[1]["pf"]) == (0, 1, 90.0)
     assert {"team_id", "name", "wins", "losses", "ties", "pf", "pa", "avg", "streak"} <= set(st[0])
     assert st[0]["name"] == "Alpha"
+    assert seen["dashboard.html"]["short_teams"] == {"Alpha": "Alpha", "Beta": "Beta"}
+    assert seen["players.html"]["short_teams"] == {"Alpha": "Alpha", "Beta": "Beta"}
 
     # rail: deduplicated, null kickoff last, rendered without raising
     rail = seen["dashboard.html"]["rail_games"]

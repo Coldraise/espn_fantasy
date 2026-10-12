@@ -107,12 +107,14 @@
       {% if col.kind == 'player' and tint %}style="--tc: {{ tint }}"{% endif %}>
     {%- if col.kind == 'player' -%}
       <span class="pn">
-        <span {% if p.experience_years is not none %}title="{{ nth((p.experience_years or 0) + 1) }} season"{% endif %}>{{ p.name }}</span>{% if p.rookie %}<span class="rookie" title="Rookie — first NFL season">R</span>{% endif %}{% if flag %}<span class="inj inj-{{ flag[0]|lower }}" title="{{ flag[1] }}">{{ flag[0] }}</span>{% endif %}
+        <span title="{{ p.name }}{% if p.experience_years is not none %} · {{ nth((p.experience_years or 0) + 1) }} season{% endif %}">{{ p.name }}</span>{% if p.rookie %}<span class="rookie" title="Rookie — first NFL season">R</span>{% endif %}{% if flag %}<span class="inj inj-{{ flag[0]|lower }}" title="{{ flag[1] }}">{{ flag[0] }}</span>{% endif %}
         <span class="muted small">{{ p.pro_team }}{% if p.on_team_id %}
           · {{ p.owner }}{% if p.lineup_slot %} · {{ p.lineup_slot }}{% endif %}{% endif %}</span>
       </span>
     {%- elif col.kind == 'text' -%}
-      {{ v or '·' }}
+      {%- if col.key == 'owner' and v -%}
+        <span class="nm-swap" title="{{ v }}"><span class="nm-full">{{ v }}</span><span class="nm-abbr">{{ (short_teams or {}).get(v, v) }}</span></span>
+      {%- else -%}{{ v or '·' }}{%- endif -%}
     {%- elif col.kind in ('own', 'pts', 'total', 'proj') -%}
       {{ '%.1f'|format(v) if v is not none else '·' }}
     {%- elif col.kind == 'int' -%}

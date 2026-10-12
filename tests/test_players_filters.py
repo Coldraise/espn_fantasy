@@ -234,3 +234,25 @@ def test_snap_min_compares_fraction_against_percent():
     assert pick(50.0) == [2, 3]
     assert pick(70.0) == [3]
     assert pick(0.0) == [1, 2, 3]
+
+
+def test_short_team_names_contract_example():
+    names = ["The Unbelievably Long Team Name FC", "Sunday Morning Heroes",
+             "Sunday Night Lights", "Juhu"]
+    assert players.short_team_names(names) == {
+        "The Unbelievably Long Team Name FC": "Unbelievably", "Sunday Morning Heroes": "Sunday M.",
+        "Sunday Night Lights": "Sunday N.", "Juhu": "Juhu"}
+
+
+def test_short_team_names_prefixes_and_edges():
+    out = players.short_team_names(["the Wolves", "A Team Apart", "Team Rocket", "Solo"])
+    assert out == {"the Wolves": "Wolves", "A Team Apart": "Team", "Team Rocket": "Rocket",
+                   "Solo": "Solo"}
+    assert players.short_team_names([]) == {}
+    assert players.short_team_names(None) == {}
+
+
+def test_short_team_names_collision_after_prefix_strip():
+    out = players.short_team_names(["The Sunday Heroes", "Sunday Lights", "Sunday"])
+    assert out == {"The Sunday Heroes": "Sunday H.", "Sunday Lights": "Sunday L.",
+                   "Sunday": "Sunday"}

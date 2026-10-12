@@ -161,6 +161,33 @@ def leaders(rows: list[dict], per: int = 3, by: str = "projected") -> list[dict]
 _NAME_SUFFIXES = {"jr", "jr.", "sr", "sr.", "ii", "iii", "iv", "v"}
 
 
+def short_team_names(names) -> dict[str, str]:
+    """Full fantasy team name -> short form for narrow screens.
+
+    Leading "The ", "A ", "Team " go, then the first word stays; when two teams
+    would share it, the second word's initial is added ("Sunday M."). One-word
+    names are unchanged and nothing is truncated -- CSS ellipsis does that.
+    """
+    unique = [n for n in dict.fromkeys(names or []) if n]
+    stripped = {}
+    for full in unique:
+        words = full.split()
+        if len(words) > 1 and words[0].lower() in ("the", "a", "team"):
+            words = words[1:]
+        stripped[full] = words or [full]
+    firsts: dict[str, int] = {}
+    for words in stripped.values():
+        key = words[0].casefold()
+        firsts[key] = firsts.get(key, 0) + 1
+    out = {}
+    for full, words in stripped.items():
+        if len(words) > 1 and firsts[words[0].casefold()] > 1:
+            out[full] = f"{words[0]} {words[1][0].upper()}."
+        else:
+            out[full] = words[0]
+    return out
+
+
 def short_name(name: str | None) -> str:
     """"Derrick Henry" -> "Derrick H.", for rows too narrow for the full name.
 

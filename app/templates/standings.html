@@ -18,9 +18,10 @@
     <a href="/history">All-time records</a> are available now.
   </p>
 {% endif %}
+<div class="tscroll" tabindex="0" role="region" aria-label="Standings table">
 <table class="data">
   <thead><tr>
-    <th>Team</th><th class="num wl">W-L</th><th class="num">PF</th><th class="num">PA</th>
+    <th class="st-team">Team</th><th class="num wl">W-L</th><th class="num">PF</th><th class="num">PA</th>
     <th class="num">Avg</th><th class="num">All-play</th><th class="num">Exp W</th>
     <th class="num">Luck</th><th class="num">Streak</th>
     <th class="num">Best</th><th class="num">Worst</th>
@@ -28,7 +29,7 @@
   <tbody>
   {% for t in table %}
     <tr class="{{ 'me' if t.team_id == me_id }}">
-      <td>{{ t.name }}</td>
+      <td class="st-team" title="{{ t.name }}">{{ t.name }}</td>
       <td class="num wl">{{ t.wins }}-{{ t.losses }}{% if t.ties %}-{{ t.ties }}{% endif %}</td>
       <td class="num">{{ t.pf }}</td>
       <td class="num">{{ t.pa }}</td>
@@ -48,6 +49,7 @@
   {% endif %}
   </tbody>
 </table>
+</div>
 
 <div class="st-pair">
 {% if power %}<section>
@@ -56,9 +58,10 @@
   Half all-play win pct, a third scoring rate, a fifth recent form. All-play
   carries the most because it is the only part a soft schedule cannot inflate.
 </p>
+<div class="tscroll" tabindex="0" role="region" aria-label="Power rankings table">
 <table class="data">
   <thead><tr>
-    <th class="num">#</th><th>Team</th><th class="num">Power</th><th class="num">Record</th>
+    <th class="num st-rank">#</th><th class="st-team">Team</th><th class="num">Power</th><th class="num">Record</th>
     <th class="num">Avg</th><th class="num">Last 3</th><th class="num">All-play</th>
     <th class="num">Floor–ceiling</th><th class="num">Swing</th>
     <th class="num">vs proj</th>
@@ -66,8 +69,8 @@
   <tbody>
   {% for t in power %}
     <tr class="{{ 'me' if t.team_id == me_id }}">
-      <td class="num muted">{{ t.rank }}</td>
-      <td>{{ t.name }}</td>
+      <td class="num muted st-rank">{{ t.rank }}</td>
+      <td class="st-team" title="{{ t.name }}">{{ t.name }}</td>
       <td class="num"><b>{{ t.power }}</b></td>
       <td class="num">{{ t.wins }}-{{ t.losses }}{% if t.ties %}-{{ t.ties }}{% endif %}</td>
       <td class="num">{{ t.avg }}</td>
@@ -81,6 +84,7 @@
   {% endfor %}
   </tbody>
 </table>
+</div>
 </section>{% endif %}
 
 {% if efficiency %}<section>
@@ -91,14 +95,15 @@
   {{ efficiency[0].weeks }} week{{ 's' if efficiency[0].weeks != 1 }} — bench
   rosters are only stored from when this started tracking them.
 </p>
+<div class="tscroll" tabindex="0" role="region" aria-label="Lineup calls table">
 <table class="data">
-  <thead><tr><th>Team</th><th class="num">Weeks</th><th class="num">Scored</th>
+  <thead><tr><th class="st-team">Team</th><th class="num">Weeks</th><th class="num">Scored</th>
     <th class="num">Best possible</th><th class="num">Left on bench</th>
     <th class="num">Efficiency</th></tr></thead>
   <tbody>
   {% for e in efficiency %}
     <tr class="{{ 'me' if e.team_id == me_id }}">
-      <td>{{ e.name }}</td>
+      <td class="st-team" title="{{ e.name }}">{{ e.name }}</td>
       <td class="num">{{ e.weeks }}</td>
       <td class="num">{{ e.actual }}</td>
       <td class="num">{{ e.optimal }}</td>
@@ -109,6 +114,7 @@
   {% endfor %}
   </tbody>
 </table>
+</div>
 </section>{% endif %}
 </div>
 {% endblock %}

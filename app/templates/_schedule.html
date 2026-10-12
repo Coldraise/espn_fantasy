@@ -6,7 +6,7 @@
     Expects: grid {weeks, rows, markers}, me_id, and week (the current one). #}
 {% if grid.weeks %}
 <h2>Season schedule</h2>
-<div class="scroll">
+<div class="scroll sch-scroll" tabindex="0" role="region" aria-label="Season schedule">
 <table class="matrix schedule">
   <thead>
     <tr>
@@ -27,17 +27,26 @@
   <tbody>
   {% for row in grid.rows %}
     <tr class="{{ 'me' if row.team_id == me_id }}">
-      <th class="rowhead {{ 'me' if row.team_id == me_id }}">{{ row.name }}</th>
+      <th class="rowhead {{ 'me' if row.team_id == me_id }}" title="{{ row.name }}">{{ row.name }}</th>
       {% for w in grid.weeks %}
         {% set opp = row.opponents.get(w) %}
         <td class="cell small {{ 'mecell' if me_id and opp and opp.id == me_id }}
-                   {{ 'nowweek' if week and w == week }}">{{ opp.name if opp and opp.name else '—' }}</td>
+                   {{ 'nowweek' if week and w == week }}"{% if opp and opp.name %} title="{{ opp.name }}"{% endif %}>
+          {%- if opp and opp.name -%}<span class="nm-swap"><span class="nm-full">{{ opp.name }}</span><span class="nm-abbr">{{ (short_teams or {}).get(opp.name, opp.name) }}</span></span>{%- else -%}—{%- endif -%}</td>
       {% endfor %}
     </tr>
   {% endfor %}
   </tbody>
 </table>
 </div>
+<p class="muted small swipe">Swipe for all weeks →</p>
+<script>
+(function(){var b=document.querySelector('.sch-scroll');if(!b)return;
+function f(){b.classList.toggle('at-end',b.scrollLeft+b.clientWidth>=b.scrollWidth-2);}
+b.addEventListener('scroll',f,{passive:true});f();
+var n=b.querySelector('th.nowweek');
+if(n&&matchMedia('(max-width:640px)').matches)b.scrollLeft=Math.max(0,n.offsetLeft-b.clientWidth/2);})();
+</script>
 {% if grid.markers %}
 <p class="wklegend">
   {% for w, marks in grid.markers|dictsort %}

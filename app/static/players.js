@@ -193,7 +193,28 @@
     return { key: th ? th.getAttribute('data-key') : sortInput.value,
              desc: th ? th.getAttribute('aria-sort') === 'descending' : dirInput.value === 'desc' };
   }
+  /* Phone default columns: with no `cols` in the URL on a <=640px screen the
+     heavy groups start off. The chips are unticked to match, but nothing is
+     written to the URL (and the chips are not submitted) until the user
+     touches a column chip, so a shared link never carries the phone defaults. */
+  var PHONE_OFF = ['weeks', 'usage', 'pass', 'rush', 'rec', 'kick', 'def'];
+  var phoneCols = !/(^|[?&])cols=/.test(location.search) && window.matchMedia &&
+                  window.matchMedia('(max-width: 640px)').matches;
+  function phoneApply() {
+    if (!phoneCols) return;
+    Array.prototype.forEach.call(form.querySelectorAll('input[name=cols]'), function (b) {
+      if (PHONE_OFF.indexOf(b.value) !== -1) b.checked = false;
+    });
+  }
+  form.addEventListener('submit', function () {
+    if (!phoneCols) return;
+    Array.prototype.forEach.call(form.querySelectorAll('input[name=cols]'), function (b) { b.disabled = true; });
+    setTimeout(function () {
+      Array.prototype.forEach.call(form.querySelectorAll('input[name=cols]'), function (b) { b.disabled = false; });
+    }, 0);
+  });
   function colsParam() {
+    if (phoneCols) return '';
     var boxes = form.querySelectorAll('input[name=cols]');
     var on = checkedVals('cols');
     if (!boxes.length || !on.length || on.length === boxes.length) return '';
@@ -298,7 +319,7 @@
   form.addEventListener('change', function (e) {
     var t = e.target;
     if (t.name === 'pos') { form.submit(); return; }
-    if (t.name === 'cols') { applyCols(); syncUrl(); return; }
+    if (t.name === 'cols') { phoneCols = false; applyCols(); syncUrl(); return; }
     if (t.type === 'search' || t.type === 'number') return;   // handled by 'input'
     if (t.name === 'inj') injAny = false;
     onChange(true);
@@ -330,6 +351,7 @@
       if (pos && pos.value) return;           // a position is a server filter: follow the link
       e.preventDefault();
       form.reset();
+      phoneApply(); applyCols();
       ['q', 'team', 'owner', 'avg_min', 'proj_min', 'own_min', 'own_max', 'snap_min'].forEach(function (k) { form.elements[k].value = ''; });
       Array.prototype.forEach.call(form.querySelectorAll('input[type=checkbox]:not([name=cols])'), function (i) { i.checked = false; });
       form.querySelector('input[name=avail][value=all]').checked = true;
@@ -456,6 +478,7 @@
   seedMulti('team');
   seedMulti('owner');
   stripHidden();
+  phoneApply();
   applyCols();
   var s0 = currentSort();
   lastSt = readState();
