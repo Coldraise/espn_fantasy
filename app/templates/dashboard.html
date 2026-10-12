@@ -90,4 +90,9 @@
   {% endif %}
   {% if not ni.n %}<p class="muted small">No injured starters</p>{% endif %}
 </section>
+<script>
+(function(){var d=document.querySelector('details.more');if(!d||!window.matchMedia)return;
+var m=matchMedia('(min-width:1024px)');function f(){d.open=m.matches;}
+f();if(m.addEventListener)m.addEventListener('change',f);else m.addListener(f);})();
+</script>
 {% endblock %}

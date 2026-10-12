@@ -206,13 +206,17 @@
       if (PHONE_OFF.indexOf(b.value) !== -1) b.checked = false;
     });
   }
-  form.addEventListener('submit', function () {
+  /* Both the submit event and the position branch go through here: the phone
+     default chips must never be sent as `cols`. */
+  function holdCols() {
     if (!phoneCols) return;
     Array.prototype.forEach.call(form.querySelectorAll('input[name=cols]'), function (b) { b.disabled = true; });
     setTimeout(function () {
       Array.prototype.forEach.call(form.querySelectorAll('input[name=cols]'), function (b) { b.disabled = false; });
     }, 0);
-  });
+  }
+  function submitNoCols() { holdCols(); form.submit(); }
+  form.addEventListener('submit', holdCols);
   function colsParam() {
     if (phoneCols) return '';
     var boxes = form.querySelectorAll('input[name=cols]');
@@ -318,7 +322,7 @@
   });
   form.addEventListener('change', function (e) {
     var t = e.target;
-    if (t.name === 'pos') { form.submit(); return; }
+    if (t.name === 'pos') { submitNoCols(); return; }
     if (t.name === 'cols') { phoneCols = false; applyCols(); syncUrl(); return; }
     if (t.type === 'search' || t.type === 'number') return;   // handled by 'input'
     if (t.name === 'inj') injAny = false;

@@ -1786,7 +1786,8 @@ table.data td.empty-row { text-align: center; padding: 26px 12px; }
   .mside.right .mid .mmanager { align-self: auto; }
   .mm-t { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .hovercard { min-width: 0; width: min(220px, 70vw); }
-  .mside .hovercard { left: auto; right: 0; }
+  .mside:not(.right) .hovercard { left: 0; right: auto; }
+  .mside.right .hovercard { left: auto; right: 0; }
   .mmid { width: 64px; }
   .games .mmid .bar.share { width: 56px; }
   .share-l { font-size: 9px; line-height: 1.1; text-align: center; }
