@@ -18,9 +18,9 @@
     <a href="/history">All-time records</a> are available now.
   </p>
 {% endif %}
-<table>
+<table class="data">
   <thead><tr>
-    <th>Team</th><th class="num">W-L</th><th class="num">PF</th><th class="num">PA</th>
+    <th>Team</th><th class="num wl">W-L</th><th class="num">PF</th><th class="num">PA</th>
     <th class="num">Avg</th><th class="num">All-play</th><th class="num">Exp W</th>
     <th class="num">Luck</th><th class="num">Streak</th>
     <th class="num">Best</th><th class="num">Worst</th>
@@ -29,7 +29,7 @@
   {% for t in table %}
     <tr class="{{ 'me' if t.team_id == me_id }}">
       <td>{{ t.name }}</td>
-      <td class="num">{{ t.wins }}-{{ t.losses }}{% if t.ties %}-{{ t.ties }}{% endif %}</td>
+      <td class="num wl">{{ t.wins }}-{{ t.losses }}{% if t.ties %}-{{ t.ties }}{% endif %}</td>
       <td class="num">{{ t.pf }}</td>
       <td class="num">{{ t.pa }}</td>
       <td class="num">{{ t.avg }}</td>
@@ -43,16 +43,20 @@
         {{ '%.1f'|format(t.worst.points) if t.worst else '—' }}</td>
     </tr>
   {% endfor %}
+  {% if not table %}
+    <tr><td colspan="11" class="empty-row muted">No games played yet — first results after week 1 finals.</td></tr>
+  {% endif %}
   </tbody>
 </table>
 
-{% if power %}
+<div class="st-pair">
+{% if power %}<section>
 <h2>Power rankings</h2>
 <p class="muted small">
   Half all-play win pct, a third scoring rate, a fifth recent form. All-play
   carries the most because it is the only part a soft schedule cannot inflate.
 </p>
-<table>
+<table class="data">
   <thead><tr>
     <th class="num">#</th><th>Team</th><th class="num">Power</th><th class="num">Record</th>
     <th class="num">Avg</th><th class="num">Last 3</th><th class="num">All-play</th>
@@ -77,9 +81,9 @@
   {% endfor %}
   </tbody>
 </table>
-{% endif %}
+</section>{% endif %}
 
-{% if efficiency %}
+{% if efficiency %}<section>
 <h2>Lineup calls</h2>
 <p class="muted small">
   What each team scored against the best lineup it could legally have started
@@ -87,7 +91,7 @@
   {{ efficiency[0].weeks }} week{{ 's' if efficiency[0].weeks != 1 }} — bench
   rosters are only stored from when this started tracking them.
 </p>
-<table>
+<table class="data">
   <thead><tr><th>Team</th><th class="num">Weeks</th><th class="num">Scored</th>
     <th class="num">Best possible</th><th class="num">Left on bench</th>
     <th class="num">Efficiency</th></tr></thead>
@@ -99,10 +103,61 @@
       <td class="num">{{ e.actual }}</td>
       <td class="num">{{ e.optimal }}</td>
       <td class="num bad">{{ e.left_on_bench }}</td>
-      <td class="num"><b>{{ '%.1f%%'|format(100 * e.efficiency) if e.efficiency else '—' }}</b></td>
+      <td class="num eff-cell"><b>{{ '%.1f%%'|format(100 * e.efficiency) if e.efficiency else '—' }}</b>
+        {%- if e.efficiency %}<span class="bar" aria-hidden="true" style="--v:{{ [e.efficiency, 1]|min }}"><i></i></span>{% endif %}</td>
     </tr>
   {% endfor %}
   </tbody>
 </table>
-{% endif %}
+</section>{% endif %}
+</div>
+{% endblock %}
+
+{% block rail %}
+{% set ns = namespace(lk=0, pf=0, best=none, worst=none, bt=none, wt=none) %}
+{% for t in table %}
+  {% set ns.lk = [ns.lk, t.luck|abs]|max %}
+  {% set ns.pf = [ns.pf, t.pf]|max %}
+  {% if t.best and (ns.best is none or t.best.points > ns.best.points) %}{% set ns.best = t.best %}{% set ns.bt = t %}{% endif %}
+  {% if t.worst and (ns.worst is none or t.worst.points < ns.worst.points) %}{% set ns.worst = t.worst %}{% set ns.wt = t %}{% endif %}
+{% endfor %}
+<section class="rail-card" aria-labelledby="rc-luck">
+  <h3 id="rc-luck">Luck</h3>
+  {% for t in table|sort(attribute='luck', reverse=true) %}
+  <div class="rail-row {{ 'me' if t.team_id == me_id }}">
+    <span class="rn">{{ t.name }}</span>
+    <span class="bar div" aria-hidden="true" style="--v:{{ (t.luck|abs / ns.lk) if ns.lk else 0 }}"><i class="{{ 'neg' if t.luck < 0 }}"></i></span>
+    <span class="rv {{ 'good' if t.luck > 0 else 'bad' if t.luck < 0 }}">{{ '%+.2f'|format(t.luck) }}</span>
+  </div>
+  {% endfor %}
+  {% if not table %}<p class="muted small">After week 1 finals</p>{% endif %}
+</section>
+<section class="rail-card" aria-labelledby="rc-pf">
+  <h3 id="rc-pf">Points for</h3>
+  {% for t in table|sort(attribute='pf', reverse=true) %}
+  <div class="rail-row {{ 'me' if t.team_id == me_id }}">
+    <span class="rn">{{ t.name }}</span>
+    <span class="bar" aria-hidden="true" style="--v:{{ (t.pf / ns.pf) if ns.pf else 0 }}"><i></i></span>
+    <span class="rv">{{ t.pf }}</span>
+  </div>
+  {% endfor %}
+  {% if not table %}<p class="muted small">After week 1 finals</p>{% endif %}
+</section>
+<section class="rail-card" aria-labelledby="rc-ext">
+  <h3 id="rc-ext">Season extremes</h3>
+  {% if ns.best %}
+  <div class="rail-row plain"><span class="rn"><span class="muted">Best</span> {{ ns.bt.name }} · wk {{ ns.best.week }}</span><b class="good">{{ '%.1f'|format(ns.best.points) }}</b></div>
+  <div class="rail-row plain"><span class="rn"><span class="muted">Worst</span> {{ ns.wt.name }} · wk {{ ns.worst.week }}</span><b class="bad">{{ '%.1f'|format(ns.worst.points) }}</b></div>
+  {% else %}<p class="muted small">After week 1 finals</p>{% endif %}
+</section>
+<section class="rail-card" aria-labelledby="rc-str">
+  <h3 id="rc-str">Streaks</h3>
+  {% set ns2 = namespace(n=0) %}
+  {% for t in table if t.streak and t.streak != '-' and (t.streak[1:]|int(0)) >= 2 %}
+    {% set ns2.n = ns2.n + 1 %}
+    <div class="rail-row plain {{ 'me' if t.team_id == me_id }}"><span class="rn">{{ t.name }}</span>
+      <span class="pill {{ 'w' if t.streak[0] == 'W' else 'l' }}">{{ t.streak }}</span></div>
+  {% endfor %}
+  {% if not ns2.n %}<p class="muted small">No streaks of 2 or more</p>{% endif %}
+</section>
 {% endblock %}

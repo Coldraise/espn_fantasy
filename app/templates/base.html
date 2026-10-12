@@ -141,7 +141,23 @@
   </div>
 {% endif %}
 
-<main>{% block content %}{% endblock %}</main>
+{# Both blocks are captured first so <main> can know whether a page has a rail. #}
+{% set rail_html %}{% block rail %}{% endblock %}{% endset %}
+{% set rail_left_html %}{% block rail_left %}{% endblock %}{% endset %}
+{% set content_html %}{% block content %}{% endblock %}{% endset %}
+{% if rail_left_html|trim %}
+<main class="has-rail-left">
+  <aside class="rail-left" aria-label="Filters">{{ rail_left_html }}</aside>
+  <div class="main-col">{{ content_html }}</div>
+</main>
+{% elif rail_html|trim %}
+<main class="has-rail">
+  <div class="main-col">{{ content_html }}</div>
+  <aside class="rail" aria-label="League sidebar">{{ rail_html }}</aside>
+</main>
+{% else %}
+<main>{{ content_html }}</main>
+{% endif %}
 
 <footer class="pagefoot">
   {% if stale_minutes is not none %}

@@ -422,11 +422,18 @@ def _card_context(conn, season: int, week: int | None) -> dict:
     # Keyed on both sides of each game so a player's pro_team looks it up
     # directly -- the join has no other id in common.
     games: dict[str, dict] = {}
+    rail_games: list[dict] = []
     if week:
-        for row in db.fetch_nfl_games(conn, season, week):
+        week_games = db.fetch_nfl_games(conn, season, week)
+        for row in week_games:
             for team in (row.get("home_team"), row.get("away_team")):
                 if team:
                     games[team] = row
+        # The rail's list: one entry per game, a missing kickoff sorts last.
+        # Done here because Jinja cannot order None against a string.
+        unique = {r["game_id"]: r for r in week_games if r.get("home_team")}
+        rail_games = sorted(unique.values(),
+                            key=lambda g: (g.get("kickoff_utc") or "9", g["home_team"]))
 
     return {
         "lineups": lineups,
@@ -441,6 +448,7 @@ def _card_context(conn, season: int, week: int | None) -> dict:
         "records": records,
         "team_colors": players.PRO_TEAM_COLORS,
         "games": games,
+        "rail_games": rail_games,
     }
 
 
@@ -622,6 +630,8 @@ def dashboard(request: Request):
             # The schedule used to vanish at the draft, which is exactly when a
             # trade-deadline marker starts being worth looking at.
             "grid": _schedule_grid(conn, season, names),
+            "standings": analytics.standings_table(
+                db.fetch_team_weeks(conn, [season]), db.team_name_map(conn)),
         }
     return templates.TemplateResponse("dashboard.html", context)
 
@@ -783,12 +793,21 @@ def player_rankings(request: Request):
         # league does not start; row order is irrelevant from here, sort_rows
         # does that once the columns are known below.
         rows = players.ranked(rows)
-        available_only = request.query_params.get("available") == "1"
-        if available_only:
-            rows = [r for r in rows if not (r.get("on_team_id") or 0)]
-
+        players.attach_row_context(
+            rows, db.fetch_latest_team_player_rows(conn, season), db.fetch_experience_years(conn),
+            players.game_by_team(db.fetch_nfl_games(conn, season, next_week))
+            if next_week is not None else {})
+        total_rows = len(rows)
+        teams = sorted({r["pro_team"] for r in rows if r.get("pro_team") and r["pro_team"] != "FA"})
+        filters = players.parse_filters(request.query_params)
+        available_only = filters.get("avail") == "free"
+        # snap_min needs the stats attached below; everything else narrows the
+        # pool first so an unfiltered load is the only one paying for every row.
+        # The position strip lists the whole pool, so a filter that matches
+        # nothing still leaves every position to click.
         present = {r["group"] for r in rows}
         positions = [label for label, _ in players.POSITION_GROUPS if label in present]
+        rows = players.apply_filters(rows, {k: v for k, v in filters.items() if k != "snap_min"})
         pos = request.query_params.get("pos") or ""
         if pos not in positions:
             pos = ""
@@ -829,15 +848,26 @@ def player_rankings(request: Request):
                 nflstats.attach_matchups(rows, ratings, opponents, axis)
                 matchups = True
 
+        if "snap_min" in filters:
+            rows = players.apply_filters(rows, {"snap_min": filters["snap_min"]})
+
         cols = players.columns(played, next_week, pos, matchups)
         sort, desc = players.resolve_sort(request.query_params.get("sort"),
                                           request.query_params.get("dir"),
                                           cols, played, next_week is not None)
         rows = players.sort_rows(rows, sort, desc)
 
+        # Every other filter rides along on sort/pos links; `avail=free` keeps
+        # travelling as the legacy `available=1` the template toggles.
+        carried = players.filter_params({k: v for k, v in filters.items() if k != "avail"})
+        if filters.get("avail") == "rostered":
+            carried["avail"] = "rostered"
+        cols_raw = players.merged(request.query_params, "cols") or ""
+
         def url(**over):
-            params = {"available": "1" if available_only else "", "pos": pos,
-                      "sort": sort, "dir": "desc" if desc else "asc"} | over
+            params = carried | {"available": "1" if available_only else "", "pos": pos,
+                                "cols": cols_raw,
+                                "sort": sort, "dir": "desc" if desc else "asc"} | over
             return "/players?" + urlencode({k: v for k, v in params.items() if v})
 
         for col in cols:
@@ -864,6 +894,17 @@ def player_rankings(request: Request):
             "matchup_axis": axis,
             "matchup_stale": bool(matchup_season and matchup_season != cfg.current_season),
             "stats_week": stats_week,
+            "total_rows": total_rows,
+            "filters": filters,
+            "active_filters": players.active_filters(
+                filters, {tid: n.get("name") for tid, n in team_names.items()},
+                {k: v for k, v in (("pos", pos), ("sort", request.query_params.get("sort")),
+                                   ("dir", request.query_params.get("dir")),
+                                   ("cols", cols_raw)) if v}),
+            "owners": sorted(({"id": tid, "name": n.get("name") or f"Team {tid}"}
+                              for tid, n in team_names.items()), key=lambda o: o["name"].casefold()),
+            "teams": teams,
+            "column_groups": players.column_groups(cols_raw),
         }
     return templates.TemplateResponse("players.html", context)
 

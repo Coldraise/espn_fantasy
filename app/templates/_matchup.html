@@ -105,11 +105,20 @@
 {% macro player(p, align, full=false) %}
   {% set tint = team_colors.get(p.pro_team) if p else none %}
   {% set flag = INJURY.get(p.injury_status) if p else none %}
+  {# Projection bar: before kickoff the projection against a 30-point yardstick,
+     once the game starts what has been scored against what was projected. #}
+  {% set pg = games.get(p.pro_team) if p and p.pro_team else none %}
+  {% set pst = pg.state if pg else none %}
+  {% if not p %}{% set pv = 0 %}
+  {% elif pst == 'pre' %}{% set pv = [(p.projected or 0) / 30, 1]|min %}
+  {% elif pst in ('in', 'post') %}{% set pv = [(p.actual or 0) / ([p.projected or 0, p.actual or 0, 1]|max), 1]|min %}
+  {% else %}{% set pv = 0 %}{% endif %}
   <span class="lp {{ align }} {{ 'tinted' if tint }}" {% if tint %}style="--tc: {{ tint }}"{% endif %}>
     {%- if p -%}
       <span class="pname"><span class="nm-full">{{ p.name }}</span><span class="nm-abbr">{{ p.name|short_name }}</span>{% if p.rookie %}<span class="rookie" title="Rookie — first NFL season">R</span>{% endif %}{% if flag %}<span class="inj inj-{{ flag[0]|lower }}" title="{{ flag[1] }}">{{ flag[0] }}</span>{% endif %}</span>
       <span class="pro">{{ p.pro_team or '' }}</span>
       {{- gtime(p, full) -}}
+      {%- if pv > 0 %}<i class="pbar {{ pst }}" aria-hidden="true" style="--v:{{ '%.3f'|format(pv) }}"></i>{% endif -%}
     {%- else -%}
       <span class="pname muted">—</span>
     {%- endif -%}
@@ -180,6 +189,15 @@
         <span class="margin">{{ '%+.1f'|format((game.home.points or 0) - ((game.away or {}).points or 0)) }}</span>
       {% else %}<span class="vs">vs</span>{% endif %}
       {% if game.revision and game.revision > 1 %}<span class="rev" title="ESPN revised this score">rev {{ game.revision }}</span>{% endif %}
+      {% if game.away %}
+        {% set hp = (totals.get(game.home.id).projected if totals.get(game.home.id) else game.home.projected) or 0 %}
+        {% set ap = (totals.get(game.away.id).projected if totals.get(game.away.id) else game.away.projected) or 0 %}
+        {% if hp + ap > 0 %}
+        <span class="bar share" aria-hidden="true" title="Projected share: {{ '%.0f'|format(100 * hp / (hp + ap)) }}% – {{ '%.0f'|format(100 * ap / (hp + ap)) }}%"
+              style="--v:{{ '%.3f'|format(hp / (hp + ap)) }}"><i></i></span>
+        {% if not compact %}<span class="share-l" aria-hidden="true">Projected share</span>{% endif %}
+        {% endif %}
+      {% endif %}
     </div>
 
     {% if game.away %}

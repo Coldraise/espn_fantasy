@@ -847,6 +847,58 @@ def fetch_team_week_players(conn, season: int, week: int,
     return out
 
 
+def fetch_latest_player_rows(conn, season: int) -> dict[int, dict]:
+    """The newest stored team_week_players row for each player, by player_id.
+
+    One query for the whole table rather than one per page row. "Newest" is
+    the highest week in `season` that has the player on any roster; a player
+    never rostered this season is simply absent.
+    """
+    rows = conn.execute(
+        """
+        SELECT twp.player_id, twp.injury_status, twp.lineup_slot, twp.is_starter
+        FROM team_week_players twp
+        JOIN (SELECT player_id, MAX(week) AS week
+              FROM team_week_players WHERE season=? GROUP BY player_id) latest
+          ON latest.player_id = twp.player_id AND latest.week = twp.week
+        WHERE twp.season=?
+        ORDER BY twp.team_id
+        """,
+        (season, season),
+    )
+    return {int(r["player_id"]): dict(r) for r in rows}
+
+
+def fetch_latest_team_player_rows(conn, season: int) -> dict[tuple[int, int], dict]:
+    """The newest stored row for each (player_id, team_id) pair this season.
+
+    Keyed by pair so a caller can ask for the row of the team a player is on
+    *now*: a player dropped weeks ago, or traded, never lends a stale injury
+    status or lineup slot, and two teams holding him in one week cannot
+    shadow each other.
+    """
+    rows = conn.execute(
+        """
+        SELECT twp.player_id, twp.team_id, twp.week, twp.injury_status,
+               twp.lineup_slot, twp.is_starter
+        FROM team_week_players twp
+        JOIN (SELECT player_id, team_id, MAX(week) AS week
+              FROM team_week_players WHERE season=? GROUP BY player_id, team_id) latest
+          ON latest.player_id = twp.player_id AND latest.team_id = twp.team_id
+         AND latest.week = twp.week
+        WHERE twp.season=?
+        """,
+        (season, season),
+    )
+    return {(int(r["player_id"]), int(r["team_id"])): dict(r) for r in rows}
+
+
+def fetch_experience_years(conn) -> dict[int, int]:
+    """player_id -> NFL years of experience, for players where it is known."""
+    return {int(r[0]): int(r[1]) for r in conn.execute(
+        "SELECT player_id, experience_years FROM players WHERE experience_years IS NOT NULL")}
+
+
 def start_poll_run(conn, kind: str) -> int:
     with conn:
         cur = conn.execute(

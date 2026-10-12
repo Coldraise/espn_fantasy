@@ -29,3 +29,59 @@
 </table>
 {% endif %}
 {% endblock %}
+
+{% block rail %}
+{% set INJ = {'OUT': 'O', 'QUESTIONABLE': 'Q', 'DOUBTFUL': 'D', 'INJURY_RESERVE': 'IR'} %}
+<section class="rail-card" aria-labelledby="rc-st">
+  <h3 id="rc-st">Standings <a href="/standings">All →</a></h3>
+  {% if standings %}
+    {% for t in standings[:8] %}
+    <div class="rail-row st {{ 'me' if t.team_id == me_id }}">
+      <span class="rk">{{ loop.index }}</span>
+      <span class="rn">{{ t.name }}</span>
+      <span class="rv">{{ t.wins }}-{{ t.losses }}{% if t.ties %}-{{ t.ties }}{% endif %}</span>
+      <span class="rv">{{ '%.0f'|format(t.pf) }}</span>
+    </div>
+    {% endfor %}
+  {% else %}<p class="muted small">After week 1 finals</p>{% endif %}
+</section>
+
+<section class="rail-card" aria-labelledby="rc-nfl">
+  <h3 id="rc-nfl">NFL games this week</h3>
+  {% set ns = namespace(day=none, n=0) %}
+  {% for g in rail_games or [] %}
+    {% set ns.n = ns.n + 1 %}
+    {% set k = (g.kickoff_utc|kickoff) if g.kickoff_utc else '' %}
+    {% set day = k[:2] %}
+    {% if day != ns.day %}{% set ns.day = day %}<div class="day">{{ day or 'TBD' }}</div>{% endif %}
+    <div class="rail-row g {{ 'final' if g.state == 'post' }}">
+      <span class="rn">{{ g.away_team }} @ {{ g.home_team }}</span>
+      {% if g.state == 'in' %}<span class="gt live">{{ ('Q%s %s'|format(g.period, g.clock)) if g.period else 'LIVE' }}</span>
+      {% elif g.state == 'post' %}<span class="gt">Final</span>
+      {% else %}<span class="gt">{{ k[3:] }}</span>{% endif %}
+    </div>
+  {% endfor %}
+  {% if not ns.n %}<p class="muted small">No games scheduled yet</p>{% endif %}
+</section>
+
+<section class="rail-card" aria-labelledby="rc-inj">
+  <h3 id="rc-inj">Injury report</h3>
+  {% set ni = namespace(n=0) %}
+  {% if my_game and me_id %}
+    {% set opp_id = (my_game.away.id if my_game.home.id == me_id else my_game.home.id) if my_game.away else none %}
+    {% for label, tid in [('You', me_id), (my_game.away.name if my_game.home.id == me_id else my_game.home.name, opp_id)] if tid %}
+      {% set ns2 = namespace(rows=0) %}
+      {% for p in rosters.get(tid, []) if p.is_starter and INJ.get(p.injury_status) %}
+        {% if ns2.rows == 0 %}<div class="who">{{ label }}</div>{% endif %}
+        {% set ns2.rows = ns2.rows + 1 %}{% set ni.n = ni.n + 1 %}
+        <div class="rail-row inj-row">
+          <span class="inj inj-{{ INJ[p.injury_status]|lower }}">{{ INJ[p.injury_status] }}</span>
+          <span class="rn">{{ p.name }} <span class="muted small">{{ p.pro_team or '' }}</span></span>
+          <span class="sl">{{ p.lineup_slot }}</span>
+        </div>
+      {% endfor %}
+    {% endfor %}
+  {% endif %}
+  {% if not ni.n %}<p class="muted small">No injured starters</p>{% endif %}
+</section>
+{% endblock %}

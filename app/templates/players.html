@@ -9,25 +9,39 @@
 <span class="mr {{ 'gov' if axis == gov }} {{ 'soft' if value and value <= 8 else ('tough' if value and value >= 25 else '') }}"
       title="{{ title }}">{{ value or '·' }}</span>
 {% endmacro %}
-<h1>Players <span class="muted">· {{ rows|length }} players{% if next_week %} · week {{ next_week }} projection{% endif %}</span></h1>
+{% set f = filters if filters is defined else {} %}
+{% set chips = active_filters if active_filters is defined else [] %}
+{% set total = total_rows if total_rows is defined else rows|length %}
+{% set gon = {} %}
+{% for g in (column_groups if column_groups is defined else []) %}{% set _ = gon.update({g.key: g.on}) %}{% endfor %}
+{% set INJ = {'OUT': ['O', 'Out'], 'QUESTIONABLE': ['Q', 'Questionable'],
+              'DOUBTFUL': ['D', 'Doubtful'], 'INJURY_RESERVE': ['IR', 'Injured reserve'],
+              'SUSPENSION': ['S', 'Suspended']} %}
+{% macro nth(n) %}{{ n }}{{ 'th' if 10 <= n % 100 <= 20 else {1: 'st', 2: 'nd', 3: 'rd'}.get(n % 10, 'th') }}{% endmacro %}
+{% set reset_url = '/players?' ~ ({'sort': sort, 'dir': 'desc' if desc else 'asc'}|urlencode) %}
 
-{% if not rows and not available_only %}
+<h1>Players <span class="muted">{% if next_week %}· week {{ next_week }} projection{% endif %}</span></h1>
+
+{% if total == 0 and not chips and not available_only %}
   <p class="empty">No player stats stored yet — they load on the next poll.</p>
 {% else %}
 
-<p class="scope">
-  <a href="{{ url(available='' if available_only else '1') }}"
-     class="{{ 'on' if available_only }}">{{ 'All players' if available_only else 'Available only' }}</a>
-</p>
+<div class="pcount" data-total="{{ total }}">
+  <span class="muted" role="status" aria-live="polite"><b>{{ rows|length }}</b> of {{ total }} players</span>
+  <span class="fchips" id="fchips">
+  {% if chips %}
+    {% for c in chips %}
+    <a class="fchip" href="{{ c.remove_url }}" aria-label="Remove filter: {{ c.label }} {{ c.value_label }}">
+      {{ c.label }}{% if c.value_label %} <b>{{ c.value_label }}</b>{% endif %}<span class="x" aria-hidden="true">×</span></a>
+    {% endfor %}
+    <a class="freset" href="{{ reset_url }}">Reset all</a>
+  {% endif %}
+  </span>
+</div>
 
-<p class="scope posscope">
-  <a href="{{ url(pos='') }}" class="{{ 'on' if not pos }}">All positions</a>
-  {% for label in positions %}
-    <a href="{{ url(pos=label) }}" class="{{ 'on' if label == pos }}">{{ label }}</a>
-  {% endfor %}
-</p>
-
-<p class="muted small">
+<details class="legend">
+  <summary>How to read this table</summary>
+  <p class="muted small">
   {% if played %}
     <b>W</b> columns are each player's actual points in weeks whose games are
     all final. <b>Tot</b> is the sum of points already scored in those weeks —
@@ -50,18 +64,17 @@
     {%- if matchup_stale %} These figures come from the {{ matchup_season }}
       season, because the current one has no games played yet.{% endif %}
   {%- endif %}
-</p>
+  </p>
+</details>
 
-{% if not rows %}
-<p class="empty">No players match.</p>
-{% else %}
 <div class="ptab-scroll">
 <table class="ptab">
 <thead>
 <tr>
   <th class="c-rank">#</th>
   {% for col in columns %}
-  <th class="c-{{ col.kind }}{{ ' blk' if col.block }}{{ ' on' if col.key == sort }}"
+  <th data-key="{{ col.key }}" data-desc="{{ 1 if col.desc else 0 }}" class="c-{{ col.kind }}{{ ' blk' if col.block }}{{ ' on' if col.key == sort }}{{ ' f-' ~ col.group if col.group }}"
+      {% if col.group and gon.get(col.group) == false %}hidden{% endif %}
       {% if col.key == sort %}aria-sort="{{ 'descending' if desc else 'ascending' }}"{% endif %}
       {% if col.title %}title="{{ col.title }}"{% endif %}>
     <a href="{{ col.href }}">{{ col.label }}</a>{% if col.key == sort %}<span class="arrow">{{ '▼' if desc else '▲' }}</span>{% endif %}
@@ -72,17 +85,31 @@
 <tbody>
 {% for p in rows %}
 {% set tint = team_colors.get(p.pro_team) %}
-<tr>
+{% set flag = INJ.get(p.injury_status) %}
+<tr style="--i: {{ loop.index0 }}"
+    data-name="{{ p.name|lower }}" data-proj-sort="{{ p.projected if p.projected is not none else '' }}"
+    data-team="{{ p.pro_team or '' }}" data-owner="{{ p.on_team_id or 'fa' }}"
+    data-rookie="{{ 1 if p.rookie else 0 }}" data-plays="{{ 1 if p.game else 0 }}"
+    data-avg="{{ p.avg if p.avg is not none else '' }}" data-proj="{{ p.projected if p.projected is not none else '' }}"
+    data-own="{{ p.percent_owned if p.percent_owned is not none else '' }}"
+    data-snap="{{ p.snap_pct * 100 if p.snap_pct is not none else '' }}"
+    data-inj="{{ flag[0]|lower if flag else '' }}" data-starter="{{ 1 if p.is_starter else 0 }}">
   <td class="c-rank">{{ loop.index }}</td>
   {% for col in columns %}
   {% set v = p.get(col.key) %}
-  <td class="c-{{ col.kind }}{{ ' blk' if col.block }}{{ ' on' if col.key == sort }}{{ ' tinted' if col.kind == 'player' and tint }}"
+  {% if col.kind == 'player' %}{% set sv = p.name %}
+  {% elif col.key == 'group' %}{% set sv = positions.index(v) if v in positions else none %}
+  {% elif col.kind == 'opp' %}{% set sv = p.matchup.opponent if p.matchup else none %}
+  {% elif col.kind == 'rank' %}{% set sv = p.matchup.get(col.key) if p.matchup else none %}
+  {% else %}{% set sv = v %}{% endif %}
+  <td {% if sv is not none and sv != '' %}data-v="{{ sv }}"{% endif %} class="c-{{ col.kind }}{{ ' blk' if col.block }}{{ ' on' if col.key == sort }}{{ ' tinted' if col.kind == 'player' and tint }}{{ ' f-' ~ col.group if col.group }}"
+      {% if col.group and gon.get(col.group) == false %}hidden{% endif %}
       {% if col.kind == 'player' and tint %}style="--tc: {{ tint }}"{% endif %}>
     {%- if col.kind == 'player' -%}
       <span class="pn">
-        {{ p.name }}{% if p.rookie %}<span class="rookie" title="Rookie — first NFL season">R</span>{% endif %}
+        <span {% if p.experience_years is not none %}title="{{ nth((p.experience_years or 0) + 1) }} season"{% endif %}>{{ p.name }}</span>{% if p.rookie %}<span class="rookie" title="Rookie — first NFL season">R</span>{% endif %}{% if flag %}<span class="inj inj-{{ flag[0]|lower }}" title="{{ flag[1] }}">{{ flag[0] }}</span>{% endif %}
         <span class="muted small">{{ p.pro_team }}{% if p.on_team_id %}
-          · {{ p.owner }}{% endif %}</span>
+          · {{ p.owner }}{% if p.lineup_slot %} · {{ p.lineup_slot }}{% endif %}{% endif %}</span>
       </span>
     {%- elif col.kind == 'text' -%}
       {{ v or '·' }}
@@ -93,7 +120,14 @@
     {%- elif col.kind == 'pct' -%}
       {{ '%.0f%%'|format(v * 100) if v is not none else '·' }}
     {%- elif col.kind == 'opp' -%}
-      {{ (('vs ' if p.matchup.home else '@') ~ p.matchup.opponent) if p.matchup else '·' }}
+      {%- if p.game -%}
+        {{ ('vs ' if p.game.home else '@') ~ p.game.opp }}
+        {%- if p.game.state == 'in' %} <span class="gtime live">{{ ('Q%s %s'|format(p.game.period, p.game.clock)) if p.game.period else 'LIVE' }}</span>
+        {%- elif p.game.state == 'post' %} <span class="gtime done">Final</span>
+        {%- elif p.game.kickoff_utc %} <span class="gtime">{{ p.game.kickoff_utc|kickoff }}</span>{% endif %}
+      {%- else -%}
+        {{ (('vs ' if p.matchup.home else '@') ~ p.matchup.opponent) if p.matchup else '·' }}
+      {%- endif -%}
     {%- elif col.kind == 'rank' -%}
       {%- if col.key == 'run_rank' -%}
         {{ rank(p.matchup.get('run_rank') if p.matchup else none,
@@ -125,10 +159,14 @@
   {% endfor %}
 </tr>
 {% endfor %}
+<tr class="noresult" {{ 'hidden' if rows }}><td colspan="{{ columns|length + 1 }}">
+  <p>No players match these filters.</p>
+  <p class="nr-chips">{% for c in chips %}<a class="fchip" href="{{ c.remove_url }}">Remove {{ c.label }}{% if c.value_label %} {{ c.value_label }}{% endif %}<span class="x" aria-hidden="true">×</span></a> {% endfor %}
+  <a class="freset" href="{{ reset_url }}">Reset all</a></p>
+</td></tr>
 </tbody>
 </table>
 </div>
-{% endif %}
 
 {# CC-BY-4.0 is a licence condition rather than a courtesy, so the credit
    travels with the data: it appears on whichever page is actually serving
@@ -144,5 +182,124 @@
   goals and extra points, which nflverse leaves at zero.{% endif %}
 </p>
 {% endif %}
+{% endif %}
+{% endblock %}
+
+{% block scripts %}<script src="/static/players.js?v={{ asset_v }}"></script>{% endblock %}
+
+{% block rail_left %}
+{% set f = filters if filters is defined else {} %}
+{% set chips = active_filters if active_filters is defined else [] %}
+{% set total = total_rows if total_rows is defined else rows|length %}
+{% if not (total == 0 and not chips and not available_only) %}
+{% set avail = f.get('avail') or ('free' if available_only else 'all') %}
+{% set sel_team = f.get('team') or [] %}
+{% set sel_owner = (f.get('owner') or [])|map('string')|list %}
+{% set sel_inj = f.get('inj') or [] %}
+{% set reset_url = '/players?' ~ ({'sort': sort, 'dir': 'desc' if desc else 'asc'}|urlencode) %}
+<form id="pf" class="pf" role="search" aria-label="Filter players" method="get" action="/players">
+  <input type="hidden" name="sort" value="{{ sort }}">
+  <input type="hidden" name="dir" value="{{ 'desc' if desc else 'asc' }}">
+
+  <div class="pf-top">
+    <div class="fld grow">
+      <label for="pf-q">Search</label>
+      <input id="pf-q" type="search" name="q" placeholder="Player name" value="{{ f.get('q', '') }}" autocomplete="off">
+    </div>
+    <details class="fsheet-wrap" id="pf-sheet">
+      <summary class="fbtn"><span class="s-closed">Filters{% if chips %} ({{ chips|length }}){% endif %}</span><span class="s-open">Close ✕</span></summary>
+      <div class="fsheet">
+        <fieldset class="fld seg">
+          <legend>Availability</legend>
+          {% for val, lab in [('all', 'All'), ('free', 'Available'), ('rostered', 'Rostered')] %}
+          <label><input type="radio" name="avail" value="{{ val }}" {{ 'checked' if avail == val }}><span>{{ lab }}</span></label>
+          {% endfor %}
+        </fieldset>
+
+        <fieldset class="fld seg">
+          <legend>Position</legend>
+          <label><input type="radio" name="pos" value="" {{ 'checked' if not pos }}><span>All</span></label>
+          {% for label in positions %}
+          <label><input type="radio" name="pos" value="{{ label }}" {{ 'checked' if label == pos }}><span>{{ label }}</span></label>
+          {% endfor %}
+        </fieldset>
+
+        <div class="fld">
+          <label for="pf-team">NFL team</label>
+          <select id="pf-team" name="team">
+            <option value="">Any</option>
+            {% for t in (teams if teams is defined else []) %}
+            <option value="{{ t }}" {{ 'selected' if t in sel_team }}>{{ t }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="fld">
+          <label for="pf-owner">Owner</label>
+          <select id="pf-owner" name="owner">
+            <option value="">Any</option>
+            <option value="fa" {{ 'selected' if 'fa' in sel_owner }}>Free agents</option>
+            {% for o in (owners if owners is defined else []) %}
+            <option value="{{ o.id }}" {{ 'selected' if o.id|string in sel_owner }}>{{ o.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <details class="fgrp">
+          <summary>Minimums</summary>
+          <div class="fgrp-panel">
+            <div class="fld num"><label for="pf-avg">Avg ≥</label>
+              <input id="pf-avg" type="number" name="avg_min" min="0" max="40" step="0.5" value="{{ f.get('avg_min', '') }}"></div>
+            <div class="fld num"><label for="pf-proj">Proj ≥</label>
+              <input id="pf-proj" type="number" name="proj_min" min="0" max="40" step="0.5" value="{{ f.get('proj_min', '') }}"></div>
+            <div class="fld num"><label for="pf-omin">Own% ≥</label>
+              <input id="pf-omin" type="number" name="own_min" min="0" max="100" step="5" value="{{ f.get('own_min', '') }}"></div>
+            <div class="fld num"><label for="pf-omax">Own% ≤</label>
+              <input id="pf-omax" type="number" name="own_max" min="0" max="100" step="5" value="{{ f.get('own_max', '') }}"></div>
+            <div class="fld num"><label for="pf-snap">Snap% ≥</label>
+              <input id="pf-snap" type="number" name="snap_min" min="0" max="100" step="5" value="{{ f.get('snap_min', '') }}"></div>
+          </div>
+        </details>
+
+        <details class="fgrp">
+          <summary>Status</summary>
+          <div class="fgrp-panel">
+            <label class="chk"><input type="checkbox" name="rookie" value="1" {{ 'checked' if f.get('rookie') }}><span>Rookies</span></label>
+            <label class="chk"><input type="checkbox" name="plays" value="1" {{ 'checked' if f.get('plays') }}><span>Plays this week</span></label>
+            <label class="chk"><input type="checkbox" name="starter" value="1" {{ 'checked' if f.get('starter') }}><span>Starters</span></label>
+            <fieldset class="fld seg inj-set">
+              <legend>Injury</legend>
+              {% for code, lab in [('q', 'Q'), ('d', 'D'), ('o', 'O'), ('ir', 'IR')] %}
+              <label><input type="checkbox" name="inj" value="{{ code }}" {{ 'checked' if code in sel_inj or 'any' in sel_inj }}><span>{{ lab }}</span></label>
+              {% endfor %}
+            </fieldset>
+          </div>
+        </details>
+
+        {% if column_groups is defined and column_groups %}
+        <details class="fgrp">
+          <summary>Columns</summary>
+          <div class="fgrp-panel">
+            {% for g in column_groups %}
+            <label class="chk"><input type="checkbox" name="cols" value="{{ g.key }}" {{ 'checked' if g.on }}><span>{{ g.label }}</span></label>
+            {% endfor %}
+          </div>
+        </details>
+        {% endif %}
+
+        <div class="pf-foot">
+          <button type="submit" class="apply">Apply</button>
+          <a class="freset" href="{{ reset_url }}">Reset</a>
+        </div>
+      </div>
+    </details>
+  </div>
+</form>
+
+<nav class="rail-card quick" aria-labelledby="rc-qv">
+  <h3 id="rc-qv">Quick views</h3>
+  <a href="/players?avail=free&amp;plays=1&amp;sort=avg&amp;dir=desc">Waiver targets</a>
+  <a href="/players?rookie=1">Rookies</a>
+  <a href="/players?inj=any&amp;starter=1">Injured starters</a>
+</nav>
 {% endif %}
 {% endblock %}

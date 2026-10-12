@@ -278,6 +278,79 @@ def season_rows(by_week: dict[int, list[dict]], played: list[int],
     return out
 
 
+def game_by_team(games: list[dict]) -> dict[str, dict]:
+    """nfl_games rows -> {team abbr: game dict from that team's side}.
+
+    A team on a bye has no entry. Rows missing either side are skipped.
+    """
+    out = {}
+    for g in games:
+        home, away = g.get("home_team"), g.get("away_team")
+        if not home or not away:
+            continue
+        common = {"kickoff_utc": g.get("kickoff_utc"), "state": g.get("state"),
+                  "period": g.get("period"), "clock": g.get("clock")}
+        out[home] = {"opp": away, "home": True} | common
+        out[away] = {"opp": home, "home": False} | common
+    return out
+
+
+def attach_row_context(rows: list[dict], latest: dict[tuple[int, int], dict],
+                       experience: dict[int, int], games: dict[str, dict]) -> None:
+    """Mutate each row in place with injury, lineup slot, experience and next game.
+
+    `latest` is keyed (player_id, team_id). Injury, slot and starter flag are
+    only read from the row of the team the player is on now (`on_team_id`);
+    a free agent, or a player whose old row belongs to another team, gets None
+    rather than a weeks-old status. Every key is always set.
+    """
+    for row in rows:
+        team_id = row.get("on_team_id")
+        src = latest.get((row["player_id"], int(team_id))) if team_id else None
+        src = src or {}
+        row["injury_status"] = src.get("injury_status")
+        row["lineup_slot"] = src.get("lineup_slot")
+        row["is_starter"] = src.get("is_starter")
+        row["experience_years"] = experience.get(row["player_id"])
+        row["game"] = games.get(row.get("pro_team") or "")
+
+
+# Column groups the page can show or hide as a unit. Player/Pos/NFL/Owner/Own%/
+# Tot/Avg are always on and belong to no group. Every group is on by default:
+# the page used to render all of them.
+COLUMN_GROUPS = [
+    ("weeks", "Weekly"), ("proj", "Projection"), ("matchup", "Matchup"),
+    ("usage", "Usage"), ("pass", "Passing"), ("rush", "Rushing"),
+    ("rec", "Receiving"), ("kick", "Kicking"), ("def", "Defense"),
+]
+_MATCHUP_COLS = {"opp", "run_rank", "pass_rank", "kick_rank", "def_rank"}
+
+
+def parse_cols(raw: str | None) -> set[str]:
+    """The visible column-group keys for a `cols` param; default is every group."""
+    valid = {k for k, _ in COLUMN_GROUPS}
+    asked = {t.strip() for t in (raw or "").split(",")} & valid
+    return asked or valid
+
+
+def column_groups(raw: str | None) -> list[dict]:
+    on = parse_cols(raw)
+    return [{"key": k, "label": label, "default_on": True, "on": k in on}
+            for k, label in COLUMN_GROUPS]
+
+
+def _column_group(key: str, stat_families: dict[str, str]) -> str | None:
+    if key.startswith("w") and key[1:].isdigit():
+        return "weeks"
+    if key == "projected":
+        return "proj"
+    if key in _MATCHUP_COLS:
+        return "matchup"
+    if key in ("gp", "snap_pct"):
+        return "usage"
+    return stat_families.get(key)
+
+
 def columns(played: list[int], next_week: int | None, pos: str, matchups: bool) -> list[dict]:
     """The table's column set, in display order, for the current filters.
 
@@ -330,7 +403,172 @@ def columns(played: list[int], next_week: int | None, pos: str, matchups: bool) 
             if fam == family:
                 cols.append(col(key, label, "pct" if key == "tgt_share" else "int",
                                 True, title=title))
+    stat_families = {key: fam for key, _, _, fam in nflstats.STAT_COLUMNS}
+    for c in cols:
+        c["group"] = _column_group(c["key"], stat_families)
     return cols
+
+
+_INJ_CODES = {"q": "QUESTIONABLE", "d": "DOUBTFUL", "o": "OUT", "ir": "INJURY_RESERVE"}
+_FLOAT_FILTERS = {"avg_min": None, "proj_min": None, "own_min": (0, 100),
+                  "own_max": (0, 100), "snap_min": (0, 100)}
+
+
+def _csv(raw: str | None) -> list[str]:
+    return [t.strip() for t in (raw or "").split(",") if t.strip()]
+
+
+def merged(query, key: str) -> str | None:
+    """A param as one csv string, joining repeats (`inj=q&inj=d`, which a plain
+    HTML form with checkboxes submits) with commas. Plain dicts have no repeats."""
+    getlist = getattr(query, "getlist", None)
+    if getlist is None:
+        return query.get(key)
+    values = getlist(key)
+    return ",".join(values) if values else None
+
+
+def parse_filters(query) -> dict:
+    """The normalized active filters from a query-param mapping.
+
+    Only filters that actually narrow the page appear, so an empty dict means
+    "no filters". Invalid values are dropped, never an error. The legacy
+    `available=1` reads as `avail=free`.
+    """
+    f: dict = {}
+    q = (query.get("q") or "").strip()
+    if q:
+        f["q"] = q
+    teams = sorted({t.upper() for t in _csv(merged(query, "team"))})
+    if teams:
+        f["team"] = teams
+    owners: list = []
+    for tok in _csv(merged(query, "owner")):
+        if tok.lower() == "fa":
+            owners.append("fa")
+        elif tok.isdigit():
+            owners.append(int(tok))
+    if owners:
+        f["owner"] = list(dict.fromkeys(owners))
+    avail = query.get("avail")
+    if avail not in ("free", "rostered"):
+        avail = "free" if query.get("available") == "1" else None
+    if avail:
+        f["avail"] = avail
+    for key, bounds in _FLOAT_FILTERS.items():
+        try:
+            value = float(query.get(key))
+        except (TypeError, ValueError):
+            continue
+        if value != value or value in (float("inf"), float("-inf")):
+            continue
+        if bounds:
+            value = min(max(value, bounds[0]), bounds[1])
+        f[key] = value
+    for key in ("rookie", "starter", "plays"):
+        if query.get(key) == "1":
+            f[key] = 1
+    raw_inj = (merged(query, "inj") or "").strip().lower()
+    if raw_inj == "any":
+        f["inj"] = ["any"]
+    else:
+        inj = [t for t in dict.fromkeys(_csv(raw_inj)) if t in _INJ_CODES]
+        if inj:
+            f["inj"] = inj
+    return f
+
+
+def apply_filters(rows: list[dict], f: dict) -> list[dict]:
+    """`rows` narrowed by the normalized filters; all of them must match.
+
+    Order is preserved. A numeric filter excludes rows whose value is None.
+    """
+    def num(key, test):
+        return lambda r: r.get(key) is not None and test(r[key])
+
+    tests = []
+    if "q" in f:
+        needle = f["q"].casefold()
+        tests.append(lambda r: needle in (r.get("name") or "").casefold())
+    if "team" in f:
+        tests.append(lambda r: r.get("pro_team") in f["team"])
+    if "owner" in f:
+        tests.append(lambda r: ("fa" in f["owner"] if not r.get("on_team_id")
+                                else r["on_team_id"] in f["owner"]))
+    if f.get("avail") == "free":
+        tests.append(lambda r: not r.get("on_team_id"))
+    elif f.get("avail") == "rostered":
+        tests.append(lambda r: bool(r.get("on_team_id")))
+    for key, row_key, op in (("avg_min", "avg", "ge"), ("proj_min", "projected", "ge"),
+                             ("own_min", "percent_owned", "ge"), ("own_max", "percent_owned", "le"),
+                             ("snap_min", "snap_pct", "ge")):
+        if key in f:
+            limit = f[key]
+            # snap_pct is a 0-1 fraction on the row; the filter is a 0-100 percent.
+            scale = 100 if row_key == "snap_pct" else 1
+            tests.append(num(row_key, (lambda v, limit=limit, scale=scale: v * scale >= limit)
+                             if op == "ge"
+                             else (lambda v, limit=limit, scale=scale: v * scale <= limit)))
+    if f.get("rookie"):
+        tests.append(lambda r: bool(r.get("rookie")))
+    if f.get("starter"):
+        tests.append(lambda r: r.get("is_starter") == 1)
+    if f.get("plays"):
+        tests.append(lambda r: r.get("game") is not None)
+    if "inj" in f:
+        if f["inj"] == ["any"]:
+            tests.append(lambda r: bool(r.get("injury_status"))
+                         and str(r["injury_status"]).upper() != "ACTIVE")
+        else:
+            codes = {_INJ_CODES[t] for t in f["inj"]}
+            tests.append(lambda r: str(r.get("injury_status") or "").upper() in codes)
+    return [r for r in rows if all(t(r) for t in tests)]
+
+
+def _fmt(value) -> str:
+    return f"{value:g}" if isinstance(value, float) else str(value)
+
+
+def filter_params(f: dict) -> dict[str, str]:
+    """Normalized filters back to query-string values."""
+    out = {}
+    for key, value in f.items():
+        out[key] = ",".join(_fmt(v) for v in value) if isinstance(value, list) else _fmt(value)
+    return out
+
+
+_FILTER_LABELS = {
+    "q": "Name", "team": "NFL team", "owner": "Owner", "avg_min": "Avg \u2265",
+    "proj_min": "Proj \u2265", "own_min": "Own% \u2265", "own_max": "Own% \u2264",
+    "snap_min": "Snap% \u2265", "rookie": "Rookies", "starter": "Starters",
+    "plays": "Has a game", "inj": "Injury",
+}
+_AVAIL_LABELS = {"free": "Free agents", "rostered": "Rostered"}
+
+
+def active_filters(f: dict, owners: dict[int, str], keep: dict[str, str]) -> list[dict]:
+    """One chip per active filter; `keep` are the non-filter params (pos, sort,
+    dir, cols) every remove_url carries along."""
+    from urllib.parse import urlencode
+    params = filter_params(f)
+    chips = []
+    for key, value in f.items():
+        if key == "avail":
+            label, value_label = _AVAIL_LABELS[value], ""
+        elif key in ("rookie", "starter", "plays"):
+            label, value_label = _FILTER_LABELS[key], ""
+        elif key == "owner":
+            label = _FILTER_LABELS[key]
+            value_label = ", ".join("Free agents" if v == "fa" else owners.get(v, f"Team {v}")
+                                    for v in value)
+        elif isinstance(value, list):
+            label, value_label = _FILTER_LABELS[key], ", ".join(value)
+        else:
+            label, value_label = _FILTER_LABELS[key], _fmt(value)
+        rest = {k: v for k, v in (params | keep).items() if k != key}
+        chips.append({"key": key, "label": label, "value_label": value_label,
+                      "remove_url": "/players" + ("?" + urlencode(rest) if rest else "")})
+    return chips
 
 
 def resolve_sort(sort: str | None, direction: str | None, cols: list[dict],
