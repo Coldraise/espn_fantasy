@@ -185,6 +185,20 @@
       nrChips.appendChild(resetLink());
     }
     if (sheetLabel) sheetLabel.textContent = 'Filters' + (chips.length ? ' (' + chips.length + ')' : '');
+    updateMoreBadge(chips);
+  }
+  /* The "More filters" badge counts the filters that live inside that panel. */
+  var MORE_KEYS = ['team', 'owner', 'avg_min', 'proj_min', 'own_min', 'own_max', 'snap_min',
+    'rookie', 'plays', 'starter', 'inj'];
+  function updateMoreBadge(chips) {
+    var btn = form.querySelector('.fmore-btn');
+    if (!btn) return;
+    var n = chips.filter(function (c) { return MORE_KEYS.indexOf(c.key) >= 0; }).length;
+    var badge = btn.querySelector('.fmore-n');
+    if (!n) { if (badge) badge.remove(); return; }
+    if (!badge) { badge = el('span', 'fmore-n'); btn.appendChild(badge); }
+    badge.textContent = String(n);
+    badge.setAttribute('aria-label', n + ' active');
   }
 
   /* ---------- URL ---------- */
@@ -498,4 +512,37 @@
   // Browsers restore form values on back/forward; reconcile the table with them.
   window.addEventListener('pageshow', function (e) { if (e.persisted) onChange(true); });
   void s0;
+})();
+
+/* "More filters" panel (>=1024px): Escape closes it and hands focus back to its
+   button; a click anywhere outside it closes it too. */
+(function () {
+  'use strict';
+  var more = document.getElementById('pf-more');
+  if (!more) return;
+  more.addEventListener('keydown', function (e) {
+    if (e.key !== 'Escape' || !more.open) return;
+    more.open = false;
+    var btn = more.querySelector('.fmore-btn');
+    if (btn) btn.focus();
+    e.stopPropagation();
+  });
+  document.addEventListener('click', function (e) {
+    if (more.open && !more.contains(e.target)) more.open = false;
+  });
+})();
+
+/* From 1024px up the filter sheet is always open and its summary hidden. That
+   is done in script too, so browsers without ::details-content (which hide a
+   closed <details>' contents) still show the filters. Below 1024px the sheet is
+   the phone's Filters / Close toggle and is left alone. */
+(function () {
+  'use strict';
+  var sheet = document.getElementById('pf-sheet');
+  if (!sheet || !window.matchMedia) return;
+  var mq = window.matchMedia('(min-width:1024px)');
+  function sync() { sheet.open = mq.matches; }
+  sync();
+  if (mq.addEventListener) mq.addEventListener('change', sync); else mq.addListener(sync);
+  sheet.addEventListener('toggle', function () { if (mq.matches && !sheet.open) sheet.open = true; });
 })();

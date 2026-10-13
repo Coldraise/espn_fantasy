@@ -1195,6 +1195,23 @@ def fetch_nfl_player_weeks(conn, season: int, gsis_ids: list[str] | None = None)
     return [dict(r) for r in conn.execute(sql + " ORDER BY week, gsis_id", params)]
 
 
+def fetch_week_player_tds(conn, season: int, week: int) -> dict[str, int]:
+    """{gsis_id: touchdowns the player scored himself} for one week, one query.
+
+    Rushing + receiving + defensive/return TDs (nflverse's player table has no
+    separate return column; def_tds is the only other one). Passing TDs thrown
+    are deliberately excluded.
+    """
+    out: dict[str, int] = {}
+    for r in conn.execute(
+            """SELECT gsis_id,
+                      COALESCE(rushing_tds, 0) + COALESCE(receiving_tds, 0)
+                      + COALESCE(def_tds, 0) AS n
+               FROM nfl_player_weeks WHERE season=? AND week=?""", (season, week)):
+        out[r["gsis_id"]] = out.get(r["gsis_id"], 0) + max(int(r["n"] or 0), 0)
+    return out
+
+
 def fetch_nfl_player_down_weeks(conn, season: int, gsis_ids: list[str] | None = None) -> list[dict]:
     """Per-down target/carry counts, optionally narrowed to one set of players.
 

@@ -69,7 +69,6 @@
   --gutter: 20px;          /* 32px >=1024, 40px >=1440 */
   --page-max: 1880px;      /* lg/xl pages with a rail */
   --rail-w: 320px;         /* 360px >=1920 */
-  --filter-w: 272px;       /* players filter rail */
   --col-gap: 28px;
   --rail-top: calc(var(--topbar-h) + 16px);
   --prose-max: 72ch;
@@ -82,6 +81,10 @@
   --ease-out: cubic-bezier(.2,.7,.2,1);
   --ease-io:  cubic-bezier(.4,0,.2,1);
   --ease-in:  cubic-bezier(.4,0,1,1);   /* exits */
+  --hover-line: rgba(232,239,235,.22);  /* hover border */
+  --lift-hover: 0 12px 30px rgba(0,0,0,.30), 0 1px 0 rgba(232,239,235,.05) inset;
+  --main-px: 20px;                      /* main inline padding, read by full-bleed children */
+  --td-size: 15px;                      /* touchdown football */
   --stagger: 18ms;
 }
 @media (min-width: 1024px) { :root { --gutter: 32px; } }
@@ -751,9 +754,8 @@ mark { background: var(--amber-soft); color: inherit; border-radius: 3px; paddin
    read as unfinished rather than as deliberate. Only the pointer survives from
    the flattened version. */
 .restbox .games.compact .game { cursor: pointer; }
-.restbox .games.compact .game:hover { border-color: var(--red); }
 .restbox .games.compact .game:focus-visible {
-  outline: 2px solid var(--red); outline-offset: 2px;
+  outline: 2px solid var(--green); outline-offset: 2px;
 }
 .resthint { margin: 8px 0 8px; text-align: center; }
 /* A card shows a top three; the modal it opens shows everything. The rows are
@@ -1441,7 +1443,7 @@ main > p.muted, .notice { max-width: var(--prose-max); }
     gap: var(--col-gap); max-width: var(--page-max); padding-inline: var(--gutter);
     --card-w: 100%;
   }
-  body:has(main:is(.has-rail, .has-rail-left)) .pagefoot { max-width: var(--page-max); padding-inline: var(--gutter); }
+  body:has(main.has-rail) .pagefoot { max-width: var(--page-max); padding-inline: var(--gutter); }
   .rail {
     margin-top: 0; display: flex; flex-direction: column; align-items: stretch; gap: 12px;
     position: sticky; top: var(--rail-top); align-self: start;
@@ -1536,22 +1538,7 @@ table.data td.empty-row { text-align: center; padding: 26px 12px; }
                         letter-spacing: .05em; }
 .rail-card .who { font-size: 11px; color: var(--muted); margin: 8px 0 2px; }
 
-/* ---------- players: left filter rail, form, chips ---------- */
-.rail-left { display: block; margin-bottom: 16px; }
-.main-col { min-width: 0; }
-@media (min-width: 1440px) {
-  main.has-rail-left {
-    display: grid; grid-template-columns: var(--filter-w) minmax(0, 1fr);
-    gap: var(--col-gap); max-width: var(--page-max); padding-inline: var(--gutter);
-    --card-w: 100%;
-  }
-  .rail-left {
-    margin: 0; position: sticky; top: var(--rail-top); align-self: start;
-    max-height: calc(100dvh - var(--rail-top) - 16px); overflow: auto;
-    display: flex; flex-direction: column; gap: 12px;
-  }
-}
-
+/* ---------- players: filter bar, form, chips ---------- */
 .pf .fld { display: flex; flex-direction: column; gap: 4px; margin: 0; padding: 0; border: 0; min-width: 0; }
 .pf .fld > label, .pf legend, .pf .fgrp > summary {
   font-family: var(--display); font-size: 11px; font-weight: 600; text-transform: uppercase;
@@ -1600,10 +1587,9 @@ table.data td.empty-row { text-align: center; padding: 26px 12px; }
 .fbtn { display: none; }
 .fbtn .s-open { display: none; }
 
-.quick { display: flex; flex-direction: column; gap: 2px; }
-.quick h3 { margin-bottom: 6px; }
-.quick a { color: var(--ink); text-decoration: none; font-size: 13px; padding: 5px 0; border-bottom: 1px solid var(--line-soft); }
-.quick a:last-child { border-bottom: 0; }
+.quick { display: flex; flex-direction: row; flex-wrap: wrap; gap: 6px 16px; align-items: baseline; margin: 8px 0 4px; }
+.quick h3 { margin: 0; }
+.quick a { color: var(--ink); text-decoration: none; font-size: 13px; padding: 5px 0; }
 .quick a:hover { color: var(--red); }
 
 .pcount { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin: -6px 0 10px; min-height: 26px; }
@@ -1636,35 +1622,48 @@ table.data td.empty-row { text-align: center; padding: 26px 12px; }
 @supports selector(::details-content) {
   .fgrp::details-content { content-visibility: visible; }
   .fgrp > summary { pointer-events: none; }
-  @media (min-width: 1024px) {
-    .fsheet-wrap::details-content { content-visibility: visible; }
-    .fsheet-wrap > summary { display: none; }
-  }
 }
 
-/* md: one horizontal bar above the table */
-@media (min-width: 1024px) and (max-width: 1439px) {
-  .pf-top { flex-direction: row; flex-wrap: wrap; align-items: flex-end; gap: 10px 14px; }
-  .pf-top .grow { flex: 1 1 220px; }
-  .fsheet-wrap { flex: 2 1 auto; }
-  .fsheet { flex-direction: row; flex-wrap: wrap; align-items: flex-end; gap: 10px 14px; }
+/* >=1024: one top bar -- search, Availability, Position, "More filters" panel */
+@media (min-width: 1024px) {
+  .pf { position: relative; margin-bottom: 10px; }
+  .pf-top { flex-direction: row; align-items: flex-end; gap: 10px 16px; }
+  .pf-top .grow { flex: 0 1 320px; }
+  .fsheet { flex-direction: row; flex-wrap: nowrap; align-items: flex-end; gap: 10px 16px; }
   .fsheet > * + * { padding-top: 0; border-top: 0; }
-  .fsheet .fld select { width: 150px; }
-  @supports selector(::details-content) {
-    .fgrp::details-content { content-visibility: hidden; }
-    .fgrp > summary { pointer-events: auto; height: 32px; display: inline-flex; align-items: center; padding: 0 12px;
-      border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
-    .fgrp[open]::details-content { content-visibility: visible; }
+  .fsheet .seg { flex-wrap: wrap; }
+  .fmore-btn { height: 32px; display: inline-flex; align-items: center; gap: 6px; padding: 0 12px;
+    border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--ink);
+    font-family: var(--display); font-size: 12.5px; letter-spacing: .08em; text-transform: uppercase;
+    cursor: pointer; list-style: none; }
+  .fmore-btn::-webkit-details-marker { display: none; }
+  .fmore-btn::after { content: "▾"; font-size: 10px; color: var(--muted);
+    transition: transform var(--dur-1) var(--ease-out); }
+  .fmore[open] > .fmore-btn { border-color: var(--hover-line); background: var(--raised); }
+  .fmore[open] > .fmore-btn::after { transform: rotate(180deg); }
+  .fmore-btn:hover { border-color: var(--hover-line); }
+  .fmore-btn:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
+  .fmore-n { min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: var(--red);
+    color: var(--on-accent); font-size: 11px; font-weight: 700; display: inline-grid; place-items: center; }
+  .fmore[open] > .fmore-panel {
+    position: absolute; left: 0; right: 0; top: calc(100% + 6px); z-index: 20;
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px 20px;
+    padding: 16px; background: var(--surface); border: 1px solid var(--line);
+    border-radius: var(--radius); box-shadow: var(--lift);
+    animation: fmore-in var(--dur-2) var(--ease-out);
   }
-  .fgrp { position: relative; }
-  .fgrp[open] > .fgrp-panel {
-    position: absolute; top: 100%; left: 0; z-index: 20; width: 280px; margin-top: 4px; padding: 12px;
-    background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--lift);
-  }
-  .quick { flex-direction: row; flex-wrap: wrap; gap: 6px 16px; align-items: baseline; margin-bottom: 4px; }
-  .quick h3 { margin: 0; }
-  .quick a { border: 0; padding: 0; }
+  @keyframes fmore-in { from { opacity: 0; transform: translateY(-4px); } }
+  .fmore-panel .fgrp > summary { pointer-events: none; }              /* sections always expanded */
+  .fmore-panel .fgrp::details-content { content-visibility: visible; }
+  .fsheet-wrap::details-content { content-visibility: visible; }
+  .fsheet-wrap > summary { display: none; }
+  .pf-foot { margin-left: auto; }
+  main.wide { --main-px: var(--gutter); }
 }
+@media (prefers-reduced-motion: reduce) { .fmore[open] > .fmore-panel { animation: none; } }
+
+/* The full-width players page. */
+main.wide { max-width: none; padding-inline: var(--main-px); }
 
 /* sm/xs: search + Filters button; everything else in a full-screen sheet */
 @media (max-width: 1023px) {
@@ -1676,9 +1675,13 @@ table.data td.empty-row { text-align: center; padding: 26px 12px; }
     overscroll-behavior-x: contain; touch-action: pan-x pan-y;
   }
   .ptab-scroll:has(tr.noresult) { min-height: 200px; }
-  main.has-rail-left { overflow-x: clip; }
-  /* Dissolve the aside so the form's sticky parent is <main>, as tall as the page. */
-  .rail-left { display: contents; }
+  main.wide { overflow-x: clip; }
+  main.wide .ptab-scroll { margin-inline: calc(-1 * var(--main-px)); border-inline: 0; border-radius: 0; }
+  main.wide .pf { margin-inline: calc(-1 * var(--main-px)); padding-inline: var(--main-px); }  /* full-bleed sticky bar */
+  .ptab { --rank-w: 36px; }
+  .ptab .c-rank { padding-left: 10px; }      /* the digit doesn't touch the screen edge */
+  .fmore-panel { display: flex; flex-direction: column; gap: 18px; }
+  @supports selector(::details-content) { .fmore-btn { display: none; } .fmore::details-content { content-visibility: visible; } }
   .pf {
     position: sticky; top: var(--topbar-h); z-index: 5; background: var(--bg);
     padding: 8px 0; margin-bottom: 8px;
@@ -1709,9 +1712,8 @@ table.data td.empty-row { text-align: center; padding: 26px 12px; }
   .seg label span, .chk span { min-height: 44px; }
   .fgrp-panel { padding-top: 10px; }
   .pf .fgrp > summary { pointer-events: none; }
-  .quick { flex-direction: row; gap: 6px 16px; overflow-x: auto; white-space: nowrap; align-items: baseline; margin: 8px 0 4px; }
-  .quick h3 { margin: 0; }
-  .quick a { border: 0; padding: 4px 0; }
+  .quick { overflow-x: auto; white-space: nowrap; }
+  .quick a { padding: 4px 0; }
   .pcount { flex-wrap: nowrap; overflow-x: auto; }
   .fchips { flex-wrap: nowrap; white-space: nowrap; }
 }
@@ -1766,6 +1768,8 @@ table.data td.empty-row { text-align: center; padding: 26px 12px; }
     --tap: 44px;             /* minimum touch target */
     --name-w: 132px;         /* sticky team/player column */
     --score: clamp(24px, 7vw, 30px);
+    --main-px: 12px;
+    --td-size: 14px;
   }
   main { padding: 16px var(--gutter) 48px; }
   .pagefoot { padding-inline: var(--gutter); }
@@ -1947,4 +1951,141 @@ table.data td.empty-row { text-align: center; padding: 26px 12px; }
   }
   .quick { flex-wrap: wrap; overflow: visible; white-space: normal; gap: 0 18px; }
   .quick a { min-height: var(--tap); display: inline-flex; align-items: center; padding: 0; }
+}
+
+/* ---------- matchup picker, full matchup view, touchdowns ---------- */
+.sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden;
+           clip: rect(0 0 0 0); white-space: nowrap; border: 0; padding: 0; }
+
+.mpick { margin: 0 0 16px; }
+.mpick-list {
+  list-style: none; margin: 0; padding: 2px 0 6px;          /* room for the focus ring and lift */
+  display: grid; grid-auto-flow: column;
+  grid-auto-columns: minmax(156px, 240px); gap: 8px;
+  overflow-x: auto; scroll-snap-type: x proximity; scrollbar-width: thin;
+  overscroll-behavior-x: contain; position: relative;
+}
+.mpick-list > li { scroll-snap-align: start; min-width: 0; }
+.mpk {
+  display: grid; gap: 3px; height: 100%;
+  padding: 8px 10px 9px; border-radius: var(--radius);
+  background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow);
+  color: var(--ink); text-decoration: none; position: relative;
+}
+.mpk-state { display: flex; justify-content: space-between; align-items: center; height: 14px;
+  font-family: var(--display); font-size: 10.5px; font-weight: 700; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--muted); }
+.mpk.is-live .mpk-st { color: var(--live); }
+.mpk.is-live .mpk-st::before { content: ""; display: inline-block; width: 6px; height: 6px;
+  border-radius: 50%; background: var(--live); margin-right: 5px; vertical-align: 1px; }  /* static, no pulse */
+.mpk-you { color: var(--on-accent); background: var(--green); border-radius: 3px; padding: 0 4px;
+  letter-spacing: .08em; }
+.mpk-row { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 8px; align-items: baseline;
+  font-size: 13px; line-height: 18px; color: var(--muted); }
+.mpk-row.lead { color: var(--ink); }
+.mpk-tm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mpk-sc { font-family: var(--display); font-size: 16px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.mpk[aria-current="true"] {
+  background: linear-gradient(var(--red-tint), var(--red-tint)), var(--surface);
+  border-color: var(--red); box-shadow: inset 0 2px 0 var(--red), var(--shadow);
+}
+.mpk:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
+#sb.is-loading .mview { opacity: .6; transition: opacity var(--dur-2) var(--ease-out); }
+
+/* card and picker hover: quiet */
+.mpk, .game[role=button], a.game {
+  transition: transform var(--dur-1) var(--ease-out), border-color var(--dur-1) var(--ease-out),
+              background-color var(--dur-1) var(--ease-out), box-shadow var(--dur-2) var(--ease-out);
+}
+@media (hover: hover) and (pointer: fine) {
+  .mpk:hover, .game[role=button]:hover, a.game:hover {
+    transform: translateY(-1px); border-color: var(--hover-line);
+    background-image: linear-gradient(var(--green-tint), var(--green-tint));
+    box-shadow: var(--lift-hover);
+  }
+  .mpk[aria-current="true"]:hover { border-color: var(--red);
+    background-image: linear-gradient(var(--red-tint), var(--red-tint)); }
+}
+.mpk:active, .game[role=button]:active { transform: none; transition-duration: var(--dur-1); }
+@media (prefers-reduced-motion: reduce) {
+  .mpk, .game[role=button], a.game { transition: border-color var(--dur-1) linear,
+    background-color var(--dur-1) linear, box-shadow var(--dur-1) linear; }
+  .mpk:hover, .game[role=button]:hover, a.game:hover { transform: none; }
+}
+
+/* the full matchup view */
+.mview { max-width: min(var(--card-w), 1260px); margin: 0 auto; padding: 22px 26px 18px;
+  border-top: 3px solid var(--red); box-shadow: var(--lift); }
+.mview .mname { font-size: 24px; }  .mview .mscore { font-size: 46px; }  .mview .mmid .margin { font-size: 19px; }
+.mview .mmid { min-width: 24px; }
+.mtab { width: 100%; table-layout: fixed; border-collapse: separate; border-spacing: 0;
+  margin: 14px 0 0; padding: 0; background: none; border: 0; box-shadow: none; font-size: 13.5px;
+  border-radius: 0; overflow: visible; }
+.mtab td, .mtab th { padding: 0; }
+.mtab col.c-pts { width: 72px; }  .mtab col.c-slot { width: 56px; }
+.mtab tr:not(.grp-h) > * { height: 32px; vertical-align: middle; border-bottom: 1px solid var(--line-soft); }
+.mtab .mp .lp { display: flex; align-items: baseline; gap: 6px; min-width: 0; padding: 0 8px; }
+.mtab .mp.away .lp { flex-direction: row-reverse; }
+.mtab .pname { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.mtab .lp-meta { display: contents; }
+.mtab .mpts { text-align: center; font-weight: 650; font-variant-numeric: tabular-nums; line-height: 1.1; }
+.mtab .pproj { display: block; font-size: 10px; font-weight: 500; color: var(--muted); }
+.mtab .mslot { font-family: var(--display); font-size: 10px; font-weight: 700; letter-spacing: .06em;
+  color: var(--green); text-align: center; text-transform: none; }
+.mtab .mslot::before { content: none; }
+.mtab .grp-h > th { padding: 16px 8px 6px; text-align: center; font-family: var(--display);
+  font-size: 11px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--muted);
+  border-bottom: 1px solid var(--line); background: none; }
+.mtab .grp-start .grp-h > th { padding-top: 4px; }
+.mtab .grp-bench .pname, .mtab .grp-ir .pname { opacity: .8; }   /* dim the name only: muted text keeps its contrast */
+.mtab .grp-bench .mslot, .mtab .grp-ir .mslot { color: var(--muted); }
+@media (hover: hover) and (pointer: fine) {
+  .mtab tbody tr:not(.grp-h):hover > * { background: var(--line-soft); }
+}
+
+/* touchdowns */
+.tds { display: inline-flex; align-items: center; gap: 2px; flex: none; color: var(--red);
+  vertical-align: -1px; margin-inline: 4px; }
+.td-fb { width: calc(var(--td-size) * 1.25); height: calc(var(--td-size) * .75); display: block; }
+.tds-n { margin-left: 2px; font-family: var(--display); font-size: 11px; font-weight: 700;
+  color: var(--red); font-variant-numeric: tabular-nums; }
+.lineup .lp-meta { display: contents; }
+
+@media (max-width: 640px) {
+  .mpick { margin-inline: calc(-1 * var(--main-px)); }              /* chips scroll off the screen edge */
+  .mpick-list { grid-auto-columns: 148px; padding-inline: var(--main-px);
+    scroll-padding-inline: var(--main-px); scrollbar-width: none; }
+  .mpick-list::-webkit-scrollbar { display: none; }
+  .mpk { min-height: var(--tap); padding: 8px 10px; }
+  .mpk-row { font-size: 12.5px; }
+  .mview { margin-inline: calc(-1 * var(--main-px)); border-radius: 0; border-inline: 0;
+    padding: 14px var(--main-px) 12px; }
+  .mview .mname { font-size: 15px; } .mview .mnum .mscore { font-size: var(--score); }
+  .mtab { font-size: 12px; }
+  .mtab col.c-pts { width: 46px; } .mtab col.c-slot { width: 34px; } .mtab .mslot { font-size: 9.5px; }
+  .mtab tr:not(.grp-h) > * { height: 40px; }
+  .mtab .mp .lp { display: grid; grid-template-columns: minmax(0,1fr); row-gap: 1px; padding: 0 7px; }
+  .mtab .mp.away .lp { justify-items: end; text-align: right; }
+  .mtab .nm-full { display: none; } .mtab .nm-abbr { display: inline; }
+  .mtab .lp-meta { display: flex; gap: 4px; align-items: center; font-size: 10px; color: var(--muted); }
+  .mtab .mp.away .lp-meta { flex-direction: row-reverse; }
+  .mtab .pro, .game .mtab .gtime { display: inline; }
+}
+
+/* Matchup view: neutral cell, thin team-colour bar on the outer edge (as the
+   players page does), instead of a full team-colour fill. */
+.mtab .lp.tinted { background: none; box-shadow: inset 3px 0 0 var(--tc); }
+.mtab .lp.away.tinted { box-shadow: inset -3px 0 0 var(--tc); }
+
+/* Phones: 2-3 footballs collapse to one plus the count, so the meta line fits
+   its cell with room before the score column. */
+.tds-ph { display: none; }
+@media (max-width: 640px) {
+  .mtab .td-x { display: none; }
+  .mtab .tds-ph { display: inline; }
+  .mtab .tds { margin-inline: 0; }
+  .mtab .mp .lp > .pname, .mtab .mp .lp > .lp-meta { max-width: 100%; }
+  .mtab .lp-meta { gap: 3px; min-width: 0; }
+  .mtab .mp .lp { padding-inline: 7px 9px; }
+  .mtab .mp.away .lp { padding-inline: 9px 7px; }
 }

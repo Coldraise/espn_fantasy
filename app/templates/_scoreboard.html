@@ -2,24 +2,45 @@
   <p class="empty">No data yet. Run the backfill:
     <code>docker compose run --rm fantasy python scripts/backfill.py</code></p>
 {% else %}
-  {% if my_game %}
-    <h2 class="mine-head">Your matchup</h2>
-    <div class="games feature">
-      {% with game = my_game, compact = false %}{% include "_matchup.html" %}{% endwith %}
-    </div>
-  {% endif %}
-  {% if other_games %}
-    {% if my_game %}<h2>Rest of the week</h2>{% endif %}
-    {# One panel rather than loose cards, and each opens in place. #}
-    <div class="restbox">
-      <div class="games compact">
-        {% for game in other_games %}
-          {% with compact = true %}{% include "_matchup.html" %}{% endwith %}
-        {% endfor %}
-      </div>
-      <p class="resthint muted small">Tap a matchup for the full lineups, bench and IR</p>
-    </div>
-  {% elif not my_game %}
-    <p class="empty">No matchups scheduled for this week.</p>
-  {% endif %}
+{# The poller lives inside the fragment so every refresh asks for the same
+   matchup the reader is looking at. #}
+{% if live %}
+<div hidden hx-get="/fragment/scoreboard?{{ {'season': season, 'm': selected_gid}|urlencode }}"
+     hx-trigger="every 30s" hx-target="#sb" hx-swap="innerHTML" hx-sync="#sb:replace"></div>
+{% endif %}
+{% if games %}
+<h2 id="mpick-h">Matchups</h2>
+<nav class="mpick" aria-labelledby="mpick-h">
+  <ul class="mpick-list" role="list">
+    {% for g in games %}
+    {% set hs = g.home.points or 0 %}{% set as_ = (g.away.points or 0) if g.away else 0 %}
+    <li>
+      <a class="mpk {{ 'is-mine' if g.mine }} {{ 'is-live' if live and not g.final }} {{ 'is-final' if g.final }}"
+         id="mpk-{{ g.gid }}"
+         href="/?{{ {'season': season, 'm': g.gid}|urlencode }}"
+         hx-get="/fragment/scoreboard?{{ {'season': season, 'm': g.gid}|urlencode }}"
+         hx-target="#sb" hx-swap="innerHTML show:none" hx-sync="#sb:replace"
+         hx-push-url="/?{{ {'season': season, 'm': g.gid}|urlencode }}"
+         data-home="{{ g.home.name }}" data-away="{{ g.away.name if g.away else 'a bye' }}"
+         {% if g.gid == selected_gid %}aria-current="true"{% endif %}
+         aria-label="{{ g.home.name }} {{ hs|pts }}, {{ g.away.name if g.away else 'bye' }}{% if g.away %} {{ as_|pts }}{% endif %}, {{ 'final' if g.final else ('live' if live else 'not started') }}{{ ', your matchup' if g.mine }}">
+        <span class="mpk-state" aria-hidden="true">
+          <span class="mpk-st">{{ 'Final' if g.final else ('Live' if live else 'Proj') }}</span>
+          {% if g.mine %}<span class="mpk-you">You</span>{% endif %}
+        </span>
+        <span class="mpk-row {{ 'lead' if hs > as_ }}" aria-hidden="true">
+          <span class="mpk-tm">{{ g.home.name }}</span><span class="mpk-sc">{{ (g.home.points or g.home.projected or 0)|pts }}</span>
+        </span>
+        <span class="mpk-row {{ 'lead' if g.away and as_ > hs }}" aria-hidden="true">
+          <span class="mpk-tm">{{ g.away.name if g.away else 'BYE' }}</span><span class="mpk-sc">{{ ((g.away.points or g.away.projected or 0)|pts) if g.away else '' }}</span>
+        </span>
+      </a>
+    </li>
+    {% endfor %}
+  </ul>
+</nav>
+{% if selected_game %}{% with game = selected_game %}{% include "_mview.html" %}{% endwith %}{% endif %}
+{% else %}
+<p class="empty">No matchups scheduled for this week.</p>
+{% endif %}
 {% endif %}

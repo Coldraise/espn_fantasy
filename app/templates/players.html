@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% block main_class %}wide{% endblock %}
 {% block content %}
 {# One rank cell: a middot when the position has no game stored for that team
    this week, a bold neutral background on the axis that actually governs this
@@ -25,6 +26,122 @@
 {% if total == 0 and not chips and not available_only %}
   <p class="empty">No player stats stored yet — they load on the next poll.</p>
 {% else %}
+{% set avail = f.get('avail') or ('free' if available_only else 'all') %}
+{% set sel_team = f.get('team') or [] %}
+{% set sel_owner = (f.get('owner') or [])|map('string')|list %}
+{% set sel_inj = f.get('inj') or [] %}
+{% set ns_more = namespace(n=0) %}
+{% for k in ['team','owner','avg_min','proj_min','own_min','own_max','snap_min','rookie','plays','starter','inj'] %}{% if f.get(k) %}{% set ns_more.n = ns_more.n + 1 %}{% endif %}{% endfor %}
+{% set more_n = ns_more.n %}
+<form id="pf" class="pf" role="search" aria-label="Filter players" method="get" action="/players">
+  <input type="hidden" name="sort" value="{{ sort }}">
+  <input type="hidden" name="dir" value="{{ 'desc' if desc else 'asc' }}">
+
+  <div class="pf-top">
+    <div class="fld grow">
+      <label for="pf-q">Search</label>
+      <input id="pf-q" type="search" name="q" placeholder="Player name" value="{{ f.get('q', '') }}" autocomplete="off">
+    </div>
+    <details class="fsheet-wrap" id="pf-sheet">
+      <summary class="fbtn"><span class="s-closed">Filters{% if chips %} ({{ chips|length }}){% endif %}</span><span class="s-open">Close ✕</span></summary>
+      <div class="fsheet">
+        <fieldset class="fld seg">
+          <legend>Availability</legend>
+          {% for val, lab in [('all', 'All'), ('free', 'Available'), ('rostered', 'Rostered')] %}
+          <label><input type="radio" name="avail" value="{{ val }}" {{ 'checked' if avail == val }}><span>{{ lab }}</span></label>
+          {% endfor %}
+        </fieldset>
+
+        <fieldset class="fld seg">
+          <legend>Position</legend>
+          <label><input type="radio" name="pos" value="" {{ 'checked' if not pos }}><span>All</span></label>
+          {% for label in positions %}
+          <label><input type="radio" name="pos" value="{{ label }}" {{ 'checked' if label == pos }}><span>{{ label }}</span></label>
+          {% endfor %}
+        </fieldset>
+
+        <details class="fmore" id="pf-more">
+          <summary class="fmore-btn" aria-controls="pf-more-panel">More filters{% if more_n %}<span class="fmore-n" aria-label="{{ more_n }} active">{{ more_n }}</span>{% endif %}</summary>
+          <div class="fmore-panel" id="pf-more-panel">
+        <div class="fld">
+          <label for="pf-team">NFL team</label>
+          <select id="pf-team" name="team">
+            <option value="">Any</option>
+            {% for t in (teams if teams is defined else []) %}
+            <option value="{{ t }}" {{ 'selected' if t in sel_team }}>{{ t }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="fld">
+          <label for="pf-owner">Owner</label>
+          <select id="pf-owner" name="owner">
+            <option value="">Any</option>
+            <option value="fa" {{ 'selected' if 'fa' in sel_owner }}>Free agents</option>
+            {% for o in (owners if owners is defined else []) %}
+            <option value="{{ o.id }}" {{ 'selected' if o.id|string in sel_owner }}>{{ o.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <details class="fgrp">
+          <summary>Minimums</summary>
+          <div class="fgrp-panel">
+            <div class="fld num"><label for="pf-avg">Avg ≥</label>
+              <input id="pf-avg" type="number" name="avg_min" min="0" max="40" step="0.5" value="{{ f.get('avg_min', '') }}"></div>
+            <div class="fld num"><label for="pf-proj">Proj ≥</label>
+              <input id="pf-proj" type="number" name="proj_min" min="0" max="40" step="0.5" value="{{ f.get('proj_min', '') }}"></div>
+            <div class="fld num"><label for="pf-omin">Own% ≥</label>
+              <input id="pf-omin" type="number" name="own_min" min="0" max="100" step="5" value="{{ f.get('own_min', '') }}"></div>
+            <div class="fld num"><label for="pf-omax">Own% ≤</label>
+              <input id="pf-omax" type="number" name="own_max" min="0" max="100" step="5" value="{{ f.get('own_max', '') }}"></div>
+            <div class="fld num"><label for="pf-snap">Snap% ≥</label>
+              <input id="pf-snap" type="number" name="snap_min" min="0" max="100" step="5" value="{{ f.get('snap_min', '') }}"></div>
+          </div>
+        </details>
+
+        <details class="fgrp">
+          <summary>Status</summary>
+          <div class="fgrp-panel">
+            <label class="chk"><input type="checkbox" name="rookie" value="1" {{ 'checked' if f.get('rookie') }}><span>Rookies</span></label>
+            <label class="chk"><input type="checkbox" name="plays" value="1" {{ 'checked' if f.get('plays') }}><span>Plays this week</span></label>
+            <label class="chk"><input type="checkbox" name="starter" value="1" {{ 'checked' if f.get('starter') }}><span>Starters</span></label>
+            <fieldset class="fld seg inj-set">
+              <legend>Injury</legend>
+              {% for code, lab in [('q', 'Q'), ('d', 'D'), ('o', 'O'), ('ir', 'IR')] %}
+              <label><input type="checkbox" name="inj" value="{{ code }}" {{ 'checked' if code in sel_inj or 'any' in sel_inj }}><span>{{ lab }}</span></label>
+              {% endfor %}
+            </fieldset>
+          </div>
+        </details>
+
+        {% if column_groups is defined and column_groups %}
+        <details class="fgrp">
+          <summary>Columns</summary>
+          <div class="fgrp-panel">
+            {% for g in column_groups %}
+            <label class="chk"><input type="checkbox" name="cols" value="{{ g.key }}" {{ 'checked' if g.on }}><span>{{ g.label }}</span></label>
+            {% endfor %}
+          </div>
+        </details>
+        {% endif %}
+          </div>
+        </details>
+
+        <div class="pf-foot">
+          <button type="submit" class="apply">Apply</button>
+          <a class="freset" href="{{ reset_url }}">Reset</a>
+        </div>
+      </div>
+    </details>
+  </div>
+</form>
+
+<nav class="quick" aria-labelledby="rc-qv">
+  <h3 id="rc-qv">Quick views</h3>
+  <a href="/players?avail=free&amp;plays=1&amp;sort=avg&amp;dir=desc">Waiver targets</a>
+  <a href="/players?rookie=1">Rookies</a>
+  <a href="/players?inj=any&amp;starter=1">Injured starters</a>
+</nav>
 
 <div class="pcount" data-total="{{ total }}">
   <span class="muted" role="status" aria-live="polite"><b>{{ rows|length }}</b> of {{ total }} players</span>
@@ -191,119 +308,3 @@
 
 {% block scripts %}<script src="/static/players.js?v={{ asset_v }}"></script>{% endblock %}
 
-{% block rail_left %}
-{% set f = filters if filters is defined else {} %}
-{% set chips = active_filters if active_filters is defined else [] %}
-{% set total = total_rows if total_rows is defined else rows|length %}
-{% if not (total == 0 and not chips and not available_only) %}
-{% set avail = f.get('avail') or ('free' if available_only else 'all') %}
-{% set sel_team = f.get('team') or [] %}
-{% set sel_owner = (f.get('owner') or [])|map('string')|list %}
-{% set sel_inj = f.get('inj') or [] %}
-{% set reset_url = '/players?' ~ ({'sort': sort, 'dir': 'desc' if desc else 'asc'}|urlencode) %}
-<form id="pf" class="pf" role="search" aria-label="Filter players" method="get" action="/players">
-  <input type="hidden" name="sort" value="{{ sort }}">
-  <input type="hidden" name="dir" value="{{ 'desc' if desc else 'asc' }}">
-
-  <div class="pf-top">
-    <div class="fld grow">
-      <label for="pf-q">Search</label>
-      <input id="pf-q" type="search" name="q" placeholder="Player name" value="{{ f.get('q', '') }}" autocomplete="off">
-    </div>
-    <details class="fsheet-wrap" id="pf-sheet">
-      <summary class="fbtn"><span class="s-closed">Filters{% if chips %} ({{ chips|length }}){% endif %}</span><span class="s-open">Close ✕</span></summary>
-      <div class="fsheet">
-        <fieldset class="fld seg">
-          <legend>Availability</legend>
-          {% for val, lab in [('all', 'All'), ('free', 'Available'), ('rostered', 'Rostered')] %}
-          <label><input type="radio" name="avail" value="{{ val }}" {{ 'checked' if avail == val }}><span>{{ lab }}</span></label>
-          {% endfor %}
-        </fieldset>
-
-        <fieldset class="fld seg">
-          <legend>Position</legend>
-          <label><input type="radio" name="pos" value="" {{ 'checked' if not pos }}><span>All</span></label>
-          {% for label in positions %}
-          <label><input type="radio" name="pos" value="{{ label }}" {{ 'checked' if label == pos }}><span>{{ label }}</span></label>
-          {% endfor %}
-        </fieldset>
-
-        <div class="fld">
-          <label for="pf-team">NFL team</label>
-          <select id="pf-team" name="team">
-            <option value="">Any</option>
-            {% for t in (teams if teams is defined else []) %}
-            <option value="{{ t }}" {{ 'selected' if t in sel_team }}>{{ t }}</option>
-            {% endfor %}
-          </select>
-        </div>
-        <div class="fld">
-          <label for="pf-owner">Owner</label>
-          <select id="pf-owner" name="owner">
-            <option value="">Any</option>
-            <option value="fa" {{ 'selected' if 'fa' in sel_owner }}>Free agents</option>
-            {% for o in (owners if owners is defined else []) %}
-            <option value="{{ o.id }}" {{ 'selected' if o.id|string in sel_owner }}>{{ o.name }}</option>
-            {% endfor %}
-          </select>
-        </div>
-
-        <details class="fgrp">
-          <summary>Minimums</summary>
-          <div class="fgrp-panel">
-            <div class="fld num"><label for="pf-avg">Avg ≥</label>
-              <input id="pf-avg" type="number" name="avg_min" min="0" max="40" step="0.5" value="{{ f.get('avg_min', '') }}"></div>
-            <div class="fld num"><label for="pf-proj">Proj ≥</label>
-              <input id="pf-proj" type="number" name="proj_min" min="0" max="40" step="0.5" value="{{ f.get('proj_min', '') }}"></div>
-            <div class="fld num"><label for="pf-omin">Own% ≥</label>
-              <input id="pf-omin" type="number" name="own_min" min="0" max="100" step="5" value="{{ f.get('own_min', '') }}"></div>
-            <div class="fld num"><label for="pf-omax">Own% ≤</label>
-              <input id="pf-omax" type="number" name="own_max" min="0" max="100" step="5" value="{{ f.get('own_max', '') }}"></div>
-            <div class="fld num"><label for="pf-snap">Snap% ≥</label>
-              <input id="pf-snap" type="number" name="snap_min" min="0" max="100" step="5" value="{{ f.get('snap_min', '') }}"></div>
-          </div>
-        </details>
-
-        <details class="fgrp">
-          <summary>Status</summary>
-          <div class="fgrp-panel">
-            <label class="chk"><input type="checkbox" name="rookie" value="1" {{ 'checked' if f.get('rookie') }}><span>Rookies</span></label>
-            <label class="chk"><input type="checkbox" name="plays" value="1" {{ 'checked' if f.get('plays') }}><span>Plays this week</span></label>
-            <label class="chk"><input type="checkbox" name="starter" value="1" {{ 'checked' if f.get('starter') }}><span>Starters</span></label>
-            <fieldset class="fld seg inj-set">
-              <legend>Injury</legend>
-              {% for code, lab in [('q', 'Q'), ('d', 'D'), ('o', 'O'), ('ir', 'IR')] %}
-              <label><input type="checkbox" name="inj" value="{{ code }}" {{ 'checked' if code in sel_inj or 'any' in sel_inj }}><span>{{ lab }}</span></label>
-              {% endfor %}
-            </fieldset>
-          </div>
-        </details>
-
-        {% if column_groups is defined and column_groups %}
-        <details class="fgrp">
-          <summary>Columns</summary>
-          <div class="fgrp-panel">
-            {% for g in column_groups %}
-            <label class="chk"><input type="checkbox" name="cols" value="{{ g.key }}" {{ 'checked' if g.on }}><span>{{ g.label }}</span></label>
-            {% endfor %}
-          </div>
-        </details>
-        {% endif %}
-
-        <div class="pf-foot">
-          <button type="submit" class="apply">Apply</button>
-          <a class="freset" href="{{ reset_url }}">Reset</a>
-        </div>
-      </div>
-    </details>
-  </div>
-</form>
-
-<nav class="rail-card quick" aria-labelledby="rc-qv">
-  <h3 id="rc-qv">Quick views</h3>
-  <a href="/players?avail=free&amp;plays=1&amp;sort=avg&amp;dir=desc">Waiver targets</a>
-  <a href="/players?rookie=1">Rookies</a>
-  <a href="/players?inj=any&amp;starter=1">Injured starters</a>
-</nav>
-{% endif %}
-{% endblock %}

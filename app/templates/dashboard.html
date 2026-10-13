@@ -2,11 +2,11 @@
 {% block content %}
 <h1>Week {{ week or '—' }} <span class="muted">· {{ season }}</span></h1>
 
-<div id="scoreboard"
-     {% if live %}hx-get="/fragment/scoreboard?season={{ season }}"
-     hx-trigger="every 30s" hx-swap="innerHTML"{% endif %}>
+<div id="sb">
   {% include "_scoreboard.html" %}
 </div>
+{# Outside #sb so the node survives swaps and screen readers announce the change. #}
+<p class="sr-only" aria-live="polite" id="mview-status"></p>
 
 {% include "_schedule.html" %}
 
@@ -30,6 +30,63 @@
 </table>
 </div>
 {% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  var sb = document.getElementById('sb');
+  if (!sb) return;
+  var restore = null, fromClick = null, pickLeft = 0;
+  document.body.addEventListener('htmx:beforeRequest', function (e) {
+    if (e.detail.target !== sb) return;
+    /* Only a chip click dims the view; the 30s poll refreshes silently. */
+    var elt = e.detail.elt;
+    if (elt && elt.matches && elt.matches('.mpk')) {
+      sb.classList.add('is-loading'); sb.setAttribute('aria-busy', 'true');
+    }
+  });
+  document.body.addEventListener('htmx:beforeSwap', function (e) {
+    if (e.detail.target !== sb) return;
+    var a = document.activeElement;
+    restore = a && sb.contains(a) && a.id ? a.id : null;
+    var pl = sb.querySelector('.mpick-list');
+    pickLeft = pl ? pl.scrollLeft : 0;
+    var elt = e.detail.requestConfig && e.detail.requestConfig.elt;
+    fromClick = elt && elt.matches && elt.matches('.mpk') ? { id: elt.id, home: elt.dataset.home, away: elt.dataset.away } : null;
+  });
+  document.body.addEventListener('htmx:afterRequest', function (e) {
+    if (e.detail.target !== sb) return;
+    sb.classList.remove('is-loading'); sb.removeAttribute('aria-busy');
+  });
+  document.body.addEventListener('htmx:afterSwap', function (e) {
+    if (e.detail.target !== sb) return;
+    /* Never scrollIntoView: it would move the page. Only the chip row scrolls,
+       horizontally -- kept where it was on a poll, and brought to the selected
+       chip after a click. */
+    var list = sb.querySelector('.mpick-list'), cur = sb.querySelector('.mpk[aria-current]');
+    if (list) {
+      list.scrollLeft = pickLeft;
+      if (fromClick && cur) {
+        var l = cur.closest('li') || cur;
+        if (l.offsetLeft < list.scrollLeft) list.scrollLeft = l.offsetLeft;
+        else if (l.offsetLeft + l.offsetWidth > list.scrollLeft + list.clientWidth)
+          list.scrollLeft = l.offsetLeft + l.offsetWidth - list.clientWidth;
+      }
+    }
+    if (fromClick) {
+      var chip = document.getElementById(fromClick.id);
+      if (chip) chip.focus({ preventScroll: true });
+      var st = document.getElementById('mview-status');
+      if (st) st.textContent = 'Showing ' + fromClick.home + ' against ' + fromClick.away;
+    } else if (restore) {
+      var el = document.getElementById(restore);
+      if (el) el.focus({ preventScroll: true });
+    }
+    restore = fromClick = null;
+  });
+})();
+</script>
 {% endblock %}
 
 {% block rail %}

@@ -412,6 +412,51 @@ def _split_games(games: list[dict], team_id: int | None) -> tuple[dict | None, l
     return None, games
 
 
+def _game_gid(game: dict) -> str:
+    away = game.get("away")
+    return f"{game['home']['id']}-{away['id'] if away else 'bye'}"
+
+
+def _select_games(games: list[dict], team_id: int | None,
+                  m: str | None) -> dict:
+    """Context keys for the matchup picker: games (mine first), selection.
+
+    A bad, unknown or absent `m` falls back to the signed-in franchise's game,
+    then the first game. Never raises.
+    """
+    mine, rest = _split_games(games, team_id)
+    ordered = ([mine] if mine else []) + list(rest)
+    for game in ordered:
+        game["gid"] = _game_gid(game)
+        game["mine"] = game is mine
+    selected = None
+    if isinstance(m, str):
+        selected = next((g for g in ordered if g["gid"] == m.strip()), None)
+    if selected is None and ordered:
+        selected = mine or ordered[0]
+    return {"games": ordered, "selected_game": selected,
+            "selected_gid": selected["gid"] if selected else None,
+            "my_game": mine, "other_games": rest}
+
+
+def _attach_tds(conn, season: int, week: int | None, rosters: dict) -> None:
+    """Set row["tds"] on every roster row (lineups share the same dicts).
+
+    Source: nflverse nfl_player_weeks only. The live scoring_events /
+    team_week_players.tds counts include passing TDs and cannot be split out,
+    so they are not used; games not yet in nflverse show 0.
+    """
+    tds = db.fetch_week_player_tds(conn, season, week) if week else {}
+    id_map = db.nfl_id_map(conn) if tds else {}
+    for rows in rosters.values():
+        for row in rows:
+            try:
+                gsis = (id_map.get(int(row.get("player_id"))) or {}).get("gsis_id")
+            except (TypeError, ValueError):
+                gsis = None
+            row["tds"] = tds.get(gsis, 0) if gsis else 0
+
+
 def _card_context(conn, season: int, week: int | None) -> dict:
     """Lineups, managers and all-time records for the matchup cards.
 
@@ -436,6 +481,7 @@ def _card_context(conn, season: int, week: int | None) -> dict:
     # the modal needs the bench too, and a second query for the same rows
     # would be pointless.
     rosters = db.fetch_team_week_players(conn, season, week, starters_only=False) if week else {}
+    _attach_tds(conn, season, week, rosters)
     lineups = {tid: [p for p in ps if p.get("is_starter")] for tid, ps in rosters.items()}
 
     # ESPN's own live team projection, stored by the poller. The per-player
@@ -473,7 +519,7 @@ def _card_context(conn, season: int, week: int | None) -> dict:
                      for t in db.fetch_teams(conn, cfg.current_season)},
         "records": records,
         "team_colors": players.PRO_TEAM_COLORS,
-        "games": games,
+        "nfl_games": games,
         "rail_games": rail_games,
     }
 
@@ -634,26 +680,23 @@ def dashboard(request: Request):
         if context["preseason"]:
             season = cfg.current_season
             week, games = _scoreboard(conn, season)
-            my_game, other_games = _split_games(games, context["me_id"])
-            context |= _card_context(conn, season, week or 1) | {
+            picker = _select_games(games, context["me_id"], request.query_params.get("m"))
+            context |= _card_context(conn, season, week or 1) | picker | {
                 "season": season,
                 "names": names,
                 "short_teams": players.short_team_names(
                     n.get("name") for n in names.values()),
                 "week": week or 1,
-                "my_game": my_game,
-                "other_games": other_games,
                 "grid": _schedule_grid(conn, season, names),
             }
             return templates.TemplateResponse("preseason.html", context)
 
         season = _season_param(request, conn)
         week, games = _scoreboard(conn, season)
-        my_game, other_games = _split_games(games, context["me_id"])
+        picker = _select_games(games, context["me_id"], request.query_params.get("m"))
         team_map = db.team_name_map(conn)
-        context |= _card_context(conn, season, week) | {
+        context |= _card_context(conn, season, week) | picker | {
             "season": season, "week": week,
-            "my_game": my_game, "other_games": other_games,
             "corrections": db.recent_corrections(conn, 8),
             "names": team_map,
             "short_teams": players.short_team_names(team_map.values()),
@@ -1084,10 +1127,9 @@ def scoreboard_fragment(request: Request):
         context = _base_context(request, conn)
         season = _season_param(request, conn)
         week, games = _scoreboard(conn, season)
-        my_game, other_games = _split_games(games, context["me_id"])
-        context |= _card_context(conn, season, week) | {
+        picker = _select_games(games, context["me_id"], request.query_params.get("m"))
+        context |= _card_context(conn, season, week) | picker | {
             "season": season, "week": week,
-            "my_game": my_game, "other_games": other_games,
         }
     return templates.TemplateResponse("_scoreboard.html", context)
 

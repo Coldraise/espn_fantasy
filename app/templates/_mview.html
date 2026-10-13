@@ -1,0 +1,88 @@
+{#  The selected matchup in full: header, then one table with every player on
+    both rosters -- starters paired by slot, then bench and IR. Expects `game`
+    (an item of `games`), plus rosters, lineups, managers, records, totals,
+    me_id and live from the page context. #}
+{% from "_lineup_macros.html" import side, player, pts, tds, RESERVE with context %}
+{% set rosters = rosters|default({}) %}
+{% set totals = totals|default({}) %}
+{% set G = nfl_games if nfl_games is defined else {} %}
+{% set home_rows = rosters.get(game.home.id) %}
+{% set away_rows = rosters.get(game.away.id) if game.away else none %}
+{% set synced = home_rows or away_rows %}
+{% set all_rows = pair_lineups(home_rows, away_rows) if synced
+                  else pair_lineups(lineups.get(game.home.id), lineups.get(game.away.id) if game.away else none) %}
+{% set away_name = game.away.name if game.away else 'BYE' %}
+
+{% macro pts2(p) %}
+  {{ pts(p) }}
+  {%- if p -%}
+    {%- set g = G.get(p.pro_team) if p.pro_team else none -%}
+    {%- if g and g.state in ('in', 'post') and p.projected %}<span class="pproj">p {{ p.projected|pts }}</span>{% endif -%}
+  {%- endif -%}
+{% endmacro %}
+{% macro cell(p, align) %}{% if p %}{{ player(p, align, true) }}{% else %}<span class="lp {{ align }}"><span class="pname muted"><span aria-label="empty">—</span></span></span>{% endif %}{% endmacro %}
+{% macro grouprows(rows, cls, title) %}
+  {% if rows %}
+  <tbody class="grp {{ cls }}">
+    <tr class="grp-h"><th colspan="5" scope="colgroup">{{ title }}</th></tr>
+    {% for r in rows %}
+    <tr>
+      <td class="mp home">{{ cell(r.home, 'home') }}</td>
+      <td class="mpts">{{ pts2(r.home) }}</td>
+      <th class="mslot" scope="row">{{ r.label }}</th>
+      <td class="mpts">{{ pts2(r.away) if game.away else '' }}</td>
+      <td class="mp away">{{ cell(r.away, 'away') if game.away else cell(none, 'away') }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+  {% endif %}
+{% endmacro %}
+{% set start = all_rows|rejectattr('slot', 'in', ['BE', 'IR', 'RES'])|list %}
+{% set bench = all_rows|selectattr('slot', 'in', ['BE', 'RES'])|list %}
+{% set irs = all_rows|selectattr('slot', 'equalto', 'IR')|list %}
+
+<section class="mview game {{ 'final' if game.final }} {{ 'mine' if game.mine }}" id="mview" aria-labelledby="mview-title">
+  <h3 class="sr-only" id="mview-title">{{ game.home.name }} against {{ game.away.name if game.away else 'a bye' }}</h3>
+  <div class="mhead">
+    {{ side(game.home, managers.get(game.home.id), records.get(game.home.id), 'left', false, me_id, totals.get(game.home.id), true) }}
+    <div class="mmid">
+      {% if game.bye %}<span class="vs">BYE</span>
+      {% elif game.home.points or (game.away and game.away.points) %}
+        <span class="margin">{{ ((game.home.points or 0) - ((game.away or {}).points or 0))|pts(sign=True) }}</span>
+      {% else %}<span class="vs">vs</span>{% endif %}
+      {% if game.revision and game.revision > 1 %}<span class="rev" title="ESPN revised this score">rev {{ game.revision }}</span>{% endif %}
+      {% if game.away %}
+        {% set hp = (totals.get(game.home.id).projected if totals.get(game.home.id) else game.home.projected) or 0 %}
+        {% set ap = (totals.get(game.away.id).projected if totals.get(game.away.id) else game.away.projected) or 0 %}
+        {% if hp + ap > 0 %}
+        <span class="bar share" aria-hidden="true" title="Projected share: {{ '%.0f'|format(100 * hp / (hp + ap)) }}% – {{ '%.0f'|format(100 * ap / (hp + ap)) }}%"
+              style="--v:{{ '%.3f'|format(hp / (hp + ap)) }}"><i></i></span>
+        <span class="share-l" aria-hidden="true">Projected share</span>
+        {% endif %}
+      {% endif %}
+    </div>
+    {% if game.away %}
+      {{ side(game.away, managers.get(game.away.id), records.get(game.away.id), 'right', false, me_id, totals.get(game.away.id), true) }}
+    {% else %}
+      <div class="mside right"><span class="mname muted">BYE</span></div>
+    {% endif %}
+  </div>
+
+  {% if all_rows %}
+  <table class="mtab lineup">
+    <caption class="sr-only">Full lineups, starters by slot, then bench and injured reserve</caption>
+    <colgroup><col><col class="c-pts"><col class="c-slot"><col class="c-pts"><col></colgroup>
+    <thead class="sr-only"><tr>
+      <th scope="col">{{ game.home.name }} player</th><th scope="col">{{ game.home.name }} points</th>
+      <th scope="col">Slot</th>
+      <th scope="col">{{ away_name }} points</th><th scope="col">{{ away_name }} player</th>
+    </tr></thead>
+    {{ grouprows(start, 'grp-start', 'Starters') }}
+    {{ grouprows(bench, 'grp-bench', 'Bench') }}
+    {{ grouprows(irs, 'grp-ir', 'Injured reserve') }}
+  </table>
+  {% if not synced %}<p class="muted small">Bench and IR not synced yet</p>{% endif %}
+  {% else %}
+  <p class="muted small lineup-empty">Lineup set at the draft</p>
+  {% endif %}
+</section>
