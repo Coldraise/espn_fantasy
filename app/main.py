@@ -68,13 +68,17 @@ def _kickoff_label(value: str | None) -> str:
 def _pts(value, sign: bool = False) -> str:
     """Fantasy points for display: 2 decimals, decimal comma, no grouping.
 
-    Half-up on the decimal repr (like '%.2f' on the shortest repr), so 134.455
-    shows as 134,46 rather than the binary-float 134,45.
+    Values are already rounded to 2 decimals at ingest; this only formats
+    (half-up on the float's repr). None shows as 0,00; nan/inf as a dash.
     """
+    import math
     from decimal import ROUND_HALF_UP, Decimal
     try:
-        number = Decimal(repr(float(value))) if value is not None else Decimal(0)
-    except (TypeError, ValueError):
+        raw = float(value) if value is not None else 0.0
+        if not math.isfinite(raw):
+            return "\u2014"
+        number = Decimal(repr(raw))
+    except (TypeError, ValueError, ArithmeticError):
         number = Decimal(0)
     number = number.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
     if number == 0:

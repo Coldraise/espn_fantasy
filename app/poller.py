@@ -344,27 +344,36 @@ def poll_season(conn, season: int, weeks: list[int] | None = None, refresh: bool
     return changed
 
 
-def backfill_past_weeks(conn, season: int | None = None) -> int:
-    """Re-fetch every finished week of a season through the normal sync paths.
+def backfill_past_weeks(conn, season: int | None = None,
+                        only_weeks: list[int] | None = None) -> tuple[int, list[int]]:
+    """Re-fetch finished weeks of a season through the normal sync paths.
 
-    Idempotent: team weeks upsert, per-player rows are replaced. Used once to
-    replace 1-decimal points stored before ingest kept 2.
+    Returns (rows changed, failed weeks). Idempotent: team weeks upsert (a stored
+    projection is kept, a sub-0.05 points change does not bump the revision),
+    per-player rows are replaced without announcing touchdowns. The live week is
+    never touched. Used to replace 1-decimal points stored before ingest kept 2.
     """
     cfg = get_config()
     season = season or cfg.current_season
     league = espn_client.get_league(season, refresh=True)
     last = _completed_through(league, season)
     weeks = [w for w in schedule_periods(season) if w <= last]
-    changed = poll_season(conn, season, weeks=weeks)
+    if only_weeks:
+        weeks = [w for w in weeks if w in only_weeks]
+    sync_teams(conn, league, season)
+    changed = 0
+    failed: list[int] = []
     for week in weeks:
         try:
-            changed += sync_matchup_players(conn, season, week)
+            changed += poll_week(conn, league, season, week)
+            changed += sync_matchup_players(conn, season, week, quiet=True)
             changed += _sync_projection_week(conn, season, week)
         except espn_client.AuthInvalid:
             raise
         except Exception as exc:  # noqa: BLE001
             log.warning("backfill season %s week %s failed: %s", season, week, exc)
-    return changed
+            failed.append(week)
+    return changed, failed
 
 
 # --- history and draft ----------------------------------------------------
@@ -585,7 +594,8 @@ def sync_nfl_ids(conn, force: bool = False) -> int:
     return written
 
 
-def sync_matchup_players(conn, season: int, week: int, per_team: int | None = None) -> int:
+def sync_matchup_players(conn, season: int, week: int, per_team: int | None = None,
+                         quiet: bool = False) -> int:
     """Store each team's full roster for a week, starters flagged, best first.
 
     Bench players are kept as well as starters, but flagged: a benched player
@@ -618,7 +628,7 @@ def sync_matchup_players(conn, season: int, week: int, per_team: int | None = No
             keep.append({**person, "team_id": team_id, "is_starter": True})
         for person in bench:
             keep.append({**person, "team_id": team_id, "is_starter": False})
-    return db.replace_team_week_players(conn, season, week, keep)
+    return db.replace_team_week_players(conn, season, week, keep, quiet=quiet)
 
 
 def sync_nfl_games(conn, season: int, week: int) -> int:
@@ -996,13 +1006,21 @@ def shutdown_scheduler() -> None:
 
 if __name__ == "__main__":
     import argparse
+    import sys
 
+    logging.basicConfig(level=logging.INFO)
     parser = argparse.ArgumentParser(description="Poller maintenance tasks")
     parser.add_argument("--backfill-past-weeks", action="store_true",
                         help="re-fetch all finished weeks of the current season")
     parser.add_argument("--season", type=int, default=None)
+    parser.add_argument("--weeks", type=int, nargs="+", default=None,
+                        help="limit the backfill to these weeks (for re-runs)")
     args = parser.parse_args()
     if args.backfill_past_weeks:
         _cfg = get_config()
         with db.session(_cfg.db_path) as _conn:
-            print("rows changed:", backfill_past_weeks(_conn, args.season))
+            _changed, _failed = backfill_past_weeks(_conn, args.season, args.weeks)
+        print("rows changed:", _changed)
+        if _failed:
+            print("FAILED weeks:", " ".join(map(str, _failed)))
+            sys.exit(1)

@@ -173,7 +173,7 @@ their team.
 | Backfill one season's weeks | `... scripts/backfill.py 2026` |
 | Backfill NFL data | `... scripts/backfill.py --nflverse [season ...]` |
 | Refresh finished weeks' player stats | `... scripts/backfill.py --week-stats 1 [2 ...]` |
-| Re-fetch all finished weeks of the season (2-decimal points) | `docker compose exec fantasy python -m app.poller --backfill-past-weeks [--season N]` |
+| Re-fetch all finished weeks of the season (2-decimal points) | `docker compose exec fantasy python -m app.poller --backfill-past-weeks [--season N] [--weeks W ...]` |
 | List logins and last-seen times | `docker compose exec fantasy python scripts/credentials.py list` |
 | Reset a password | `... scripts/credentials.py reset "<franchise>"` (or `--all`) |
 | Logs | `docker compose logs -f` |
@@ -229,6 +229,9 @@ reporters — the page does the filtering.
 `--backfill-past-weeks` re-runs the normal sync for every finished week (scores,
 rosters, projections) and is idempotent: rows are upserted or replaced. Run it
 inside the container, where `DB_PATH` is set, and back up the database first.
+Stored projections are kept, a points change of 0.05 or less (134.4 → 134.45)
+does not count as a stat correction, and no touchdown events are emitted. Failed
+weeks are printed and the exit code is 1; re-run just those with `--weeks`.
 
 Points display with 2 decimals and a decimal comma (`134,45`) via the `pts`
 template filter; JSON/API output keeps plain dot floats.

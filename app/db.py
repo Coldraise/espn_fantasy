@@ -491,6 +491,11 @@ def upsert_team_week(
     still gets written by the WHERE clause above, it just does not count as a
     revision, because it is a forecast being refined rather than a score being
     corrected.
+
+    A NULL incoming `projected` never erases a stored one (a re-fetch from the
+    scoreboard has no forecast). A points change of 0.05 or less is a
+    precision change (134.4 -> 134.45), not a correction: the new value is
+    written but `revision` stays.
     """
     with conn:
         cur = conn.execute(
@@ -501,12 +506,15 @@ def upsert_team_week(
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?)
             ON CONFLICT(season, week, team_id) DO UPDATE SET
                 points      = excluded.points,
-                projected   = excluded.projected,
+                projected   = COALESCE(excluded.projected, team_weeks.projected),
                 opponent_id = excluded.opponent_id,
                 is_playoff  = excluded.is_playoff,
                 result      = excluded.result,
                 revision    = team_weeks.revision + (CASE
-                                  WHEN team_weeks.points      IS NOT excluded.points
+                                  WHEN (team_weeks.points IS NOT excluded.points
+                                        AND (team_weeks.points IS NULL
+                                             OR excluded.points IS NULL
+                                             OR ROUND(ABS(team_weeks.points - excluded.points), 4) > 0.05))
                                     OR team_weeks.result      IS NOT excluded.result
                                     OR team_weeks.opponent_id IS NOT excluded.opponent_id
                                   THEN 1 ELSE 0 END),
@@ -514,7 +522,8 @@ def upsert_team_week(
             WHERE team_weeks.points      IS NOT excluded.points
                OR team_weeks.result      IS NOT excluded.result
                OR team_weeks.opponent_id IS NOT excluded.opponent_id
-               OR team_weeks.projected   IS NOT excluded.projected
+               OR (excluded.projected IS NOT NULL
+                   AND team_weeks.projected IS NOT excluded.projected)
             """,
             (season, week, team_id, points, projected, opponent_id,
              1 if is_playoff else 0, result, _now()),
@@ -750,7 +759,8 @@ def players_synced_at(conn) -> str | None:
     return row[0] if row else None
 
 
-def replace_team_week_players(conn, season: int, week: int, rows: list[dict]) -> int:
+def replace_team_week_players(conn, season: int, week: int, rows: list[dict],
+                              quiet: bool = False) -> int:
     """Replace one week's lineups. A lineup is current state, not a record.
 
     The touchdown diff happens here rather than in the poller because this is
@@ -758,6 +768,8 @@ def replace_team_week_players(conn, season: int, week: int, rows: list[dict]) ->
     INSERT, so once it has run the previous counts are gone. Doing it inside
     the same transaction also means a crash between the two cannot announce a
     touchdown that was never stored.
+
+    `quiet` skips the touchdown diff (backfill of finished weeks).
     """
     with conn:
         before = {
@@ -775,7 +787,7 @@ def replace_team_week_players(conn, season: int, week: int, rows: list[dict]) ->
             # A player with no previous row is new to the roster mid-week, not
             # someone who just scored: announcing their season so far as it
             # happening now would be wrong, so they only seed the baseline.
-            if was is None or tds <= was:
+            if quiet or was is None or tds <= was:
                 continue
             events.append((season, week, r["team_id"], pid, r.get("name"),
                            r.get("position"), r.get("pro_team"), tds, tds - was, now))

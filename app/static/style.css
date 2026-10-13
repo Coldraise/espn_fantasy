@@ -541,7 +541,7 @@ mark { background: var(--amber-soft); color: inherit; border-radius: 3px; paddin
           border-top: 1px solid var(--line-soft); }
 .lineup li {
   display: grid; align-items: baseline;
-  grid-template-columns: minmax(0, 1fr) 42px 48px 42px minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) 52px 48px 52px minmax(0, 1fr);
   column-gap: 4px; padding: 3px 4px; border-radius: 4px; font-size: 12.5px;
 }
 .lineup .lp { display: flex; align-items: baseline; gap: 5px; min-width: 0;
@@ -643,7 +643,7 @@ mark { background: var(--amber-soft); color: inherit; border-radius: 3px; paddin
 /* The modal is rendered inside .games, so the compact card's tighter row sizing
    would otherwise follow it in. This is the full view; it gets full spacing. */
 .games .mdl .lineup li {
-  grid-template-columns: minmax(0, 1fr) 46px 52px 46px minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) 54px 52px 54px minmax(0, 1fr);
   column-gap: 5px; padding: 3px 5px; font-size: 12.5px;
 }
 .games .mdl .lineup .slot { font-size: 9.5px; }
@@ -665,7 +665,7 @@ mark { background: var(--amber-soft); color: inherit; border-radius: 3px; paddin
    three pieces of information -- slot, player, points -- read left to right
    instead of split down the middle. */
 .games .rdlg .lineup li {
-  grid-template-columns: 44px minmax(0, 1fr) 46px;
+  grid-template-columns: 44px minmax(0, 1fr) 54px;
   align-items: center; column-gap: 6px; padding: 3px 5px; font-size: 12.5px;
 }
 .rdlg .lineup .slot { font-size: 9.5px; }
@@ -1213,7 +1213,7 @@ td .slot {
 .games.compact .mhead { align-items: start; }
 .games.compact .lineup { margin-top: 6px; padding-top: 6px; }
 .games.compact .lineup li {
-  grid-template-columns: minmax(0, 1fr) 38px 42px 38px minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) 46px 42px 46px minmax(0, 1fr);
   column-gap: 3px; padding: 2px 3px; font-size: 11.5px;
 }
 
@@ -1730,7 +1730,7 @@ table.data td.empty-row { text-align: center; padding: 26px 12px; }
   /* Names take whatever is left; the scores tuck against the slot. */
   .lineup li,
   .games.compact .lineup li {
-    grid-template-columns: minmax(0, 1fr) 42px 38px 42px minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr) 46px 38px 46px minmax(0, 1fr);
     column-gap: 2px; font-size: 12px;
   }
   .games.feature .lineup li { font-size: 12px; }
@@ -1752,9 +1752,11 @@ table.data td.empty-row { text-align: center; padding: 26px 12px; }
   }
   .mdl-in { padding: 14px 12px 24px; }
   .games .mdl .lineup li {
-    grid-template-columns: minmax(0, 1fr) 46px 42px 46px minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr) 50px 42px 50px minmax(0, 1fr);
     column-gap: 3px; font-size: 12px;
   }
+  .games .rdlg .lineup li { grid-template-columns: 44px minmax(0, 1fr) 54px; column-gap: 6px; }
+  .rdlg .lineup .ppts { white-space: nowrap; }
   .games .mdl .lineup .nm-full { display: none; }
   .games .mdl .lineup .nm-abbr { display: inline; }
   /* Twenty columns will not fit a phone. The per-down counters are the reason
