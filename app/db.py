@@ -440,13 +440,25 @@ _ADDED_COLUMNS = [
 ]
 
 
+# Columns whose arrival means stored nflverse player stats must be re-downloaded.
+_NFLVERSE_REFETCH_COLUMNS = {"special_teams_tds", "fumble_recovery_tds"}
+
+
 def init_db(conn: sqlite3.Connection) -> None:
     with conn:
         conn.executescript(SCHEMA)
+        refetch_stats = False
         for table, column, coltype in _ADDED_COLUMNS:
             existing = {r["name"] for r in conn.execute(f"PRAGMA table_info({table})")}
             if column not in existing:
                 conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {coltype}")
+                if table == "nfl_player_weeks" and column in _NFLVERSE_REFETCH_COLUMNS:
+                    refetch_stats = True
+        if refetch_stats:
+            # The sync skips a season whose upstream release stamp is unchanged,
+            # so without this the new columns stay NULL until nflverse publishes.
+            # Only on the migration itself, never on a normal start.
+            conn.execute("DELETE FROM nflverse_sync WHERE tag LIKE 'stats_player:%'")
 
 
 @contextmanager

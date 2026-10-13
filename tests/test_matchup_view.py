@@ -297,3 +297,25 @@ def test_nflverse_return_and_fumble_tds_counted_without_double_count(conn):
 def test_nflverse_tracks_the_new_columns():
     from app import nflverse
     assert {"special_teams_tds", "fumble_recovery_tds"} <= set(nflverse.PLAYER_WEEK_STATS)
+
+
+def test_new_nfl_columns_migration_clears_stats_stamp_once(tmp_path):
+    c = db.connect(tmp_path / "old.db")
+    db.init_db(c)
+    with c:
+        c.execute("ALTER TABLE nfl_player_weeks DROP COLUMN special_teams_tds")
+        c.execute("ALTER TABLE nfl_player_weeks DROP COLUMN fumble_recovery_tds")
+        c.execute("""INSERT INTO nfl_player_weeks (season, week, gsis_id, season_type, updated_at,
+                     rushing_tds, def_tds) VALUES (2026,3,'a','REG','n',2,1)""")
+    db.set_nflverse_sync(c, "stats_player:2026", "stamp", 5)
+    db.set_nflverse_sync(c, "pbp:2026", "stamp", 5)
+    db.init_db(c)
+    cols = {r["name"] for r in c.execute("PRAGMA table_info(nfl_player_weeks)")}
+    assert {"special_teams_tds", "fumble_recovery_tds"} <= cols
+    assert db.get_nflverse_sync(c, "stats_player:2026") is None
+    assert db.get_nflverse_sync(c, "pbp:2026") is not None   # other tags untouched
+    assert db.fetch_week_player_tds(c, 2026, 3) == {"a": 3}   # NULLs read as 0
+    db.set_nflverse_sync(c, "stats_player:2026", "fresh", 9)
+    db.init_db(c)
+    assert db.get_nflverse_sync(c, "stats_player:2026")["last_updated"] == "fresh"
+    c.close()

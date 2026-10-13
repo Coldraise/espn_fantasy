@@ -272,6 +272,22 @@ app uses, wrapped in `app/espn_client.py` so breakage stays in one place.
   dialog lives inside the swapped `#scoreboard`, the 30-second live refresh
   re-renders it with fresh numbers while it is open. It is reopened by id after
   the swap, the same trick the old inline expansion used.
+- **Pick a matchup with `?m=<home_id>-<away_id>` (or `<home_id>-bye`).** Accepted
+  on `/` and `/fragment/scoreboard`, so the 30-second live refresh keeps the
+  selection. Absent, malformed or unknown falls back to your own matchup, then
+  the first game; a bad value never errors. The context carries `games` (yours
+  first, each with `gid`/`mine`), `selected_game`/`selected_gid`, and the NFL
+  game dict as `nfl_games`.
+- **Touchdown footballs count a player's own scores only.** Rushing, receiving,
+  kick/punt-return and defensive/fumble-return TDs; passing TDs thrown are
+  excluded. Per player the source is nflverse (`nfl_player_weeks`) once it has a
+  row for the week, otherwise the live ESPN count in
+  `team_week_players.scored_tds` (NULL on rows synced before that column, read as
+  0 until the next sync). Never summed, so nothing counts twice. nflverse's
+  `fumble_recovery_tds` overlaps `def_tds`, so the larger of the two is used.
+  `nfl_player_weeks.special_teams_tds` and `.fumble_recovery_tds` are added by
+  migration, and that migration clears the `stats_player:*` rows of
+  `nflverse_sync` so the next poll re-downloads the season.
 - **History comes at a coarser grain than the current season.** Past seasons are
   served as season *totals* only — W-L-T, points for/against, final rank. No
   weekly schedule is retrievable for them by any means (four different requests
