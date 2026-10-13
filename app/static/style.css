@@ -10,35 +10,35 @@
    would let them bleed through. Real translucency is kept for the topbar and
    drawer, which are single large panels where it is both safe and cheap. */
 :root {
-  --bg:        #08150f;
-  --surface:   #10241b;
-  --raised:    #163024;
-  --line:      rgba(255,255,255,.09);
-  --line-soft: rgba(255,255,255,.05);
-  --ink:       #e9f1ec;
-  --muted:     #8ba396;
+  --bg:        #131d19;
+  --surface:   #1b2823;
+  --raised:    #23332c;
+  --line:      rgba(232,239,235,.10);
+  --line-soft: rgba(232,239,235,.06);
+  --ink:       #e8efeb;
+  --muted:     #9fb3a9;
 
-  --green:      #56a882;
-  --green-deep: #0f3626;
-  --green-soft: rgba(86,168,130,.16);
-  --green-tint: rgba(86,168,130,.075);
+  --green:      #8fc9ad;
+  --green-deep: #1f3a2f;
+  --green-soft: rgba(143,201,173,.16);
+  --green-tint: rgba(143,201,173,.075);
 
-  --red:        #f2453d;
-  --red-soft:   rgba(242,69,61,.16);
-  --red-tint:   rgba(242,69,61,.09);
+  --red:        #f0928a;
+  --red-soft:   rgba(240,146,138,.16);
+  --red-tint:   rgba(240,146,138,.09);
 
-  --amber:      #d8a95a;
-  --amber-soft: rgba(216,169,90,.15);
+  --amber:      #e6c48f;
+  --amber-soft: rgba(230,196,143,.15);
 
   /* A player currently on the field. Brighter than --green, which is the
      furniture colour here and reads as dim next to a live number. */
-  --live:  #7fe3a8;
+  --live:  #a8e6c4;
   /* 25 points and climbing. */
-  --ember: #ffb02e;
+  --ember: #f4a77a;
 
-  --shadow: 0 1px 2px rgba(0,0,0,.35);
+  --shadow: 0 1px 2px rgba(0,0,0,.22);
   /* what makes a panel read as hovering over the field */
-  --lift: 0 16px 38px rgba(0,0,0,.5), 0 1px 0 rgba(255,255,255,.04) inset;
+  --lift: 0 10px 28px rgba(0,0,0,.28), 0 1px 0 rgba(232,239,235,.04) inset;
   --radius: 10px;
   /* The sticky top bar's real height: 15px padding + a 34px burger + 15px
      padding + the 3px red border. Page furniture that sticks below it offsets
@@ -46,12 +46,14 @@
   --topbar-h: 67px;
 
   /* NFL shield red, the drawer and topbar accent */
-  --nfl-red:  #d50a0a;
+  --nfl-red:  #e8857c;
+  /* text on any accent fill */
+  --on-accent: #131d19;
 
   /* field green for the scoreboard block */
-  --field:      #17402f;
-  --field-deep: #0f2c20;
-  --chalk:      rgba(255,255,255,.16);
+  --field:      #26463a;
+  --field-deep: #1d362d;
+  --chalk:      rgba(232,239,235,.14);
 
   /* Condensed athletic face for headings and numerals, with a system fallback
      so the site still reads right with no network. */
@@ -79,6 +81,7 @@
   --dur-4: 600ms;  /* count-up, bars */
   --ease-out: cubic-bezier(.2,.7,.2,1);
   --ease-io:  cubic-bezier(.4,0,.2,1);
+  --ease-in:  cubic-bezier(.4,0,1,1);   /* exits */
   --stagger: 18ms;
 }
 @media (min-width: 1024px) { :root { --gutter: 32px; } }
@@ -87,7 +90,6 @@
 @media (prefers-reduced-motion: reduce) {
   :root { --dur-2: 0ms; --dur-3: 0ms; --dur-4: 0ms; --stagger: 0ms; }
 }
-
 * { box-sizing: border-box; }
 body {
   margin: 0; min-height: 100vh; color: var(--ink); background: var(--bg);
@@ -104,7 +106,7 @@ a { color: var(--green); }
    way. Scroll drives it: scrolling the page walks us up the field. */
 .pitch {
   position: fixed; inset: 0; z-index: 0; overflow: hidden;
-  background: linear-gradient(#050f0c 0%, #061711 26%, #081c14 30%);
+  background: linear-gradient(#0e1714 0%, #111a17 26%, #131d19 30%);
   perspective: 1100px; perspective-origin: 50% 30%;
 }
 /* Half-scale markings and low opacity: this is a texture under the page, not
@@ -125,7 +127,7 @@ a { color: var(--green); }
 .pitch::after {
   content: ""; position: absolute; inset: 0; pointer-events: none;
   background:
-    linear-gradient(#050f0c 24%, rgba(5,15,12,.62) 34%, rgba(8,21,15,.88) 100%);
+    linear-gradient(#0e1714 24%, rgba(14,23,20,.62) 34%, rgba(19,29,25,.88) 100%);
 }
 @keyframes pitchrun {
   from { transform: translate3d(0, 0, 0); }
@@ -145,18 +147,18 @@ main, .banner { position: relative; z-index: 1; }
 /* ---------- top bar ---------- */
 .topbar {
   position: sticky; top: 0; z-index: 40;
-  display: flex; align-items: center; gap: 14px;
+  display: flex; align-items: center;
   padding: 15px 20px; min-height: 62px; gap: 16px;
-  background: rgba(13, 47, 33, .82); color: #fff;
-  backdrop-filter: blur(16px) saturate(1.4);
-  -webkit-backdrop-filter: blur(16px) saturate(1.4);
+  background: rgba(27, 40, 35, .84); color: var(--ink);
+  backdrop-filter: blur(16px) saturate(1.1);
+  -webkit-backdrop-filter: blur(16px) saturate(1.1);
   border-bottom: 3px solid var(--nfl-red);
 }
 /* hash marks along the bar, like yard lines on a field */
 .topbar::after {
   content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 3px;
   background: repeating-linear-gradient(90deg,
-    transparent 0 46px, rgba(255,255,255,.55) 46px 48px);
+    transparent 0 46px, rgba(232,239,235,.40) 46px 48px);
   pointer-events: none;
 }
 /* ---------- the running ticker ----------
@@ -191,16 +193,16 @@ main, .banner { position: relative; z-index: 1; }
 .tk-group { display: inline-flex; align-items: center; gap: 12px; white-space: nowrap; }
 .tk-pos {
   font-family: var(--display); font-size: 11px; font-weight: 700;
-  text-transform: uppercase; letter-spacing: .12em; color: #fff;
+  text-transform: uppercase; letter-spacing: .12em; color: var(--on-accent);
   background: var(--nfl-red); border-radius: 3px; padding: 2px 7px;
 }
 .tk-p { display: inline-flex; align-items: baseline; gap: 6px; font-size: 13px;
-        color: rgba(255,255,255,.9); white-space: nowrap; }
+        color: var(--ink); white-space: nowrap; }
 .tk-rank { font-family: var(--display); font-size: 11px; font-weight: 700;
-           color: rgba(255,255,255,.42); }
+           color: var(--muted); }
 .tk-team { font-family: var(--display); font-size: 10.5px; font-weight: 700;
-           letter-spacing: .06em; color: rgba(255,255,255,.45); }
-.tk-val { font-weight: 700; font-variant-numeric: tabular-nums; color: var(--red); }
+           letter-spacing: .06em; color: var(--muted); }
+.tk-val { font-weight: 700; font-variant-numeric: tabular-nums; color: var(--ink); }
 
 /* ---------- touchdown strip ----------
    Only appears when a rostered player has just scored, so it is allowed to be
@@ -210,8 +212,8 @@ main, .banner { position: relative; z-index: 1; }
   position: relative; z-index: 1;
   overflow: hidden; white-space: nowrap;
   padding: 8px 0; font-size: 13.5px;
-  background: linear-gradient(90deg, rgba(213,10,10,.3), rgba(213,10,10,.12));
-  border-bottom: 1px solid rgba(213,10,10,.55);
+  background: linear-gradient(90deg, rgba(232,133,124,.22), rgba(232,133,124,.10));
+  border-bottom: 1px solid rgba(232,133,124,.45);
 }
 /* padding-left:100% parks the line just off the right edge, and translating
    -100% of the track's own width carries it all the way off the left. That
@@ -235,7 +237,7 @@ main, .banner { position: relative; z-index: 1; }
 .td-item { display: inline-flex; align-items: baseline; gap: 7px; }
 .td-badge {
   font-family: var(--display); font-size: 11px; font-weight: 700;
-  letter-spacing: .12em; color: #fff; background: var(--nfl-red);
+  letter-spacing: .12em; color: var(--on-accent); background: var(--nfl-red);
   border-radius: 3px; padding: 2px 7px;
 }
 .td-team { font-family: var(--display); font-size: 10.5px; font-weight: 700;
@@ -258,7 +260,7 @@ main, .banner { position: relative; z-index: 1; }
 .burger:hover { background: rgba(255,255,255,.12); }
 .burger span {
   display: block; width: 16px; height: 1.5px; background: #fff; border-radius: 2px;
-  transition: transform .2s ease, opacity .16s ease;
+  transition: transform var(--dur-2) var(--ease-out), opacity var(--dur-1) var(--ease-out);
 }
 .nav-open .burger span:nth-child(1) { transform: translateY(6.5px) rotate(45deg); }
 .nav-open .burger span:nth-child(2) { opacity: 0; }
@@ -269,9 +271,9 @@ main, .banner { position: relative; z-index: 1; }
   font-size: 10.5px; font-weight: 650; letter-spacing: .05em; text-transform: uppercase;
   padding: 3px 9px; border-radius: 4px; background: rgba(255,255,255,.16); color: #fff;
 }
-.chip.green { background: var(--red); }          /* live is the loud state */
+.chip.green { background: var(--red); color: var(--on-accent); }          /* live is the loud state */
 .chip.amber { background: rgba(255,255,255,.16); }
-.chip.violet { background: #fff; color: var(--green-deep); }
+.chip.violet { background: var(--ink); color: var(--green-deep); }
 .chip.pulse { animation: pulse 1.9s ease-in-out infinite; }
 @keyframes pulse { 50% { opacity: .5; } }
 
@@ -281,41 +283,83 @@ main, .banner { position: relative; z-index: 1; }
    intended look. Always dark, in either colour scheme. */
 .drawer {
   position: fixed; top: 0; left: 0; bottom: 0; width: 256px; z-index: 60;
-  background: rgba(9, 38, 27, .8); color: #eaf2ed;
-  backdrop-filter: blur(18px) saturate(1.5);
-  -webkit-backdrop-filter: blur(18px) saturate(1.5);
-  border-right: 1px solid rgba(255,255,255,.1);
-  transform: translateX(-100%); transition: transform .24s cubic-bezier(.4,0,.2,1);
+  background: rgba(27, 40, 35, .86); color: var(--ink);
+  backdrop-filter: blur(14px) saturate(1.1);
+  -webkit-backdrop-filter: blur(14px) saturate(1.1);
+  border-right: 1px solid var(--line);
+  transform: translateX(-24px);
+  opacity: 0;
+  visibility: hidden;
+  box-shadow: none;
+  /* close: quick and accelerating; visibility flips after the fade */
+  transition:
+    transform var(--dur-1) var(--ease-in),
+    opacity   var(--dur-1) var(--ease-in),
+    box-shadow var(--dur-1) var(--ease-in),
+    visibility 0s linear var(--dur-1);
   display: flex; flex-direction: column; overflow-y: auto;
 }
-/* No backdrop-filter (older Firefox): fall back to near-opaque navy. */
+/* No backdrop-filter (older Firefox): fall back to the opaque surface. */
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-  .drawer { background: #09261b; }
+  .drawer { background: var(--surface); }
 }
-.nav-open .drawer { transform: none; box-shadow: 4px 0 30px rgba(0,0,0,.42); }
+.nav-open .drawer {
+  transform: none;
+  opacity: 1;
+  visibility: visible;
+  box-shadow: 1px 0 0 var(--line-soft), 8px 0 24px rgba(0,0,0,.22);
+  /* open: slightly longer, decelerating */
+  transition:
+    transform var(--dur-2) var(--ease-out),
+    opacity   var(--dur-2) var(--ease-out),
+    box-shadow var(--dur-2) var(--ease-out),
+    visibility 0s;
+}
 .drawer-head {
-  padding: 16px 18px 14px; color: #fff;
-  border-bottom: 1px solid rgba(255,255,255,.1);
+  padding: 16px 18px 14px; color: var(--ink);
+  border-bottom: 1px solid var(--line);
 }
 .drawer-title { font-family: var(--display); font-weight: 700; font-size: 19px;
                 text-transform: uppercase; letter-spacing: .05em; }
-.drawer-sub { font-size: 12px; color: rgba(255,255,255,.55); }
+.drawer-sub { font-size: 12px; color: var(--muted); }
 .drawer-nav { padding: 10px 8px; display: flex; flex-direction: column; gap: 1px; }
 .drawer-nav a {
   display: block; padding: 9px 13px; border-radius: 7px; text-decoration: none;
   font-family: var(--display); font-size: 14.5px; font-weight: 500;
   text-transform: uppercase; letter-spacing: .085em;
-  color: rgba(255,255,255,.82); border-left: 2px solid transparent;
-  transition: background .14s, color .14s, border-color .14s;
+  color: rgba(232,239,235,.84); border-left: 2px solid transparent;
+  transition: background var(--dur-1), color var(--dur-1), border-color var(--dur-1);
 }
 .drawer-nav a:hover {
-  background: rgba(213,10,10,.16); color: #fff; border-left-color: var(--nfl-red);
+  background: rgba(232,239,235,.06); color: var(--ink); border-left-color: rgba(232,133,124,.5);
 }
 .drawer-nav a.on {
-  background: rgba(213,10,10,.34); color: #fff; font-weight: 600;
+  background: rgba(232,133,124,.18); color: var(--ink); font-weight: 600;
   border-left-color: var(--nfl-red);
 }
-.scrim { position: fixed; inset: 0; z-index: 50; background: rgba(3,14,10,.5); }
+.drawer-nav a:focus-visible { outline: 2px solid var(--green); outline-offset: -2px; }
+.scrim {
+  position: fixed; inset: 0; z-index: 50;
+  background: rgba(10,16,14,.32);
+  opacity: 0; visibility: hidden; pointer-events: none;
+  transition: opacity var(--dur-1) var(--ease-in), visibility 0s linear var(--dur-1);
+}
+.nav-open .scrim {
+  opacity: 1; visibility: visible; pointer-events: auto;
+  transition: opacity var(--dur-2) var(--ease-out), visibility 0s;
+}
+
+/* Reduced motion for the drawer, scrim, burger and live chip. Sits after those
+   rules so it wins the cascade. */
+@media (prefers-reduced-motion: reduce) {
+  .drawer, .nav-open .drawer { transform: none; }
+  .drawer      { transition: opacity var(--dur-1) linear, visibility 0s linear var(--dur-1); }
+  .nav-open .drawer { transition: opacity var(--dur-1) linear, visibility 0s; }
+  .scrim       { transition: opacity var(--dur-1) linear, visibility 0s linear var(--dur-1); }
+  .nav-open .scrim  { transition: opacity var(--dur-1) linear, visibility 0s; }
+  .burger span { transition: none; }
+  .chip.pulse  { animation: none; }
+}
 
 /* ---------- layout ---------- */
 /* Never narrower than the old fixed width, roughly 80% of the viewport on a
@@ -351,7 +395,7 @@ code { background: var(--green-soft); color: var(--green); padding: 1.5px 5px;
   padding: 4px 11px; border-radius: 5px; background: var(--surface); border: 1px solid var(--line);
 }
 .scope a:hover { border-color: var(--red); color: var(--red); }
-.scope a.on { background: var(--red); color: #fff; border-color: var(--red); }
+.scope a.on { background: var(--red); color: var(--on-accent); border-color: var(--red); }
 
 /* ---------- hero / countdown ---------- */
 .hero { display: flex; justify-content: space-between; align-items: flex-start; gap: 22px; flex-wrap: wrap; }
@@ -571,7 +615,7 @@ mark { background: var(--amber-soft); color: inherit; border-radius: 3px; paddin
 .rookie {
   display: inline-block; margin-left: 5px; font-size: 9px; font-weight: 800;
   line-height: 1; padding: 2px 4px; border-radius: 3px;
-  background: var(--red); color: #fff; vertical-align: middle;
+  background: var(--red); color: var(--on-accent); vertical-align: middle;
 }
 
 /* ---------- who is hurt, who is playing, who is on fire ---------- */
@@ -745,7 +789,7 @@ mark { background: var(--amber-soft); color: inherit; border-radius: 3px; paddin
   display: flex; align-items: center; justify-content: center; gap: 9px;
 }
 .sb-eyebrow .pill {
-  background: var(--red); color: #fff; border-radius: 3px;
+  background: var(--red); color: var(--on-accent); border-radius: 3px;
   padding: 2px 8px; letter-spacing: .1em; font-size: 11px; font-weight: 700;
 }
 .sb-clock { display: flex; justify-content: center; gap: 10px; margin: 12px 0 10px; }
@@ -856,21 +900,25 @@ thead th { font-family: var(--display); letter-spacing: .1em; font-size: 12px; }
 .ptab .c-rank, .ptab .c-player {
   position: sticky; background: var(--surface);
 }
-.ptab .c-rank { left: 0; width: 28px; min-width: 28px; color: var(--muted); }
+.ptab { --rank-w: 28px; }
+.ptab .c-rank { left: 0; width: var(--rank-w); min-width: var(--rank-w); max-width: var(--rank-w); color: var(--muted); z-index: 1; }
 /* The rank cell is 28px wide including its own padding, so the player column
    picks up right where it ends -- any gap would show scrolled cells passing
    under a strip of nothing. */
 .ptab .c-player {
-  left: 28px; text-align: left; max-width: 240px; overflow: hidden;
+  left: var(--rank-w); text-align: left; max-width: 240px; overflow: hidden; z-index: 1;
   text-overflow: ellipsis; border-right: 1px solid var(--line-soft);
+  box-shadow: 4px 0 6px -4px rgba(0,0,0,.45);
 }
-.ptab th.c-rank, .ptab th.c-player { z-index: 3; }
+.ptab th.c-rank, .ptab th.c-player { z-index: 4; }
+/* A thin team-colour bar carries the team; the fill behind the name stays faint. */
+.ptab td.c-player.tinted { box-shadow: inset 3px 0 0 var(--tc), 4px 0 6px -4px rgba(0,0,0,.45); }
 /* Layered over the opaque surface rather than swapped for it, the same
    strength .plist li.tinted uses -- a sticky cell still has to stay opaque as
    the columns behind it scroll under it. */
 .ptab td.c-player.tinted {
-  background: linear-gradient(color-mix(in srgb, var(--tc) 26%, transparent),
-              color-mix(in srgb, var(--tc) 26%, transparent)), var(--surface);
+  background: linear-gradient(color-mix(in srgb, var(--tc) 9%, transparent),
+              color-mix(in srgb, var(--tc) 9%, transparent)), var(--surface);
 }
 .ptab .c-text { text-align: left; color: var(--muted); }
 .ptab .c-pts { color: #fff; font-weight: 600; }
@@ -887,8 +935,8 @@ thead th { font-family: var(--display); letter-spacing: .1em; font-size: 12px; }
 .ptab .blk { border-left: 1px solid var(--line-soft); }
 .ptab tbody tr:hover td { background: var(--raised); }
 .ptab tbody tr:hover td.c-player.tinted {
-  background: linear-gradient(color-mix(in srgb, var(--tc) 26%, transparent),
-              color-mix(in srgb, var(--tc) 26%, transparent)), var(--raised);
+  background: linear-gradient(color-mix(in srgb, var(--tc) 9%, transparent),
+              color-mix(in srgb, var(--tc) 9%, transparent)), var(--raised);
 }
 
 
@@ -927,7 +975,7 @@ a.who:hover { background: var(--nfl-red); }
   transition: background .14s, color .14s, border-color .14s;
 }
 .signout:hover {
-  border-color: var(--nfl-red); background: rgba(213,10,10,.2); color: #fff;
+  border-color: var(--nfl-red); background: rgba(232,133,124,.18); color: var(--ink);
 }
 
 /* ---------- login ---------- */
@@ -1069,7 +1117,7 @@ a.who:hover { background: var(--nfl-red); }
   width: 100%; margin-top: 26px; padding: 12px; cursor: pointer;
   font-family: var(--display); font-size: 15px; font-weight: 700;
   text-transform: uppercase; letter-spacing: .12em;
-  color: #fff; background: #2f7d60; border: 0; border-radius: 9px;
+  color: var(--on-accent); background: var(--green); border: 0; border-radius: 9px;
   transition: background .15s, transform .06s;
 }
 .loginbox button:hover { background: #37906d; }
@@ -1535,7 +1583,7 @@ table.data td.empty-row { text-align: center; padding: 26px 12px; }
 }
 .seg input, .chk input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
 .seg label:hover span, .chk:hover span { border-color: var(--red); color: var(--red); }
-.seg input:checked + span, .chk input:checked + span { background: var(--red); color: #fff; border-color: var(--red); }
+.seg input:checked + span, .chk input:checked + span { background: var(--red); color: var(--on-accent); border-color: var(--red); }
 .seg label:has(:focus-visible) span, .chk:has(:focus-visible) span { outline: 2px solid var(--red); outline-offset: 2px; }
 
 .fgrp > summary { cursor: pointer; list-style: none; display: block; padding: 2px 0; }
@@ -1545,7 +1593,7 @@ table.data td.empty-row { text-align: center; padding: 26px 12px; }
 .pf-foot { display: flex; align-items: center; gap: 14px; }
 .pf .apply {
   height: 32px; padding: 0 16px; border-radius: 8px; border: 1px solid var(--red); background: var(--red);
-  color: #fff; font-family: var(--display); font-size: 13px; letter-spacing: .08em; text-transform: uppercase; cursor: pointer;
+  color: var(--on-accent); font-family: var(--display); font-size: 13px; letter-spacing: .08em; text-transform: uppercase; cursor: pointer;
 }
 .freset { color: var(--muted); font-size: 12.5px; }
 .freset:hover { color: var(--red); }
@@ -1620,6 +1668,19 @@ table.data td.empty-row { text-align: center; padding: 26px 12px; }
 
 /* sm/xs: search + Filters button; everything else in a full-screen sheet */
 @media (max-width: 1023px) {
+  /* The table scrolls with the page and only sideways inside its wrapper. */
+  .ptab-scroll {
+    max-height: none; min-height: 0; overflow-x: auto; overflow-y: visible;
+    overflow-y: clip; overscroll-behavior-x: contain; touch-action: pan-x pan-y;
+  }
+  main.has-rail-left { overflow-x: clip; }
+  /* Dissolve the aside so the form's sticky parent is <main>, as tall as the page. */
+  .rail-left { display: contents; }
+  .pf {
+    position: sticky; top: var(--topbar-h); z-index: 5; background: var(--bg);
+    padding: 8px 0; margin-bottom: 8px;
+  }
+  .pf:has(#pf-sheet[open]) { z-index: 72; }
   .pf-top { flex-direction: row; align-items: flex-end; gap: 8px; }
   .pf-top .grow { flex: 1 1 auto; }
   .pf input[type=search], .pf select, .pf input[type=number] { height: 44px; }
@@ -1630,11 +1691,13 @@ table.data td.empty-row { text-align: center; padding: 26px 12px; }
   }
   .fbtn::-webkit-details-marker { display: none; }
   .fsheet-wrap:not([open]) > .fsheet { display: none; }
-  .fsheet-wrap[open] > .fbtn { position: fixed; top: 10px; right: 12px; z-index: 72; }
+  /* main is its own stacking context below the topbar, so the sheet starts under
+     the topbar rather than trying to cover it. */
+  .fsheet-wrap[open] > .fbtn { position: fixed; top: calc(var(--topbar-h) + 10px); right: 12px; z-index: 72; }
   .fsheet-wrap[open] .s-closed { display: none; }
   .fsheet-wrap[open] .s-open { display: inline; }
   .fsheet-wrap[open] > .fsheet {
-    position: fixed; inset: 0; z-index: 71; background: var(--bg); overflow: auto;
+    position: fixed; inset: var(--topbar-h) 0 0 0; z-index: 71; background: var(--bg); overflow: auto;
     padding: 64px 16px 88px; gap: 18px;
   }
   .pf-foot { position: fixed; left: 0; right: 0; bottom: 0; z-index: 72; padding: 12px 16px;
@@ -1865,7 +1928,6 @@ table.data td.empty-row { text-align: center; padding: 26px 12px; }
   .notice a { padding-block: 10px; }
 
   /* -- players (spec 9): table kept, pinned # and player, sideways scroll -- */
-  .ptab-scroll { min-height: 60dvh; }
   .ptab th { font-size: 11px; padding: 0; }
   .ptab th a { display: flex; align-items: center; justify-content: flex-end;
                min-height: var(--tap); min-width: 32px; padding: 0 6px; }

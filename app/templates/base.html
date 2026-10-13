@@ -77,7 +77,7 @@
 </div>
 {% endif %}
 
-<div class="scrim" id="scrim" hidden></div>
+<div class="scrim" id="scrim"></div>
 
 <aside class="drawer" id="drawer" aria-hidden="true">
   <div class="drawer-head">
@@ -177,14 +177,18 @@
     drawer.setAttribute('aria-hidden', String(!open));
     burger.setAttribute('aria-expanded', String(open));
     burger.setAttribute('aria-label', open ? 'Close menu' : 'Open menu');
-    scrim.hidden = !open;
+    if (open) {
+      (drawer.querySelector('.drawer-nav a.on') || drawer.querySelector('.drawer-nav a')).focus();
+    } else if (drawer.contains(document.activeElement)) {
+      burger.focus();
+    }
   }
   burger.addEventListener('click', function () {
     setOpen(!document.body.classList.contains('nav-open'));
   });
   scrim.addEventListener('click', function () { setOpen(false); });
   document.addEventListener('keydown', function (e) {
-    if (e.key === 'Escape') setOpen(false);
+    if (e.key === 'Escape' && document.body.classList.contains('nav-open')) setOpen(false);
   });
   drawer.addEventListener('click', function (e) {
     if (e.target.tagName === 'A') setOpen(false);
