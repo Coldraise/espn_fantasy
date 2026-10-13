@@ -1699,12 +1699,13 @@ table.data td.empty-row { text-align: center; padding: 26px 12px; }
     --card-pad: 10px 12px;   /* .game, .rail-card */
     --tap: 44px;             /* minimum touch target */
     --name-w: 132px;         /* sticky team/player column */
-    --score: clamp(26px, 7.5vw, 32px);
+    --score: clamp(24px, 7vw, 30px);
   }
   main { padding: 16px var(--gutter) 48px; }
   .pagefoot { padding-inline: var(--gutter); }
   .ticker { display: none; }
-  .games { grid-template-columns: 1fr; }
+  .games { grid-template-columns: minmax(0, 1fr); }
+  .game { min-width: 0; }
   .game, .games.feature .game, .games.compact .game { padding: var(--card-pad); gap: 2px; }
   .mname { font-size: 14.5px; }
   .sb-clock { gap: 4px; }
@@ -1729,11 +1730,13 @@ table.data td.empty-row { text-align: center; padding: 26px 12px; }
   /* Names take whatever is left; the scores tuck against the slot. */
   .lineup li,
   .games.compact .lineup li {
-    grid-template-columns: minmax(0, 1fr) 34px 34px 34px minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr) 42px 38px 42px minmax(0, 1fr);
     column-gap: 2px; font-size: 12px;
   }
   .games.feature .lineup li { font-size: 12px; }
   .lineup .lp { padding: 1px 3px; }
+  .lineup .ppts { white-space: nowrap; }
+  .lineup .slot, .games .mdl .lineup .slot { padding-inline: 1px; letter-spacing: .02em; white-space: nowrap; }
 
   /* A phone row has no width for a kickoff beside a name -- the NFL team
      abbreviation has already been dropped above for the same reason. The modal
@@ -1749,7 +1752,7 @@ table.data td.empty-row { text-align: center; padding: 26px 12px; }
   }
   .mdl-in { padding: 14px 12px 24px; }
   .games .mdl .lineup li {
-    grid-template-columns: minmax(0, 1fr) 38px 40px 38px minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr) 46px 42px 46px minmax(0, 1fr);
     column-gap: 3px; font-size: 12px;
   }
   .games .mdl .lineup .nm-full { display: none; }
@@ -1762,11 +1765,13 @@ table.data td.empty-row { text-align: center; padding: 26px 12px; }
 
   /* -- matchup header (spec 5): scores face each other across a 64px middle,
         names sit under their own score and clamp to two lines -- */
-  .mhead { grid-template-columns: minmax(0, 1fr) 64px minmax(0, 1fr); column-gap: 6px; }
+  .mhead { grid-template-columns: minmax(0, 1fr) 72px minmax(0, 1fr); column-gap: 6px; }
   .mside, .mside.right { flex-direction: column; justify-content: flex-start; gap: 2px; }
   .mside { align-items: flex-end; text-align: right; }
   .mside.right { align-items: flex-start; text-align: left; }
-  .mnum { order: -1; }
+  .mnum { order: -1; min-width: 0; }
+  .mscore { white-space: nowrap; }
+  .mside.right .mteam { flex-direction: row; }
   .games .mnum .mscore { font-size: var(--score); }
   .games.compact .mnum .mscore { font-size: 22px; }
   .mproj, .games.compact .mproj { font-size: 11px; }
@@ -1785,10 +1790,11 @@ table.data td.empty-row { text-align: center; padding: 26px 12px; }
   .mmanager { position: relative; z-index: 1; max-width: 100%; font-size: 11.5px; line-height: 1.3; align-self: auto; }
   .mside.right .mid .mmanager { align-self: auto; }
   .mm-t { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .hovercard { min-width: 0; width: min(220px, 70vw); }
-  .mside:not(.right) .hovercard { left: 0; right: auto; }
-  .mside.right .hovercard { left: auto; right: 0; }
-  .mmid { width: 64px; }
+  .hovercard { display: none; }
+  .mmid { width: 72px; min-width: 0; }
+  .mmid .margin, .games.feature .mmid .margin, .games.compact .mmid .margin {
+    font-size: 13px; letter-spacing: .02em; white-space: nowrap;
+  }
   .games .mmid .bar.share { width: 56px; }
   .share-l { font-size: 9px; line-height: 1.1; text-align: center; }
 

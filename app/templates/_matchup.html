@@ -92,11 +92,11 @@
     {# Summed from the stored starter rows, not ESPN's own figure -- the two
        can legitimately disagree, so ESPN's number rides along in the title
        and a mismatch is something to notice on hover, not something hidden. #}
-    <div class="mscore" title="ESPN has {{ '%.1f'|format(team.points or 0) }}">{{ '%.1f'|format(totals.actual) }}</div>
-    {% if totals.projected %}<div class="mproj">proj {{ '%.0f'|format(totals.projected) }}</div>{% endif %}
+    <div class="mscore" title="ESPN has {{ (team.points or 0)|pts }}">{{ totals.actual|pts }}</div>
+    {% if totals.projected %}<div class="mproj">proj {{ totals.projected|pts }}</div>{% endif %}
   {% elif team.points is not none and (live or team.points) %}
-    <div class="mscore">{{ '%.1f'|format(team.points or 0) }}</div>
-    {% if team.projected %}<div class="mproj">proj {{ '%.0f'|format(team.projected) }}</div>{% endif %}
+    <div class="mscore">{{ (team.points or 0)|pts }}</div>
+    {% if team.projected %}<div class="mproj">proj {{ team.projected|pts }}</div>{% endif %}
   {% endif %}
   </div>
 </div>
@@ -161,7 +161,7 @@
       {%- set value = (p.actual if p.actual is not none else p.projected) or 0 -%}
       {%- set klass = 'bye' if (games and p.pro_team) else '' -%}
     {%- endif -%}
-    <span class="ppts {{ klass }}{{ ' fire' if (p.actual or 0) >= 25 }}">{{ '—' if klass == 'bye' else '%.1f'|format(value) }}</span>
+    <span class="ppts {{ klass }}{{ ' fire' if (p.actual or 0) >= 25 }}">{{ '—' if klass == 'bye' else value|pts }}</span>
   {%- endif -%}
 {% endmacro %}
 
@@ -186,7 +186,7 @@
     <div class="mmid">
       {% if game.bye %}<span class="vs">BYE</span>
       {% elif game.home.points or (game.away and game.away.points) %}
-        <span class="margin">{{ '%+.1f'|format((game.home.points or 0) - ((game.away or {}).points or 0)) }}</span>
+        <span class="margin">{{ ((game.home.points or 0) - ((game.away or {}).points or 0))|pts(sign=True) }}</span>
       {% else %}<span class="vs">vs</span>{% endif %}
       {% if game.revision and game.revision > 1 %}<span class="rev" title="ESPN revised this score">rev {{ game.revision }}</span>{% endif %}
       {% if game.away %}
@@ -269,7 +269,7 @@
       <div class="mmid">
         {% if game.bye %}<span class="vs">BYE</span>
         {% elif game.home.points or (game.away and game.away.points) %}
-          <span class="margin">{{ '%+.1f'|format((game.home.points or 0) - ((game.away or {}).points or 0)) }}</span>
+          <span class="margin">{{ ((game.home.points or 0) - ((game.away or {}).points or 0))|pts(sign=True) }}</span>
         {% else %}<span class="vs">vs</span>{% endif %}
       </div>
       {% if game.away %}

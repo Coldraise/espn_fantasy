@@ -44,6 +44,7 @@
   Measured against this league's own draft, so a steal means beating the room —
   not beating a ranking someone published in August.
 </p>
+<div class="scroll">
 <table>
   <thead><tr><th>Franchise</th><th class="num">Picks</th><th class="num">Points</th>
     <th class="num">Value</th><th>Best pick</th><th>Worst pick</th></tr></thead>
@@ -52,14 +53,15 @@
     <tr class="{{ 'me' if t.team_id == me_id }}">
       <td>{{ names.get(t.team_id, {}).get('name') or '—' }}</td>
       <td class="num">{{ t.picks }}</td>
-      <td class="num">{{ t.points }}</td>
-      <td class="num {{ 'good' if t.value > 0 else 'bad' if t.value < 0 }}">{{ '%+.1f'|format(t.value) }}</td>
-      <td class="small">{{ t.best.player_name }} <span class="muted">#{{ t.best.overall_pick }} · {{ '%+.0f'|format(t.best.value) }}</span></td>
-      <td class="small">{{ t.worst.player_name }} <span class="muted">#{{ t.worst.overall_pick }} · {{ '%+.0f'|format(t.worst.value) }}</span></td>
+      <td class="num">{{ t.points|pts }}</td>
+      <td class="num {{ 'good' if t.value > 0 else 'bad' if t.value < 0 }}">{{ t.value|pts(sign=True) }}</td>
+      <td class="small">{{ t.best.player_name }} <span class="muted">#{{ t.best.overall_pick }} · {{ t.best.value|pts(sign=True) }}</span></td>
+      <td class="small">{{ t.worst.player_name }} <span class="muted">#{{ t.worst.overall_pick }} · {{ t.worst.value|pts(sign=True) }}</span></td>
     </tr>
   {% endfor %}
   </tbody>
 </table>
+</div>
 
 <h2>Steals and reaches</h2>
 <div class="posgrid">
@@ -70,8 +72,8 @@
       <li><span class="rank">{{ loop.index }}</span>
         <span class="pn">{{ p.player_name }}
           <span class="muted small">#{{ p.overall_pick }} · {{ names.get(p.team_id, {}).get('name') or '' }}</span></span>
-        <span class="pl">{{ p.points }}</span>
-        <span class="pp good">{{ '%+.0f'|format(p.value) }}</span></li>
+        <span class="pl">{{ p.points|pts }}</span>
+        <span class="pp good">{{ p.value|pts(sign=True) }}</span></li>
       {% endfor %}
     </ol>
   </section>
@@ -82,8 +84,8 @@
       <li><span class="rank">{{ loop.index }}</span>
         <span class="pn">{{ p.player_name }}
           <span class="muted small">#{{ p.overall_pick }} · {{ names.get(p.team_id, {}).get('name') or '' }}</span></span>
-        <span class="pl">{{ p.points }}</span>
-        <span class="pp bad">{{ '%+.0f'|format(p.value) }}</span></li>
+        <span class="pl">{{ p.points|pts }}</span>
+        <span class="pp bad">{{ p.value|pts(sign=True) }}</span></li>
       {% endfor %}
     </ol>
   </section>
@@ -93,6 +95,7 @@
 {% if runs %}
 <h2>Positional runs</h2>
 <p class="muted small">Three or more consecutive picks at the same position — the moment somebody panicked and the room followed.</p>
+<div class="scroll">
 <table>
   <thead><tr><th>Position</th><th class="num">Picks</th><th class="num">From</th><th class="num">To</th><th>Who went</th></tr></thead>
   <tbody>
@@ -103,5 +106,6 @@
   {% endfor %}
   </tbody>
 </table>
+</div>
 {% endif %}
 {% endblock %}

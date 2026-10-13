@@ -31,17 +31,17 @@
     <tr class="{{ 'me' if t.team_id == me_id }}">
       <td class="st-team" title="{{ t.name }}">{{ t.name }}</td>
       <td class="num wl">{{ t.wins }}-{{ t.losses }}{% if t.ties %}-{{ t.ties }}{% endif %}</td>
-      <td class="num">{{ t.pf }}</td>
-      <td class="num">{{ t.pa }}</td>
-      <td class="num">{{ t.avg }}</td>
+      <td class="num">{{ t.pf|pts }}</td>
+      <td class="num">{{ t.pa|pts }}</td>
+      <td class="num">{{ t.avg|pts }}</td>
       <td class="num">{{ t.all_play_w }}-{{ t.all_play_l }}</td>
       <td class="num">{{ t.expected_wins }}</td>
       <td class="num {{ 'good' if t.luck > 0 else 'bad' if t.luck < 0 }}">{{ '%+.2f'|format(t.luck) }}</td>
       <td class="num">{{ t.streak }}</td>
       <td class="num" title="{{ 'week %s'|format(t.best.week) if t.best }}">
-        {{ '%.1f'|format(t.best.points) if t.best else '—' }}</td>
+        {{ t.best.points|pts if t.best else '—' }}</td>
       <td class="num" title="{{ 'week %s'|format(t.worst.week) if t.worst }}">
-        {{ '%.1f'|format(t.worst.points) if t.worst else '—' }}</td>
+        {{ t.worst.points|pts if t.worst else '—' }}</td>
     </tr>
   {% endfor %}
   {% if not table %}
@@ -73,13 +73,13 @@
       <td class="st-team" title="{{ t.name }}">{{ t.name }}</td>
       <td class="num"><b>{{ t.power }}</b></td>
       <td class="num">{{ t.wins }}-{{ t.losses }}{% if t.ties %}-{{ t.ties }}{% endif %}</td>
-      <td class="num">{{ t.avg }}</td>
-      <td class="num">{{ t.recent_avg }}</td>
+      <td class="num">{{ t.avg|pts }}</td>
+      <td class="num">{{ t.recent_avg|pts }}</td>
       <td class="num">{{ '%.3f'|format(t.all_play_pct) }}</td>
-      <td class="num muted">{{ t.spread.floor if t.spread else '—' }}–{{ t.spread.ceiling if t.spread else '—' }}</td>
-      <td class="num">{{ t.spread.stdev if t.spread else '—' }}</td>
+      <td class="num muted">{{ t.spread.floor|pts if t.spread else '—' }}–{{ t.spread.ceiling|pts if t.spread else '—' }}</td>
+      <td class="num">{{ t.spread.stdev|pts if t.spread else '—' }}</td>
       <td class="num {{ 'good' if t.accuracy and t.accuracy.bias > 0 else 'bad' if t.accuracy and t.accuracy.bias < 0 }}">
-        {{ '%+.1f'|format(t.accuracy.bias) if t.accuracy else '—' }}</td>
+        {{ t.accuracy.bias|pts(sign=True) if t.accuracy else '—' }}</td>
     </tr>
   {% endfor %}
   </tbody>
@@ -105,9 +105,9 @@
     <tr class="{{ 'me' if e.team_id == me_id }}">
       <td class="st-team" title="{{ e.name }}">{{ e.name }}</td>
       <td class="num">{{ e.weeks }}</td>
-      <td class="num">{{ e.actual }}</td>
-      <td class="num">{{ e.optimal }}</td>
-      <td class="num bad">{{ e.left_on_bench }}</td>
+      <td class="num">{{ e.actual|pts }}</td>
+      <td class="num">{{ e.optimal|pts }}</td>
+      <td class="num bad">{{ e.left_on_bench|pts }}</td>
       <td class="num eff-cell"><b>{{ '%.1f%%'|format(100 * e.efficiency) if e.efficiency else '—' }}</b>
         {%- if e.efficiency %}<span class="bar" aria-hidden="true" style="--v:{{ [e.efficiency, 1]|min }}"><i></i></span>{% endif %}</td>
     </tr>
@@ -144,7 +144,7 @@
   <div class="rail-row {{ 'me' if t.team_id == me_id }}">
     <span class="rn">{{ t.name }}</span>
     <span class="bar" aria-hidden="true" style="--v:{{ (t.pf / ns.pf) if ns.pf else 0 }}"><i></i></span>
-    <span class="rv">{{ t.pf }}</span>
+    <span class="rv">{{ t.pf|pts }}</span>
   </div>
   {% endfor %}
   {% if not table %}<p class="muted small">After week 1 finals</p>{% endif %}
@@ -152,8 +152,8 @@
 <section class="rail-card" aria-labelledby="rc-ext">
   <h3 id="rc-ext">Season extremes</h3>
   {% if ns.best %}
-  <div class="rail-row plain"><span class="rn"><span class="muted">Best</span> {{ ns.bt.name }} · wk {{ ns.best.week }}</span><b class="good">{{ '%.1f'|format(ns.best.points) }}</b></div>
-  <div class="rail-row plain"><span class="rn"><span class="muted">Worst</span> {{ ns.wt.name }} · wk {{ ns.worst.week }}</span><b class="bad">{{ '%.1f'|format(ns.worst.points) }}</b></div>
+  <div class="rail-row plain"><span class="rn"><span class="muted">Best</span> {{ ns.bt.name }} · wk {{ ns.best.week }}</span><b class="good">{{ ns.best.points|pts }}</b></div>
+  <div class="rail-row plain"><span class="rn"><span class="muted">Worst</span> {{ ns.wt.name }} · wk {{ ns.worst.week }}</span><b class="bad">{{ ns.worst.points|pts }}</b></div>
   {% else %}<p class="muted small">After week 1 finals</p>{% endif %}
 </section>
 <section class="rail-card" aria-labelledby="rc-str">

@@ -34,7 +34,7 @@
             <span class="tk-p">
               <span class="tk-rank">{{ loop.index }}</span>{{ p.name }}
               <span class="tk-team">{{ p.pro_team or '' }}</span>
-              <span class="tk-val">{{ '%.1f'|format(p.value or 0) }}</span>
+              <span class="tk-val">{{ (p.value or 0)|pts }}</span>
             </span>
           {% endfor %}
         </span>

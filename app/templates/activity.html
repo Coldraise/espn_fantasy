@@ -13,6 +13,7 @@
 {% else %}
 
 <h2>Churn</h2>
+<div class="scroll">
 <table>
   <thead><tr>
     <th>Franchise</th><th class="num">Moves</th><th class="num">Added</th>
@@ -33,8 +34,10 @@
   {% endfor %}
   </tbody>
 </table>
+</div>
 
 <h2>Every move</h2>
+<div class="scroll">
 <table>
   <thead><tr><th>When</th><th>Franchise</th><th>Move</th><th>Player</th><th class="num">Bid</th></tr></thead>
   <tbody>
@@ -49,5 +52,6 @@
   {% endfor %}
   </tbody>
 </table>
+</div>
 {% endif %}
 {% endblock %}

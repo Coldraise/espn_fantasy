@@ -27,16 +27,16 @@
       <td class="num">{{ t.seasons }}</td>
       <td class="num">{{ t.wins }}-{{ t.losses }}{% if t.ties %}-{{ t.ties }}{% endif %}</td>
       <td class="num">{{ '%.3f'|format(t.pct) }}</td>
-      <td class="num">{{ t.pf }}</td>
-      <td class="num">{{ t.pa }}</td>
-      <td class="num {{ 'good' if t.diff > 0 else 'bad' if t.diff < 0 }}">{{ '%+.1f'|format(t.diff) }}</td>
+      <td class="num">{{ t.pf|pts }}</td>
+      <td class="num">{{ t.pa|pts }}</td>
+      <td class="num {{ 'good' if t.diff > 0 else 'bad' if t.diff < 0 }}">{{ t.diff|pts(sign=True) }}</td>
       <td class="num">{{ '🏆' * t.titles if t.titles else '—' }}</td>
       <td class="num">{{ t.runner_ups or '—' }}</td>
       <td class="num">{{ t.playoff_appearances }}</td>
       <td class="num">{{ t.avg_finish or '—' }}</td>
       <td class="num" title="{{ t.best_finish_season }}">{{ t.best_finish or '—' }}</td>
       <td class="num">{{ t.worst_finish or '—' }}</td>
-      <td class="num">{{ t.pf_per_season }}</td>
+      <td class="num">{{ t.pf_per_season|pts }}</td>
       <td class="num muted small">{{ t.first_season }}–{{ t.last_season }}</td>
     </tr>
   {% endfor %}

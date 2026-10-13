@@ -115,8 +115,10 @@
       {%- if col.key == 'owner' and v -%}
         <span class="nm-swap" title="{{ v }}"><span class="nm-full">{{ v }}</span><span class="nm-abbr">{{ (short_teams or {}).get(v, v) }}</span></span>
       {%- else -%}{{ v or '·' }}{%- endif -%}
-    {%- elif col.kind in ('own', 'pts', 'total', 'proj') -%}
+    {%- elif col.kind == 'own' -%}
       {{ '%.1f'|format(v) if v is not none else '·' }}
+    {%- elif col.kind in ('pts', 'total', 'proj') -%}
+      {{ v|pts if v is not none else '·' }}
     {%- elif col.kind == 'int' -%}
       {{ ('%d'|format(v) if v == v|int else '%.1f'|format(v)) if v is not none else '·' }}
     {%- elif col.kind == 'pct' -%}

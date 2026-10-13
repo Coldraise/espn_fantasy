@@ -13,6 +13,7 @@
 {% if corrections %}
 <h2>Recent stat corrections</h2>
 <p class="muted">ESPN revises scores for days after games finish. These changed after first capture.</p>
+<div class="scroll">
 <table>
   <thead><tr><th>Season</th><th>Week</th><th>Team</th><th>Points</th><th>Rev</th><th>Updated</th></tr></thead>
   <tbody>
@@ -20,13 +21,14 @@
     <tr>
       <td>{{ c.season }}</td><td>{{ c.week }}</td>
       <td>{{ names.get(c.team_id, 'Team %s'|format(c.team_id)) }}</td>
-      <td class="num">{{ '%.1f'|format(c.points or 0) }}</td>
+      <td class="num">{{ (c.points or 0)|pts }}</td>
       <td class="num">{{ c.revision }}</td>
       <td class="muted">{{ c.updated_at }}</td>
     </tr>
   {% endfor %}
   </tbody>
 </table>
+</div>
 {% endif %}
 {% endblock %}
 
@@ -40,7 +42,7 @@
       <span class="rk">{{ loop.index }}</span>
       <span class="rn">{{ t.name }}</span>
       <span class="rv">{{ t.wins }}-{{ t.losses }}{% if t.ties %}-{{ t.ties }}{% endif %}</span>
-      <span class="rv">{{ '%.0f'|format(t.pf) }}</span>
+      <span class="rv">{{ t.pf|pts }}</span>
     </div>
     {% endfor %}
   {% else %}<p class="muted small">After week 1 finals</p>{% endif %}
