@@ -172,8 +172,8 @@ def consistency(rows: list[Row], regular_season_only: bool = True) -> dict[int, 
         out[team_id] = {
             "weeks": len(points),
             "avg": round(statistics.fmean(points), 2),
-            "floor": round(min(points), 1),
-            "ceiling": round(max(points), 1),
+            "floor": round(min(points), 2),
+            "ceiling": round(max(points), 2),
             # Population, not sample: these are all the weeks played, not a
             # draw from a larger set of them.
             "stdev": round(statistics.pstdev(points), 2) if len(points) > 1 else 0.0,
@@ -431,9 +431,9 @@ def draft_value(picks: list[dict], points: dict[int, float],
             "position": positions.get(pick.get("player_id")),
             "keeper": bool(pick.get("keeper")),
             "bid_amount": pick.get("bid_amount"),
-            "points": round(earned, 1),
-            "expected": round(expected, 1),
-            "value": round(earned - expected, 1),
+            "points": round(earned, 2),
+            "expected": round(expected, 2),
+            "value": round(earned - expected, 2),
         })
     out.sort(key=lambda p: -p["value"])
     return out
@@ -451,8 +451,8 @@ def draft_value_by_team(rows: list[dict]) -> list[dict]:
         table.append({
             "team_id": team_id,
             "picks": len(picks),
-            "points": round(sum(p["points"] for p in picks), 1),
-            "value": round(sum(p["value"] for p in picks), 1),
+            "points": round(sum(p["points"] for p in picks), 2),
+            "value": round(sum(p["value"] for p in picks), 2),
             "best": ordered[0],
             "worst": ordered[-1],
         })
@@ -564,9 +564,9 @@ def all_time_standings(
             "last_season": max(r["season"] for r in rows),
             "wins": wins, "losses": losses, "ties": ties,
             "pct": round((wins + 0.5 * ties) / games, 3) if games else 0.0,
-            "pf": round(pf, 1), "pa": round(pa, 1),
-            "diff": round(pf - pa, 1),
-            "pf_per_season": round(pf / len(rows), 1) if rows else 0.0,
+            "pf": round(pf, 2), "pa": round(pa, 2),
+            "diff": round(pf - pa, 2),
+            "pf_per_season": round(pf / len(rows), 2) if rows else 0.0,
             "titles": sum(1 for r in ranked if r["final_rank"] == 1),
             "runner_ups": sum(1 for r in ranked if r["final_rank"] == 2),
             "playoff_appearances": sum(1 for r in rows if (r.get("playoff_seed") or 0) > 0),
@@ -599,7 +599,7 @@ def season_grid(season_rows: list[dict], names: dict[int, dict] | None = None) -
                     "record": f"{d['wins']}-{d['losses']}" + (f"-{d['ties']}" if d.get("ties") else ""),
                     "rank": d.get("final_rank"),
                     "seed": d.get("playoff_seed"),
-                    "pf": round(d.get("points_for") or 0.0, 1),
+                    "pf": round(d.get("points_for") or 0.0, 2),
                 }
                 for s, d in by_season.items()
             },

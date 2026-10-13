@@ -344,6 +344,29 @@ def poll_season(conn, season: int, weeks: list[int] | None = None, refresh: bool
     return changed
 
 
+def backfill_past_weeks(conn, season: int | None = None) -> int:
+    """Re-fetch every finished week of a season through the normal sync paths.
+
+    Idempotent: team weeks upsert, per-player rows are replaced. Used once to
+    replace 1-decimal points stored before ingest kept 2.
+    """
+    cfg = get_config()
+    season = season or cfg.current_season
+    league = espn_client.get_league(season, refresh=True)
+    last = _completed_through(league, season)
+    weeks = [w for w in schedule_periods(season) if w <= last]
+    changed = poll_season(conn, season, weeks=weeks)
+    for week in weeks:
+        try:
+            changed += sync_matchup_players(conn, season, week)
+            changed += _sync_projection_week(conn, season, week)
+        except espn_client.AuthInvalid:
+            raise
+        except Exception as exc:  # noqa: BLE001
+            log.warning("backfill season %s week %s failed: %s", season, week, exc)
+    return changed
+
+
 # --- history and draft ----------------------------------------------------
 
 
@@ -969,3 +992,17 @@ def shutdown_scheduler() -> None:
     if _scheduler is not None:
         _scheduler.shutdown(wait=False)
         _scheduler = None
+
+
+if __name__ == "__main__":
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Poller maintenance tasks")
+    parser.add_argument("--backfill-past-weeks", action="store_true",
+                        help="re-fetch all finished weeks of the current season")
+    parser.add_argument("--season", type=int, default=None)
+    args = parser.parse_args()
+    if args.backfill_past_weeks:
+        _cfg = get_config()
+        with db.session(_cfg.db_path) as _conn:
+            print("rows changed:", backfill_past_weeks(_conn, args.season))

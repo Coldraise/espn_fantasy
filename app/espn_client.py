@@ -332,8 +332,8 @@ def player_projections(season: int, week: int, limit: int = 2000) -> list[dict]:
             "name": player.get("fullName"),
             "position": position,
             "pro_team": _pro_team(PRO_TEAM_MAP, player) or "FA",
-            "projected": round(projected, 1) if projected is not None else None,
-            "actual": round(actual, 1) if actual is not None else None,
+            "projected": round(projected, 2) if projected is not None else None,
+            "actual": round(actual, 2) if actual is not None else None,
             "percent_owned": round((player.get("ownership") or {}).get("percentOwned") or 0, 1),
             "on_team_id": entry.get("onTeamId") or 0,
         })
@@ -534,8 +534,8 @@ def matchup_rosters(season: int, week: int) -> tuple[dict[int, list[dict]], dict
             points = live_points if live_points is not None else entry_side.get("totalPoints")
             proj = live_projected if live_projected is not None else entry_side.get("totalProjectedPoints")
             totals[int(team_id)] = {
-                "points": round(points, 1) if points is not None else None,
-                "projected": round(proj, 1) if proj is not None else None,
+                "points": round(points, 2) if points is not None else None,
+                "projected": round(proj, 2) if proj is not None else None,
                 "live": live_points is not None,
             }
             roster = (entry_side.get("rosterForCurrentScoringPeriod") or {}).get("entries") or []
@@ -579,8 +579,8 @@ def matchup_rosters(season: int, week: int) -> tuple[dict[int, list[dict]], dict
                     # is simply never the one anybody wants.
                     "injury_status": player.get("injuryStatus") or entry.get("injuryStatus"),
                     "injured": bool(player.get("injured")),
-                    "projected": round(projected, 1) if projected is not None else None,
-                    "actual": round(actual, 1) if actual is not None else None,
+                    "projected": round(projected, 2) if projected is not None else None,
+                    "actual": round(actual, 2) if actual is not None else None,
                     "tds": tds,
                 })
             out[int(team_id)] = people

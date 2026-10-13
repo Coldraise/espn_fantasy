@@ -67,8 +67,8 @@ def player_summary(rows: list[dict], position: str | None = None,
         "games": len(played),
         "ppr": _total(played, "fantasy_points_ppr"),
         "ppr_avg": average,
-        "floor": round(min(points), 1) if points else None,
-        "ceiling": round(max(points), 1) if points else None,
+        "floor": round(min(points), 2) if points else None,
+        "ceiling": round(max(points), 2) if points else None,
         # Population stdev, not sample: these are all the games the player
         # played, not a sample drawn from a larger set of them.
         "stdev": round(statistics.pstdev(points), 2) if len(points) > 1 else None,
@@ -355,7 +355,7 @@ def franchise_usage(rows: list[dict]) -> dict[int, dict]:
         out[team_id] = {
             "players": len(players),
             "matched": sum(1 for p in players if p["matched"]),
-            "ppr": round(sum(p.get("ppr") or 0 for p in players), 1),
+            "ppr": round(sum(p.get("ppr") or 0 for p in players), 2),
             "ppr_avg": _mean([p["ppr_avg"] for p in scorers]),
             "snap_share": _mean([p["snap_share"] for p in players
                                  if p.get("snap_share") is not None]),
@@ -442,7 +442,7 @@ def defense_ratings(team_weeks: list[dict], player_weeks: list[dict]) -> dict[st
     game_count = {team: len(weeks) for team, weeks in games.items()}
 
     def per_game(totals: dict[str, float]) -> dict[str, float]:
-        return {team: round(total / game_count[team], 1)
+        return {team: round(total / game_count[team], 2)
                 for team, total in totals.items() if game_count.get(team)}
 
     # Allowed to each position group, from the offence's own stat lines --

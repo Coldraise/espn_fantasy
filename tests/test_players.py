@@ -511,11 +511,11 @@ def test_live_totals_excludes_players_whose_game_has_not_kicked_off():
     assert totals["pending"] == 2, "the pre-kickoff player and the bye have not played"
 
 
-def test_live_totals_rounds_to_one_decimal():
+def test_live_totals_rounds_to_two_decimals():
     lineup = [{"pro_team": "DET", "actual": 1.111, "projected": 2.222}]
     games = {"DET": {"state": "in"}}
     totals = players.live_totals(lineup, games)
-    assert totals["actual"] == 1.1 and totals["projected"] == 2.2
+    assert totals["actual"] == 1.11 and totals["projected"] == 2.22
 
 
 def test_live_totals_uses_espn_live_projection_when_provided():

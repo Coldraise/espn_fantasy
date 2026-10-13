@@ -299,8 +299,8 @@ def season_rows(by_week: dict[int, list[dict]], played: list[int],
                 total += actual
                 has_total = True
                 scored_weeks += 1
-        row["total"] = round(total, 1) if has_total else None
-        row["avg"] = round(total / scored_weeks, 1) if scored_weeks else None
+        row["total"] = round(total, 2) if has_total else None
+        row["avg"] = round(total / scored_weeks, 2) if scored_weeks else None
         out.append(row)
     return out
 
@@ -730,7 +730,7 @@ def live_totals(lineup: list[dict], games: dict[str, dict],
             pending += 1
     if projected is not None and projected > 0:
         summed_projected = projected
-    return {"actual": round(actual, 1), "projected": round(summed_projected, 1),
+    return {"actual": round(actual, 2), "projected": round(summed_projected, 2),
             "counted": counted, "pending": pending}
 
 

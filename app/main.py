@@ -65,6 +65,28 @@ def _kickoff_label(value: str | None) -> str:
     return f"{day} {local.hour}:{local.minute:02d}"
 
 
+def _pts(value, sign: bool = False) -> str:
+    """Fantasy points for display: 2 decimals, decimal comma, no grouping.
+
+    Half-up on the decimal repr (like '%.2f' on the shortest repr), so 134.455
+    shows as 134,46 rather than the binary-float 134,45.
+    """
+    from decimal import ROUND_HALF_UP, Decimal
+    try:
+        number = Decimal(repr(float(value))) if value is not None else Decimal(0)
+    except (TypeError, ValueError):
+        number = Decimal(0)
+    number = number.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    if number == 0:
+        number = abs(number)
+    text = f"{abs(number):.2f}".replace(".", ",")
+    if number < 0:
+        return "-" + text
+    return ("+" + text) if sign else text
+
+
+templates.env.filters["pts"] = _pts
+
 # Kickoff time in the reader's own clock, day-labelled off the NFL's clock.
 templates.env.filters["kickoff"] = _kickoff_label
 
@@ -480,9 +502,9 @@ def _lineup_efficiency(conn, season: int) -> list[dict]:
     out = []
     for team_id, entry in totals.items():
         entry["name"] = names.get(team_id, f"Team {team_id}")
-        entry["actual"] = round(entry["actual"], 1)
-        entry["optimal"] = round(entry["optimal"], 1)
-        entry["left_on_bench"] = round(entry["left_on_bench"], 1)
+        entry["actual"] = round(entry["actual"], 2)
+        entry["optimal"] = round(entry["optimal"], 2)
+        entry["left_on_bench"] = round(entry["left_on_bench"], 2)
         entry["efficiency"] = (round(entry["actual"] / entry["optimal"], 3)
                                if entry["optimal"] else None)
         out.append(entry)

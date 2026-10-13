@@ -188,7 +188,7 @@ def test_matchup_rosters_parses_live_side_totals(monkeypatch):
     rosters, totals = espn_client.matchup_rosters(2026, 1)
 
     assert totals[1]["points"] == 72.5, "totalPointsLive is preferred"
-    assert totals[1]["projected"] == 200.8, "totalProjectedPointsLive rounded to 1 decimal"
+    assert totals[1]["projected"] == 200.78, "totalProjectedPointsLive rounded to 2 decimals"
     assert totals[1]["live"] is True
 
 
