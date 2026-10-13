@@ -471,7 +471,11 @@ TD_STAT_IDS = (
 )
 
 
-def _touchdowns(stat: dict) -> int:
+# Passing TDs are thrown, not scored: the player's own score excludes them.
+OWN_TD_STAT_IDS = tuple(i for i in TD_STAT_IDS if i != 4)
+
+
+def _touchdowns(stat: dict, ids: tuple = TD_STAT_IDS) -> int:
     """Touchdowns inside one ESPN stat block.
 
     The raw per-stat dict is keyed by stat id, but as JSON object keys they
@@ -482,7 +486,7 @@ def _touchdowns(stat: dict) -> int:
     total = 0
     for key, value in raw.items():
         try:
-            if int(key) in TD_STAT_IDS:
+            if int(key) in ids:
                 total += int(float(value or 0))
         except (TypeError, ValueError):
             continue
@@ -544,6 +548,7 @@ def matchup_rosters(season: int, week: int) -> tuple[dict[int, list[dict]], dict
                 player = (entry.get("playerPoolEntry") or {}).get("player") or {}
                 projected = actual = None
                 tds = 0
+                scored_tds = None
                 for stat in player.get("stats") or []:
                     if stat.get("scoringPeriodId") != scoring_period:
                         continue
@@ -554,6 +559,7 @@ def matchup_rosters(season: int, week: int) -> tuple[dict[int, list[dict]], dict
                         # Only the real result carries touchdowns -- source 1 is
                         # the projection, whose "TDs" are a forecast.
                         tds = _touchdowns(stat)
+                        scored_tds = _touchdowns(stat, OWN_TD_STAT_IDS)
                 people.append({
                     "player_id": player.get("id") or entry.get("playerId"),
                     "name": player.get("fullName"),
@@ -582,6 +588,7 @@ def matchup_rosters(season: int, week: int) -> tuple[dict[int, list[dict]], dict
                     "projected": round(projected, 2) if projected is not None else None,
                     "actual": round(actual, 2) if actual is not None else None,
                     "tds": tds,
+                    "scored_tds": scored_tds,
                 })
             out[int(team_id)] = people
     return out, totals

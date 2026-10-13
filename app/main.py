@@ -442,9 +442,9 @@ def _select_games(games: list[dict], team_id: int | None,
 def _attach_tds(conn, season: int, week: int | None, rosters: dict) -> None:
     """Set row["tds"] on every roster row (lineups share the same dicts).
 
-    Source: nflverse nfl_player_weeks only. The live scoring_events /
-    team_week_players.tds counts include passing TDs and cannot be split out,
-    so they are not used; games not yet in nflverse show 0.
+    Source order per player: nflverse nfl_player_weeks when the player has a
+    row for the week, else team_week_players.scored_tds (ESPN, passing
+    excluded, already on the row), else 0. Never summed, so no double count.
     """
     tds = db.fetch_week_player_tds(conn, season, week) if week else {}
     id_map = db.nfl_id_map(conn) if tds else {}
@@ -454,7 +454,12 @@ def _attach_tds(conn, season: int, week: int | None, rosters: dict) -> None:
                 gsis = (id_map.get(int(row.get("player_id"))) or {}).get("gsis_id")
             except (TypeError, ValueError):
                 gsis = None
-            row["tds"] = tds.get(gsis, 0) if gsis else 0
+            if gsis and gsis in tds:
+                row["tds"] = tds[gsis]
+            else:
+                # Not in nflverse yet (live game): ESPN's own-scored count,
+                # NULL on rows synced before that column existed.
+                row["tds"] = max(int(row.get("scored_tds") or 0), 0)
 
 
 def _card_context(conn, season: int, week: int | None) -> dict:

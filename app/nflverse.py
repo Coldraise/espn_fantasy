@@ -62,6 +62,9 @@ PLAYER_WEEK_STATS = (
     "def_tackles_solo", "def_tackle_assists", "def_tackles_for_loss",
     "def_sacks", "def_qb_hits", "def_interceptions", "def_pass_defended",
     "def_fumbles_forced", "def_tds",
+    # own-scored TDs the columns above miss (real stats_player_week headers):
+    # kick/punt return TDs, and defenders' fumble-recovery TDs.
+    "special_teams_tds", "fumble_recovery_tds",
     # kicking
     "fg_made", "fg_att", "fg_long", "pat_made", "pat_att",
     # totals

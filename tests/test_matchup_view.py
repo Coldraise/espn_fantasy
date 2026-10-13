@@ -173,3 +173,127 @@ def test_preseason_renders(tmp_path, monkeypatch):
     client = _seed_week(tmp_path, monkeypatch, state="pre_draft")
     assert client.get("/").status_code == 200
     assert client.get("/?m=junk").status_code == 200
+
+
+# -- live ESPN own-scored TDs (T49) -----------------------------------------
+
+def test_stat_dict_to_scored_tds():
+    from app import espn_client as ec
+    stat = {"stats": {"4": 3, "25": 1.0, "43": "2", "104": 1, "105": 9, "63": 1,
+                      "19": 2, "20": 1}}  # 19/20 = 2-pt conversions, 105/63 overlap sums
+    assert ec._touchdowns(stat, ec.OWN_TD_STAT_IDS) == 4   # 1 + 2 + 1, passing excluded
+    assert ec._touchdowns(stat) == 7                       # old total still counts passing
+    assert ec._touchdowns({}, ec.OWN_TD_STAT_IDS) == 0
+
+
+def _live_rows(conn, season, scored):
+    rows = [{"team_id": 1, "player_id": pid, "name": f"P{pid}", "position": "RB",
+             "lineup_slot": "RB", "pro_team": "KC", "is_starter": True, "tds": 9,
+             "scored_tds": sc} for pid, sc in scored.items()]
+    db.replace_team_week_players(conn, season, 3, rows, quiet=True)
+
+
+def test_tds_fallback_order_nflverse_then_espn_then_zero(conn):
+    # 10: in nflverse (2) and ESPN says 5 -> 2; 11: only ESPN (3) -> 3;
+    # 12: ESPN NULL (old row) -> 0; 13: not mapped, ESPN 1 -> 1.
+    with conn:
+        for espn in (10, 11, 12):
+            conn.execute("INSERT INTO nfl_player_ids (espn_id, gsis_id, updated_at) VALUES (?,?,'n')",
+                         (espn, f"g{espn}"))
+        conn.execute("""INSERT INTO nfl_player_weeks (season, week, gsis_id, season_type, updated_at,
+            rushing_tds, passing_tds) VALUES (2026,3,'g10','REG','n',2,6)""")
+    _live_rows(conn, 2026, {10: 5, 11: 3, 12: None, 13: 1})
+    rosters = db.fetch_team_week_players(conn, 2026, 3, starters_only=False)
+    main._attach_tds(conn, 2026, 3, rosters)
+    got = {r["player_id"]: r["tds"] for r in rosters[1]}
+    assert got == {10: 2, 11: 3, 12: 0, 13: 1}
+
+
+def test_scored_tds_migration_on_old_schema(tmp_path):
+    c = db.connect(tmp_path / "old.db")
+    db.init_db(c)
+    with c:
+        c.execute("ALTER TABLE team_week_players DROP COLUMN scored_tds")
+        c.execute("""INSERT INTO team_week_players (season, week, team_id, player_id, name,
+                     lineup_slot, is_starter, updated_at) VALUES (2026,3,1,10,'P','RB',1,'n')""")
+    db.init_db(c)
+    cols = {r["name"] for r in c.execute("PRAGMA table_info(team_week_players)")}
+    assert "scored_tds" in cols
+    rosters = db.fetch_team_week_players(c, 2026, 3, starters_only=False)
+    assert rosters[1][0]["scored_tds"] is None
+    main._attach_tds(c, 2026, 3, rosters)
+    assert rosters[1][0]["tds"] == 0
+    c.close()
+
+
+# -- T51: ESPN plumbing + nflverse columns ----------------------------------
+
+def _stat(source, stats=None, period=3):
+    return {"scoringPeriodId": period, "statSourceId": source, "appliedTotal": 5.0,
+            "stats": stats or {}}
+
+
+def _entry(pid, stats):
+    return {"playerId": pid, "lineupSlotId": 0,
+            "playerPoolEntry": {"player": {"id": pid, "fullName": f"P{pid}",
+                                           "defaultPositionId": 1, "proTeamId": 1,
+                                           "stats": stats}}}
+
+
+def test_espn_payload_to_db_row(conn, monkeypatch):
+    from app import espn_client, poller
+    entries = [
+        _entry(1, [_stat(0, {"4": 2, "25": 1}), _stat(1, {"25": 7})]),
+        _entry(2, [_stat(1, {"25": 1})]),
+        _entry(3, []),
+    ]
+    payload = {"schedule": [{"matchupPeriodId": 3, "home": {
+        "teamId": 1, "totalPoints": 1.0,
+        "rosterForCurrentScoringPeriod": {"entries": entries}}}]}
+    monkeypatch.setattr(espn_client, "_get", lambda *a, **k: payload)
+    assert poller.sync_matchup_players(conn, 2026, 3, quiet=True) == 3
+    got = {r["player_id"]: (r["tds"], r["scored_tds"]) for r in
+           conn.execute("SELECT player_id, tds, scored_tds FROM team_week_players")}
+    assert got == {1: (3, 1), 2: (0, None), 3: (0, None)}
+
+
+@pytest.mark.parametrize("sid", [25, 43, 94, 101, 102, 103, 104])
+def test_each_own_td_stat_id_counts_one(sid):
+    from app import espn_client as ec
+    assert sid in ec.OWN_TD_STAT_IDS
+    assert ec._touchdowns({"stats": {str(sid): 1}}, ec.OWN_TD_STAT_IDS) == 1
+
+
+def test_passing_and_overlap_ids_count_zero():
+    from app import espn_client as ec
+    assert set(ec.OWN_TD_STAT_IDS) == {25, 43, 94, 101, 102, 103, 104}
+    assert ec._touchdowns({"stats": {"4": 1, "63": 1, "105": 1}}, ec.OWN_TD_STAT_IDS) == 0
+
+
+def test_nflverse_row_with_zero_tds_beats_espn_count(conn):
+    # nflverse is authoritative once the player has a row: 0 stays 0 even if
+    # ESPN's live count said 2 (e.g. a stat correction).
+    with conn:
+        conn.execute("INSERT INTO nfl_player_ids (espn_id, gsis_id, updated_at) VALUES (10,'g10','n')")
+        conn.execute("""INSERT INTO nfl_player_weeks (season, week, gsis_id, season_type, updated_at,
+            rushing_tds) VALUES (2026,3,'g10','REG','n',0)""")
+    _live_rows(conn, 2026, {10: 2})
+    rosters = db.fetch_team_week_players(conn, 2026, 3, starters_only=False)
+    main._attach_tds(conn, 2026, 3, rosters)
+    assert rosters[1][0]["tds"] == 0
+
+
+def test_nflverse_return_and_fumble_tds_counted_without_double_count(conn):
+    with conn:
+        conn.execute("""INSERT INTO nfl_player_weeks (season, week, gsis_id, season_type, updated_at,
+            rushing_tds, special_teams_tds, def_tds, fumble_recovery_tds)
+            VALUES (2026,3,'a','REG','n',1,1,0,1)""")
+        conn.execute("""INSERT INTO nfl_player_weeks (season, week, gsis_id, season_type, updated_at,
+            def_tds, fumble_recovery_tds, passing_tds)
+            VALUES (2026,3,'b','REG','n',1,1,3)""")
+    assert db.fetch_week_player_tds(conn, 2026, 3) == {"a": 3, "b": 1}
+
+
+def test_nflverse_tracks_the_new_columns():
+    from app import nflverse
+    assert {"special_teams_tds", "fumble_recovery_tds"} <= set(nflverse.PLAYER_WEEK_STATS)

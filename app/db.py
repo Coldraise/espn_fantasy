@@ -281,6 +281,8 @@ CREATE TABLE IF NOT EXISTS nfl_player_weeks (
     def_pass_defended        REAL,
     def_fumbles_forced       REAL,
     def_tds                  REAL,
+    special_teams_tds        REAL,
+    fumble_recovery_tds      REAL,
     fg_made                  REAL,
     fg_att                   REAL,
     fg_long                  REAL,
@@ -428,6 +430,13 @@ _ADDED_COLUMNS = [
     # Touchdowns so far this week. The running total is what lets the next poll
     # tell a new score from one it has already announced.
     ("team_week_players", "tds", "INTEGER NOT NULL DEFAULT 0"),
+    # Touchdowns the player scored himself (no passing TDs), from the same ESPN
+    # stat dict. NULL = synced before this column existed; next sync fills it.
+    ("team_week_players", "scored_tds", "INTEGER"),
+    # nflverse return / fumble-recovery TDs; NULL until the next nflverse sync
+    # rewrites the season.
+    ("nfl_player_weeks", "special_teams_tds", "REAL"),
+    ("nfl_player_weeks", "fumble_recovery_tds", "REAL"),
 ]
 
 
@@ -804,14 +813,15 @@ def replace_team_week_players(conn, season: int, week: int, rows: list[dict],
             INSERT INTO team_week_players
                 (season, week, team_id, player_id, name, position,
                  lineup_slot, pro_team, is_starter, injury_status, injured,
-                 projected, actual, tds, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 projected, actual, tds, scored_tds, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             [(season, week, r["team_id"], r["player_id"], r.get("name"), r.get("position"),
               r.get("lineup_slot"), r.get("pro_team"),
               0 if r.get("is_starter") is False else 1,
               r.get("injury_status"), 1 if r.get("injured") else 0,
-              r.get("projected"), r.get("actual"), int(r.get("tds") or 0), now)
+              r.get("projected"), r.get("actual"), int(r.get("tds") or 0),
+              None if r.get("scored_tds") is None else int(r["scored_tds"]), now)
              for r in rows],
         )
     return len(rows)
@@ -1198,15 +1208,17 @@ def fetch_nfl_player_weeks(conn, season: int, gsis_ids: list[str] | None = None)
 def fetch_week_player_tds(conn, season: int, week: int) -> dict[str, int]:
     """{gsis_id: touchdowns the player scored himself} for one week, one query.
 
-    Rushing + receiving + defensive/return TDs (nflverse's player table has no
-    separate return column; def_tds is the only other one). Passing TDs thrown
-    are deliberately excluded.
+    rushing + receiving + special_teams_tds (kick/punt returns) + defensive
+    TDs. nflverse's fumble_recovery_tds overlaps def_tds on at least some
+    plays (a returned fumble can be in both), so the larger of the two is
+    counted, never the sum. Passing TDs thrown are excluded.
     """
     out: dict[str, int] = {}
     for r in conn.execute(
             """SELECT gsis_id,
                       COALESCE(rushing_tds, 0) + COALESCE(receiving_tds, 0)
-                      + COALESCE(def_tds, 0) AS n
+                      + COALESCE(special_teams_tds, 0)
+                      + MAX(COALESCE(def_tds, 0), COALESCE(fumble_recovery_tds, 0)) AS n
                FROM nfl_player_weeks WHERE season=? AND week=?""", (season, week)):
         out[r["gsis_id"]] = out.get(r["gsis_id"], 0) + max(int(r["n"] or 0), 0)
     return out
