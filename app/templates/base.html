@@ -178,7 +178,8 @@
     burger.setAttribute('aria-expanded', String(open));
     burger.setAttribute('aria-label', open ? 'Close menu' : 'Open menu');
     if (open) {
-      (drawer.querySelector('.drawer-nav a.on') || drawer.querySelector('.drawer-nav a')).focus();
+      var first = drawer.querySelector('.drawer-nav a.on') || drawer.querySelector('.drawer-nav a');
+      if (first) first.focus();
     } else if (drawer.contains(document.activeElement)) {
       burger.focus();
     }

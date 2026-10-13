@@ -952,7 +952,7 @@ thead th { font-family: var(--display); letter-spacing: .1em; font-size: 12px; }
 /* It is a link to your own roster now, so it has to look like one can be
    pressed -- the corner is the one place every page shows your franchise. */
 a.who { text-decoration: none; transition: background .12s ease; }
-a.who:hover { background: var(--nfl-red); }
+a.who:hover { background: var(--nfl-red); color: var(--on-accent); }
 /* the nav takes the slack, so the draft note and the account block always sit
    on the floor of the drawer whether or not both are present */
 .drawer-nav { margin-bottom: auto; }
@@ -1120,7 +1120,7 @@ a.who:hover { background: var(--nfl-red); }
   color: var(--on-accent); background: var(--green); border: 0; border-radius: 9px;
   transition: background .15s, transform .06s;
 }
-.loginbox button:hover { background: #37906d; }
+.loginbox button:hover { filter: brightness(1.06); }
 .loginbox button:active { transform: translateY(1px); }
 .loginerror {
   margin: 16px 0 0; padding: 9px 12px; font-size: 13px; border-radius: 8px;
@@ -1668,11 +1668,14 @@ table.data td.empty-row { text-align: center; padding: 26px 12px; }
 
 /* sm/xs: search + Filters button; everything else in a full-screen sheet */
 @media (max-width: 1023px) {
-  /* The table scrolls with the page and only sideways inside its wrapper. */
+  /* The table scrolls with the page and only sideways inside its wrapper. The
+     header row does not stick on phones: the wrapper is an overflow-x scroll
+     container, so a sticky th would stick to it, not to the page. */
   .ptab-scroll {
-    max-height: none; min-height: 0; overflow-x: auto; overflow-y: visible;
-    overflow-y: clip; overscroll-behavior-x: contain; touch-action: pan-x pan-y;
+    max-height: none; min-height: 0; overflow-x: auto;
+    overscroll-behavior-x: contain; touch-action: pan-x pan-y;
   }
+  .ptab-scroll:has(tr.noresult) { min-height: 200px; }
   main.has-rail-left { overflow-x: clip; }
   /* Dissolve the aside so the form's sticky parent is <main>, as tall as the page. */
   .rail-left { display: contents; }

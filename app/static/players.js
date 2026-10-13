@@ -394,7 +394,7 @@
     // Below 1024px the wrapper grows with the page, so its own bounds span
     // every row; clamp to the viewport so only visible rows animate.
     var box = scroller ? scroller.getBoundingClientRect() : { top: 0, bottom: innerHeight };
-    if (!scroller || scroller.scrollHeight <= scroller.clientHeight + 1) box = { top: Math.max(box.top, 0), bottom: Math.min(box.bottom, innerHeight) };
+    box = { top: Math.max(box.top, 0), bottom: Math.min(box.bottom, innerHeight) };
     if (animate) rows.forEach(function (r) { if (!r.hidden) before.set(r, r.getBoundingClientRect().top); });
 
     var present = [], missing = [];
